@@ -106,11 +106,20 @@ function getDefaultLuluAuthTokenUrl(apiBaseUrl: string) {
   return new URL("/auth/realms/glasstree/protocol/openid-connect/token", apiBaseUrl).toString();
 }
 
+function getNonEmptyEnvValue(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function getResolvedLuluApiBaseUrl() {
+  return getNonEmptyEnvValue(process.env.LULU_API_BASE_URL) ?? "https://api.lulu.com";
+}
+
 export function getLuluEnv(): LuluEnv {
   const parsed = rawLuluEnvSchema.parse({
     LULU_CLIENT_KEY: process.env.LULU_CLIENT_KEY,
     LULU_CLIENT_SECRET: process.env.LULU_CLIENT_SECRET,
-    LULU_API_BASE_URL: process.env.LULU_API_BASE_URL ?? "https://api.lulu.com",
+    LULU_API_BASE_URL: getResolvedLuluApiBaseUrl(),
     LULU_AUTH_TOKEN_URL: process.env.LULU_AUTH_TOKEN_URL,
     LULU_POD_PACKAGE_ID: process.env.LULU_POD_PACKAGE_ID,
   });
@@ -240,6 +249,8 @@ export function getStorageEnv(): StorageEnv {
 
 export function getIntegrationStatus() {
   const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? process.env.STRIPE_PUBLISHABLE_KEY;
+  const luluApiBaseUrl = getResolvedLuluApiBaseUrl();
+  const luluAuthTokenUrl = getNonEmptyEnvValue(process.env.LULU_AUTH_TOKEN_URL) ?? getDefaultLuluAuthTokenUrl(luluApiBaseUrl);
 
   return {
     luluConfigured: Boolean(process.env.LULU_CLIENT_KEY && process.env.LULU_CLIENT_SECRET),
@@ -274,9 +285,8 @@ export function getIntegrationStatus() {
     gaConfigured: Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID),
     posthogConfigured: Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY),
     internalJobsProtected: Boolean(process.env.CRON_SECRET || process.env.INTERNAL_JOB_SECRET),
-    luluApiBaseUrl: process.env.LULU_API_BASE_URL ?? "https://api.lulu.com",
-    luluAuthTokenUrl:
-      process.env.LULU_AUTH_TOKEN_URL ?? getDefaultLuluAuthTokenUrl(process.env.LULU_API_BASE_URL ?? "https://api.lulu.com"),
+    luluApiBaseUrl,
+    luluAuthTokenUrl,
   };
 }
 

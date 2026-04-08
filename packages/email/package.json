@@ -1,7 +1,11 @@
 {
   "name": "@littlecolorbook/email",
   "private": true,
+  "version": "0.0.0",
   "type": "module",
+  "dependencies": {
+    "@littlecolorbook/shared": "file:../shared"
+  },
   "exports": {
     ".": "./src/index.ts"
   }

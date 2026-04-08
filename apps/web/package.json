@@ -1,7 +1,12 @@
 {
   "name": "@littlecolorbook/web",
   "private": true,
+  "version": "0.0.0",
   "dependencies": {
+    "@littlecolorbook/db": "file:../../packages/db",
+    "@littlecolorbook/email": "file:../../packages/email",
+    "@littlecolorbook/pipeline": "file:../../packages/pipeline",
+    "@littlecolorbook/shared": "file:../../packages/shared",
     "@clerk/nextjs": "^7.0.11",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
@@ -25,5 +30,6 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit"
-  }
+  },
+  "packageManager": "npm@10.9.2"
 }
