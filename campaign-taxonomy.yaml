@@ -1,0 +1,155 @@
+version: 1
+brand:
+  name: "Crayon Keepsake"
+  category: "personalized memory coloring books"
+  primary_offer: "Free Sample Page"
+
+offers:
+  - id: free_sample
+    name: "Free Sample Page"
+    type: lead_magnet
+  - id: pdf_30
+    name: "30-Design PDF"
+    type: digital
+  - id: pdf_50
+    name: "50-Design PDF"
+    type: digital
+  - id: pdf_100
+    name: "100-Design PDF"
+    type: digital
+  - id: print_solo
+    name: "Solo Keepsake"
+    type: print
+  - id: print_sibling_set
+    name: "Sibling Set"
+    type: print_bundle
+  - id: print_sibling_trio
+    name: "Sibling Trio"
+    type: print_bundle
+
+platforms:
+  - tiktok
+  - instagram_reels
+  - meta_ads
+  - pinterest
+  - email
+
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
+  - upsell
+  - reorder
+
+pillars:
+  - product_proof
+  - emotional_resonance
+  - occasion_intent
+  - direct_response
+  - social_proof
+
+occasions:
+  - evergreen
+  - birthday
+  - holiday
+  - vacation
+  - rainy_day
+  - travel_activity
+  - grandparent_gift
+  - sibling_conflict
+  - back_to_school
+  - mothers_day
+  - fathers_day
+  - pet_book
+
+personas:
+  - id: warm_millennial_mom
+    name: "Warm Millennial Mom"
+  - id: organized_practical_mom
+    name: "Organized Practical Mom"
+  - id: emotional_keepsake_mom
+    name: "Emotional Keepsake Mom"
+  - id: grandma_gift_buyer
+    name: "Grandma Gift Buyer"
+  - id: homeschool_screenfree_mom
+    name: "Homeschool or Screen-Free Mom"
+  - id: lifestyle_gift_creator
+    name: "Lifestyle Creator or Gift Recommender"
+
+voice_families:
+  - warm_conversational_female
+  - upbeat_female
+  - calm_premium_female
+  - friendly_gift_guide
+
+formats:
+  - before_after
+  - talking_head
+  - proof_montage
+  - slideshow_narration
+  - faq_objection
+  - print_flipthrough
+  - sibling_angle
+  - grandparent_gift
+  - birthday_angle
+  - vacation_angle
+  - comparison_generic_books
+
+kpi_targets:
+  landing_page_opt_in_rate: 0.20
+  sample_to_purchase_rate: 0.10
+  print_attach_rate: 0.35
+  sibling_bundle_attach_rate: 0.25
+  free_sample_cpl_target: 6
+  creator_affiliate_cac_target: 20
+  cold_paid_cac_target: 30
+  blended_cac_target: 25
+
+allocation:
+  mature_account:
+    exploit: 0.70
+    adjacent: 0.20
+    explore: 0.10
+  early_account:
+    exploit: 0.50
+    adjacent: 0.30
+    explore: 0.20
+
+winner_rules:
+  organic:
+    - "top_20_percent_hook_rate"
+    - "above_median_watch_through"
+    - "above_median_shares_saves"
+    - "strong_profile_or_link_clicks"
+  paid:
+    - "thumbstop_above_baseline"
+    - "ctr_above_baseline"
+    - "free_sample_cpl_below_target"
+    - "purchase_cac_below_target_or_trending"
+
+kill_rules:
+  - "bottom_quartile_hook_rate_after_sufficient_views"
+  - "comments_show_confusion_or_distrust"
+  - "weak_product_truth"
+  - "cpl_materially_above_target_with_no_recovery"
+  - "same_angle_loses_three_times_without_meaningful_change"
+
+required_asset_metadata:
+  - platform
+  - funnel_stage
+  - pillar
+  - occasion
+  - hook_id
+  - angle_id
+  - format_id
+  - avatar_id
+  - voice_id
+  - cta_id
+  - offer_id
+  - page_count_offer
+  - print_or_pdf
+  - bundle_offer
+  - duration_bucket
+  - music_style
+  - visual_style
+  - publish_date

@@ -1,0 +1,10 @@
+{
+  "name": "@littlecolorbook/web",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://littlecolorbook.com/schemas/metrics-daily-row.schema.json",
+  "title": "Metrics Daily Row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "asset_id",
+    "platform",
+    "report_date"
+  ],
+  "properties": {
+    "asset_id": { "type": "string", "minLength": 1 },
+    "platform": {
+      "type": "string",
+      "enum": ["tiktok", "instagram_reels", "meta_ads", "pinterest", "email"]
+    },
+    "account_id": { "type": ["string", "null"] },
+    "campaign_id": { "type": ["string", "null"] },
+    "adset_id": { "type": ["string", "null"] },
+    "ad_id": { "type": ["string", "null"] },
+    "publish_date": { "type": ["string", "null"], "format": "date" },
+    "report_date": { "type": "string", "format": "date" },
+    "views": { "type": ["number", "null"], "minimum": 0 },
+    "impressions": { "type": ["number", "null"], "minimum": 0 },
+    "spend": { "type": ["number", "null"], "minimum": 0 },
+    "hook_rate": { "type": ["number", "null"], "minimum": 0 },
+    "hold_rate": { "type": ["number", "null"], "minimum": 0 },
+    "watch_through_rate": { "type": ["number", "null"], "minimum": 0 },
+    "ctr": { "type": ["number", "null"], "minimum": 0 },
+    "cpc": { "type": ["number", "null"], "minimum": 0 },
+    "cpm": { "type": ["number", "null"], "minimum": 0 },
+    "profile_visits": { "type": ["number", "null"], "minimum": 0 },
+    "shares": { "type": ["number", "null"], "minimum": 0 },
+    "saves": { "type": ["number", "null"], "minimum": 0 },
+    "comments": { "type": ["number", "null"], "minimum": 0 },
+    "landing_page_sessions": { "type": ["number", "null"], "minimum": 0 },
+    "landing_page_opt_ins": { "type": ["number", "null"], "minimum": 0 },
+    "opt_in_rate": { "type": ["number", "null"], "minimum": 0 },
+    "purchases": { "type": ["number", "null"], "minimum": 0 },
+    "purchase_rate": { "type": ["number", "null"], "minimum": 0 },
+    "revenue": { "type": ["number", "null"], "minimum": 0 },
+    "cac": { "type": ["number", "null"], "minimum": 0 },
+    "print_attach_rate": { "type": ["number", "null"], "minimum": 0 },
+    "bundle_attach_rate": { "type": ["number", "null"], "minimum": 0 },
+    "offer_id": { "type": ["string", "null"] },
+    "occasion": { "type": ["string", "null"] },
+    "persona_id": { "type": ["string", "null"] },
+    "voice_id": { "type": ["string", "null"] },
+    "format_id": { "type": ["string", "null"] }
+  }
+}

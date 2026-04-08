@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://littlecolorbook.com/schemas/experiment-decision.schema.json",
+  "title": "Experiment Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "asset_id",
+    "report_date",
+    "winner_status",
+    "recommended_action"
+  ],
+  "properties": {
+    "asset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "report_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "organic_score": {
+      "type": ["number", "null"]
+    },
+    "paid_score": {
+      "type": ["number", "null"]
+    },
+    "winner_status": {
+      "type": "string",
+      "enum": ["winner", "near_winner", "neutral", "loser", "fatigued"]
+    },
+    "fatigue_status": {
+      "type": ["string", "null"],
+      "enum": ["fresh", "stable", "watch", "fatigued", null]
+    },
+    "recommended_action": {
+      "type": "string",
+      "enum": [
+        "exploit",
+        "adjacent",
+        "explore",
+        "pause",
+        "promote_to_paid",
+        "localize",
+        "retire"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "maxLength": 1000
+    }
+  }
+}

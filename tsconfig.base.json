@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@littlecolorbook/shared": [
+        "packages/shared/src/index.ts"
+      ],
+      "@littlecolorbook/shared/*": [
+        "packages/shared/src/*"
+      ],
+      "@littlecolorbook/db": [
+        "packages/db/src/index.ts"
+      ],
+      "@littlecolorbook/db/*": [
+        "packages/db/src/*"
+      ],
+      "@littlecolorbook/pipeline": [
+        "packages/pipeline/src/index.ts"
+      ],
+      "@littlecolorbook/pipeline/*": [
+        "packages/pipeline/src/*"
+      ],
+      "@littlecolorbook/email": [
+        "packages/email/src/index.ts"
+      ],
+      "@littlecolorbook/email/*": [
+        "packages/email/src/*"
+      ]
+    }
+  }
+}

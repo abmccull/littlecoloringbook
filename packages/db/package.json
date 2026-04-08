@@ -1,0 +1,11 @@
+{
+  "name": "@littlecolorbook/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./repositories": "./src/repositories.ts",
+    "./schema": "./src/schema.ts"
+  }
+}

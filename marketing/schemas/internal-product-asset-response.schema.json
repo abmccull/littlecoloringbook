@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://littlecolorbook.com/schemas/internal-product-asset-response.schema.json",
+  "title": "Internal Product Asset Response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "status",
+    "assets",
+    "provider",
+    "created_at"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["queued", "processing", "completed", "failed"]
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["internal-renderer", "gemini"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error": {
+      "type": ["string", "null"]
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_id",
+          "asset_type",
+          "storage_url",
+          "preview_url",
+          "content_type",
+          "offer_id",
+          "page_count_offer",
+          "bundle_offer",
+          "created_at"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asset_type": {
+            "type": "string",
+            "enum": [
+              "sample_page",
+              "before_after_pair",
+              "book_preview_image",
+              "book_preview_video",
+              "print_mockup",
+              "cover_variant",
+              "ugc_b_roll",
+              "thumbnail"
+            ]
+          },
+          "source_asset_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "storage_url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "preview_url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "width": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "height": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "duration_ms": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "offer_id": {
+            "type": "string"
+          },
+          "page_count_offer": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "bundle_offer": {
+            "type": "string"
+          },
+          "occasion": {
+            "type": ["string", "null"]
+          },
+          "render_profile": {
+            "type": ["string", "null"]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
