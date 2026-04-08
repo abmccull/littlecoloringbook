@@ -33,6 +33,27 @@ export type AnalyticsEnv = {
   analyticsDebug: boolean;
 };
 
+export type ElevenLabsEnv = {
+  apiKey: string;
+  apiBaseUrl: string;
+  modelId: string;
+};
+
+export type ArcadsEnv = {
+  apiKey: string;
+  apiUrl: string;
+};
+
+export type GammaEnv = {
+  apiKey: string;
+  apiBaseUrl: string;
+};
+
+export type MarketingVideoEnv = {
+  apiKey: string | null;
+  apiUrl: string;
+};
+
 const rawLuluEnvSchema = z.object({
   LULU_CLIENT_KEY: z.string().min(1, "LULU_CLIENT_KEY is required"),
   LULU_CLIENT_SECRET: z.string().min(1, "LULU_CLIENT_SECRET is required"),
@@ -58,6 +79,27 @@ const rawEmailEnvSchema = z.object({
   RESEND_API_KEY: z.string().min(1, "RESEND_API_KEY is required"),
   RESEND_FROM_EMAIL: z.string().email("RESEND_FROM_EMAIL must be a valid sender email"),
   SUPPORT_EMAIL: z.string().email("SUPPORT_EMAIL must be a valid support email").default("support@littlecolorbook.com"),
+});
+
+const rawElevenLabsEnvSchema = z.object({
+  ELEVENLABS_API_KEY: z.string().min(1, "ELEVENLABS_API_KEY is required"),
+  ELEVENLABS_API_BASE_URL: z.string().url().default("https://api.elevenlabs.io"),
+  ELEVENLABS_MODEL_ID: z.string().min(1).default("eleven_multilingual_v2"),
+});
+
+const rawArcadsEnvSchema = z.object({
+  ARCADS_API_KEY: z.string().min(1, "ARCADS_API_KEY is required"),
+  ARCADS_API_URL: z.string().url("ARCADS_API_URL must be a valid URL"),
+});
+
+const rawGammaEnvSchema = z.object({
+  GAMMA_API_KEY: z.string().min(1, "GAMMA_API_KEY is required"),
+  GAMMA_API_BASE_URL: z.string().url().default("https://public-api.gamma.app/v1.0"),
+});
+
+const rawMarketingVideoEnvSchema = z.object({
+  MARKETING_VIDEO_API_KEY: z.string().optional(),
+  MARKETING_VIDEO_API_URL: z.string().url("MARKETING_VIDEO_API_URL must be a valid URL"),
 });
 
 function getDefaultLuluAuthTokenUrl(apiBaseUrl: string) {
@@ -124,6 +166,56 @@ export function getAnalyticsEnv(): AnalyticsEnv {
   };
 }
 
+export function getElevenLabsEnv(): ElevenLabsEnv {
+  const parsed = rawElevenLabsEnvSchema.parse({
+    ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
+    ELEVENLABS_API_BASE_URL: process.env.ELEVENLABS_API_BASE_URL ?? "https://api.elevenlabs.io",
+    ELEVENLABS_MODEL_ID: process.env.ELEVENLABS_MODEL_ID ?? "eleven_multilingual_v2",
+  });
+
+  return {
+    apiKey: parsed.ELEVENLABS_API_KEY,
+    apiBaseUrl: parsed.ELEVENLABS_API_BASE_URL.replace(/\/$/, ""),
+    modelId: parsed.ELEVENLABS_MODEL_ID,
+  };
+}
+
+export function getArcadsEnv(): ArcadsEnv {
+  const parsed = rawArcadsEnvSchema.parse({
+    ARCADS_API_KEY: process.env.ARCADS_API_KEY,
+    ARCADS_API_URL: process.env.ARCADS_API_URL,
+  });
+
+  return {
+    apiKey: parsed.ARCADS_API_KEY,
+    apiUrl: parsed.ARCADS_API_URL,
+  };
+}
+
+export function getGammaEnv(): GammaEnv {
+  const parsed = rawGammaEnvSchema.parse({
+    GAMMA_API_KEY: process.env.GAMMA_API_KEY,
+    GAMMA_API_BASE_URL: process.env.GAMMA_API_BASE_URL ?? "https://public-api.gamma.app/v1.0",
+  });
+
+  return {
+    apiKey: parsed.GAMMA_API_KEY,
+    apiBaseUrl: parsed.GAMMA_API_BASE_URL.replace(/\/$/, ""),
+  };
+}
+
+export function getMarketingVideoEnv(): MarketingVideoEnv {
+  const parsed = rawMarketingVideoEnvSchema.parse({
+    MARKETING_VIDEO_API_KEY: process.env.MARKETING_VIDEO_API_KEY,
+    MARKETING_VIDEO_API_URL: process.env.MARKETING_VIDEO_API_URL,
+  });
+
+  return {
+    apiKey: parsed.MARKETING_VIDEO_API_KEY ?? null,
+    apiUrl: parsed.MARKETING_VIDEO_API_URL,
+  };
+}
+
 export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 }
@@ -153,6 +245,18 @@ export function getIntegrationStatus() {
     luluConfigured: Boolean(process.env.LULU_CLIENT_KEY && process.env.LULU_CLIENT_SECRET),
     luluPodPackageConfigured: Boolean(process.env.LULU_POD_PACKAGE_ID),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY),
+    marketingRendererConfigured: Boolean(
+      (process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY) &&
+        process.env.GCS_PROJECT_ID &&
+        process.env.GCS_CLIENT_EMAIL &&
+        process.env.GCS_PRIVATE_KEY &&
+        process.env.GCS_BUCKET_UPLOADS &&
+        process.env.GCS_BUCKET_EXPORTS,
+    ),
+    elevenLabsConfigured: Boolean(process.env.ELEVENLABS_API_KEY),
+    arcadsConfigured: Boolean(process.env.ARCADS_API_KEY && process.env.ARCADS_API_URL),
+    gammaConfigured: Boolean(process.env.GAMMA_API_KEY),
+    marketingVideoConfigured: Boolean(process.env.MARKETING_VIDEO_API_URL),
     stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY && stripePublishableKey && process.env.APP_URL),
     stripePublishableConfigured: Boolean(stripePublishableKey),
     stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),

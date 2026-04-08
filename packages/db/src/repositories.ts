@@ -919,6 +919,28 @@ export async function listUploadsForOrder(orderId: string) {
   });
 }
 
+export async function getUploadsByIds(uploadIds: string[]) {
+  if (!isDatabaseConfigured() || uploadIds.length === 0) {
+    return [];
+  }
+
+  return getDatabase().query.uploads.findMany({
+    where: inArray(uploads.id, uploadIds),
+    orderBy: [desc(uploads.createdAt)],
+  });
+}
+
+export async function getAssetsByIds(assetIds: string[]) {
+  if (!isDatabaseConfigured() || assetIds.length === 0) {
+    return [];
+  }
+
+  return getDatabase().query.assets.findMany({
+    where: inArray(assets.id, assetIds),
+    orderBy: [desc(assets.createdAt)],
+  });
+}
+
 export async function createAssetRecords(
   input: Array<{
     orderId: string;

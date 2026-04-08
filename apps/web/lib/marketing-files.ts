@@ -1,10 +1,50 @@
 import "server-only";
 
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+let cachedRepoRoot: string | null = null;
+
+function isRepoRoot(candidate: string) {
+  const packageJsonPath = path.join(candidate, "package.json");
+
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(packageJsonPath, "utf8")) as { name?: string };
+    return parsed.name === "littlecolorbook";
+  } catch {
+    return false;
+  }
+}
+
 function getRepoRoot() {
-  return path.resolve(process.cwd(), "..", "..");
+  if (cachedRepoRoot) {
+    return cachedRepoRoot;
+  }
+
+  let candidate = process.cwd();
+
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (isRepoRoot(candidate)) {
+      cachedRepoRoot = candidate;
+      return cachedRepoRoot;
+    }
+
+    const parent = path.dirname(candidate);
+
+    if (parent === candidate) {
+      break;
+    }
+
+    candidate = parent;
+  }
+
+  cachedRepoRoot = path.resolve(process.cwd(), "..", "..");
+  return cachedRepoRoot;
 }
 
 export function getMarketingRoot() {

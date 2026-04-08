@@ -246,6 +246,11 @@ export const marketingWeeklySynthesisRequestSchema = z.object({
   occasion: z.string().trim().max(80).optional().nullable(),
 });
 
+export const marketingGammaGenerateRequestSchema = z.object({
+  prompt: z.string().trim().min(1),
+  payload: z.record(z.string(), z.unknown()).default({}),
+});
+
 export type InternalProductAssetRequest = z.infer<typeof internalProductAssetRequestSchema>;
 export type InternalProductAssetResponse = z.infer<typeof internalProductAssetResponseSchema>;
 export type InternalProductAssetResponseAsset = z.infer<typeof internalProductAssetResponseAssetSchema>;
@@ -255,9 +260,12 @@ export type MetricsDailyRow = z.infer<typeof metricsDailyRowSchema>;
 export type MarketingMetricsDailyIngestRequest = z.infer<typeof marketingMetricsDailyIngestRequestSchema>;
 export type ExperimentDecision = z.infer<typeof experimentDecisionSchema>;
 export type MarketingExperimentsRankRequest = z.infer<typeof marketingExperimentsRankRequestSchema>;
+export type MarketingQueueAsset = z.infer<typeof marketingQueueAssetSchema>;
+export type MarketingPublishWindow = z.infer<typeof marketingPublishWindowSchema>;
 export type MarketingOrganicQueueRequest = z.infer<typeof marketingOrganicQueueRequestSchema>;
 export type MarketingPaidQueueRequest = z.infer<typeof marketingPaidQueueRequestSchema>;
 export type MarketingWeeklySynthesisRequest = z.infer<typeof marketingWeeklySynthesisRequestSchema>;
+export type MarketingGammaGenerateRequest = z.infer<typeof marketingGammaGenerateRequestSchema>;
 
 export function createMarketingRequestId(prefix: string) {
   return `${prefix}_${randomUUID()}`;

@@ -23,6 +23,8 @@ export type PipelineJobKind = "sample" | "full_book";
 
 type GeminiImageSize = "1K" | "2K" | "4K";
 
+export type PipelineImageSize = GeminiImageSize;
+
 type RasterSize = {
   height: number;
   width: number;
@@ -464,6 +466,62 @@ async function materializePage(input: {
         model,
         prompt,
         sourceBuffer,
+      });
+      const processed = await cleanupGeneratedPage({
+        deliveryMode: input.deliveryMode,
+        imageBuffer: rendered.buffer,
+      });
+
+      if (!pagePassesQa(processed.blackRatio)) {
+        lastError = new Error(`Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}.`);
+        continue;
+      }
+
+      return {
+        ...processed,
+        model: rendered.model,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Unknown Gemini generation error.");
+    }
+  }
+
+  throw lastError ?? new Error(`Failed to generate page ${input.pageNumber}.`);
+}
+
+export async function renderMarketingPage(input: {
+  childFirstName?: string | null;
+  deliveryMode: DeliveryMode;
+  pageNumber: number;
+  primaryModel: string;
+  imageSize: GeminiImageSize;
+  source: {
+    buffer: Buffer;
+    fileName: string;
+    mimeType: string;
+  };
+}) {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < MAX_RENDER_ATTEMPTS; attempt += 1) {
+    const model = attempt === 0 ? input.primaryModel : getFallbackModel(input.primaryModel);
+    const prompt = buildColoringPrompt({
+      attempt,
+      childFirstName: input.childFirstName,
+      deliveryMode: input.deliveryMode,
+      pageNumber: input.pageNumber,
+      sourceLabel: input.source.fileName,
+    });
+
+    try {
+      const rendered = await renderImageWithGemini({
+        attempt,
+        deliveryMode: input.deliveryMode,
+        imageSize: input.imageSize,
+        mimeType: input.source.mimeType,
+        model,
+        prompt,
+        sourceBuffer: input.source.buffer,
       });
       const processed = await cleanupGeneratedPage({
         deliveryMode: input.deliveryMode,

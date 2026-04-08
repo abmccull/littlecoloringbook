@@ -9,12 +9,17 @@ import {
   type ExperimentDecision,
   type InternalProductAssetRequest,
   type InternalProductAssetResponse,
+  type MarketingOrganicQueueRequest,
+  type MarketingPaidQueueRequest,
+  type MarketingWeeklySynthesisRequest,
   type MetricsDailyRow,
 } from "@littlecolorbook/shared";
 import { authorizeInternalJobRequest } from "./internal-jobs";
 import { queueMarketingPayload, readMarketingJson, writeMarketingJson, writeMarketingMarkdown } from "./marketing-files";
 
 type FatigueStatus = NonNullable<ExperimentDecision["fatigueStatus"]>;
+type ProductAssetRequestValidator = (input: InternalProductAssetRequest) => string | null;
+type ProductAssetRequestExecutor = (input: InternalProductAssetRequest) => Promise<InternalProductAssetResponse | null>;
 
 function getMetricValue(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -196,7 +201,36 @@ export function rankMarketingMetricsRows(rows: MetricsDailyRow[]) {
   });
 }
 
-export function createQueuedProductAssetRouteHandler(expectedOrderStyle: InternalProductAssetRequest["orderStyle"]) {
+export function mergeMetricsRows(existingRows: MetricsDailyRow[], incomingRows: MetricsDailyRow[]) {
+  const keyedRows = new Map<string, MetricsDailyRow>();
+
+  for (const row of [...existingRows, ...incomingRows]) {
+    const key = [
+      row.assetId,
+      row.platform,
+      row.reportDate,
+      row.accountId ?? "",
+      row.campaignId ?? "",
+      row.adsetId ?? "",
+      row.adId ?? "",
+    ].join("::");
+
+    keyedRows.set(key, row);
+  }
+
+  return [...keyedRows.values()].sort((left, right) => {
+    if (left.platform !== right.platform) {
+      return left.platform.localeCompare(right.platform);
+    }
+
+    return left.assetId.localeCompare(right.assetId);
+  });
+}
+
+export function createQueuedProductAssetRouteHandler(
+  expectedOrderStyle: InternalProductAssetRequest["orderStyle"],
+  options?: { validate?: ProductAssetRequestValidator; execute?: ProductAssetRequestExecutor },
+) {
   return async function POST(request: NextRequest) {
     const unauthorized = authorizeInternalJobRequest(request);
 
@@ -228,7 +262,24 @@ export function createQueuedProductAssetRouteHandler(expectedOrderStyle: Interna
       );
     }
 
+    const validationError = options?.validate?.(parsed.data);
+
+    if (validationError) {
+      return NextResponse.json(
+        {
+          accepted: false,
+          error: validationError,
+        },
+        { status: 400 },
+      );
+    }
+
     const receivedAt = new Date().toISOString();
+    const executed = options?.execute ? await options.execute(parsed.data) : null;
+
+    if (executed) {
+      return NextResponse.json(executed, { status: executed.status === "queued" ? 202 : 200 });
+    }
 
     await queueMarketingPayload("render-requests", parsed.data.requestId, {
       ...parsed.data,
@@ -264,25 +315,21 @@ export async function writeMetricsRowsForDate(reportDate: string, rows: MetricsD
   });
 }
 
-export async function writeOrganicQueue(payload: { date: string; assets: unknown[]; publishWindows: unknown[] }) {
-  await writeMarketingJson(path.join("queues", "today-organic-queue.json"), payload);
-  await writeMarketingJson(path.join("queues", "history", `organic-${payload.date}.json`), payload);
+export async function writeOrganicQueue(payload: MarketingOrganicQueueRequest) {
+  const currentPath = await writeMarketingJson(path.join("queues", "today-organic-queue.json"), payload);
+  const historyPath = await writeMarketingJson(path.join("queues", "history", `organic-${payload.date}.json`), payload);
+
+  return { currentPath, historyPath };
 }
 
-export async function writePaidQueue(payload: { date: string; assets: unknown[]; notes?: string | null }) {
-  await writeMarketingJson(path.join("queues", "today-paid-nominations.json"), payload);
-  await writeMarketingJson(path.join("queues", "history", `paid-${payload.date}.json`), payload);
+export async function writePaidQueue(payload: MarketingPaidQueueRequest) {
+  const currentPath = await writeMarketingJson(path.join("queues", "today-paid-nominations.json"), payload);
+  const historyPath = await writeMarketingJson(path.join("queues", "history", `paid-${payload.date}.json`), payload);
+
+  return { currentPath, historyPath };
 }
 
-export async function writeWeeklySynthesisReport(input: {
-  periodStart: string;
-  periodEnd: string;
-  topAssets: string[];
-  topLearnings: string[];
-  kills: string[];
-  scaleRecommendations: string[];
-  occasion?: string | null;
-}) {
+export async function writeWeeklySynthesisReport(input: MarketingWeeklySynthesisRequest) {
   const lines = [
     "# Weekly Synthesis",
     "",
