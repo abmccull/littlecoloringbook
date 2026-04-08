@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import { DM_Sans, Fraunces } from "next/font/google";
 import { AnalyticsProvider } from "../components/analytics-provider";
@@ -24,7 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`${bodyFont.variable} ${displayFont.variable}`}>
         {children}
-        <AnalyticsProvider />
+        <Suspense fallback={null}>
+          <AnalyticsProvider />
+        </Suspense>
       </body>
     </html>
   );

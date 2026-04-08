@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import posthog from "posthog-js";
 import { Analytics } from "@vercel/analytics/next";
@@ -43,7 +44,37 @@ export function trackEvent(eventName: string, properties: Record<string, unknown
   debugAnalytics(eventName, properties);
 }
 
+function trackPageview(pathname: string, search: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = `${window.location.origin}${pathname}${search}`;
+  const properties = {
+    page_path: pathname,
+    page_search: search,
+    page_url: url,
+  };
+
+  if (gaMeasurementId && typeof window.gtag === "function") {
+    window.gtag("event", "page_view", properties);
+  }
+
+  if (window.posthog) {
+    window.posthog.capture("$pageview", {
+      $current_url: url,
+      path: pathname,
+      search,
+    });
+  }
+
+  debugAnalytics("page_view", properties);
+}
+
 export function AnalyticsProvider() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     if (!posthogKey || posthogInitialized) {
       return;
@@ -59,6 +90,16 @@ export function AnalyticsProvider() {
     posthogInitialized = true;
   }, []);
 
+  useEffect(() => {
+    if (!pathname) {
+      return;
+    }
+
+    const search = searchParams?.toString();
+    const serializedSearch = search ? `?${search}` : "";
+    trackPageview(pathname, serializedSearch);
+  }, [pathname, searchParams]);
+
   return (
     <>
       {gaMeasurementId ? (
@@ -70,7 +111,7 @@ export function AnalyticsProvider() {
               function gtag(){dataLayer.push(arguments);}
               window.gtag = gtag;
               gtag('js', new Date());
-              gtag('config', '${gaMeasurementId}');
+              gtag('config', '${gaMeasurementId}', { send_page_view: false });
             `}
           </Script>
         </>
