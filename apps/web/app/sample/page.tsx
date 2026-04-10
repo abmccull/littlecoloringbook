@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FaqAccordion } from "../../components/faq-accordion";
 import { SampleStartForm } from "../../components/sample-start-form";
 import { BookMockupBlock, PhotoExampleGrid } from "../../components/proof-modules";
 import { Section } from "../../components/section";
@@ -8,7 +9,7 @@ import { faqs, photoExamples, proofAssets } from "../../lib/consumer-content";
 const sampleReasons = [
   "You only need one good photo to know whether the style feels like your family.",
   "The sample gives you proof before you ever commit to a full book.",
-  "If the sample lands, you can choose 30, 50, or 100 pages based on how full the photo stack already is.",
+  "If the sample feels right, you can turn the rest of your favorite photos into the full book next.",
 ];
 
 export default function SamplePage() {
@@ -35,7 +36,7 @@ export default function SamplePage() {
           <ul className="feature-list">
             <li>One free sample page from one favorite photo</li>
             <li>Best for a child portrait, one sibling moment, or a favorite pet</li>
-            <li>A clear next step into the full book size that fits your album</li>
+            <li>If your child loves the sample, turn the rest of your photos into a full book.</li>
           </ul>
         </div>
         <div className="surface sample-form-card">
@@ -72,7 +73,7 @@ export default function SamplePage() {
       <Section
         eyebrow="What you are moving toward"
         title="If the sample clicks, pick the book size that fits your memory stack."
-        copy="30 pages keeps it lighter, 50 pages feels fuller, and 100 pages gives you the strongest value when you already know you want the full keepsake."
+        copy="Keep it simple: 30 pages is the good starter book, 50 pages is the better step up, and 100 pages is the best-value full keepsake."
       >
         <BookMockupBlock
           coverSrc={proofAssets.kidPhoto}
@@ -82,15 +83,12 @@ export default function SamplePage() {
         />
       </Section>
 
-      <Section eyebrow="FAQ" title="A few quick answers before you upload." copy="Just enough detail to make the free sample feel easy to try.">
-        <div className="faq-grid">
-          {faqs.slice(0, 4).map((faq) => (
-            <article className="faq-card" key={faq.question}>
-              <h3>{faq.question}</h3>
-              <p className="muted">{faq.answer}</p>
-            </article>
-          ))}
-        </div>
+      <Section
+        eyebrow="FAQ"
+        title="Questions moms and grandparents usually ask before they upload."
+        copy="Timing, print versus PDF, multiple kids, gift copies, and the rest of the details people want before they start."
+      >
+        <FaqAccordion items={faqs} />
       </Section>
     </main>
   );

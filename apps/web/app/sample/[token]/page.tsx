@@ -41,7 +41,7 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
       <section className="sample-frame">
         <span className="pill pill-sun">Free page ready</span>
         <h1>Your sample page is ready to preview.</h1>
-        <p className="lede">If this feels like a yes, choose the book size that matches your photo stack. 30 pages is the entry book. 100 pages is the best value.</p>
+        <p className="lede">If this feels like a yes, use the simple good-better-best ladder: 30 pages gets you in, 50 pages gives you more story, and 100 pages is the best value.</p>
 
         <div className="sample-ready-layout">
           <div className="proof-card proof-card-preview">
@@ -98,8 +98,8 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
         <div className="stack">
           <div className="section-copy">
             <p className="eyebrow">Choose your size</p>
-            <h2>Keep 30 available. Step up to 50 or 100 when you want more book.</h2>
-            <p className="lede">30 pages keeps the first purchase lighter. 50 pages is the middle ground. 100 pages is the strongest value.</p>
+            <h2>Keep 30 as the good starter option, then step up to 50 or 100.</h2>
+            <p className="lede">30 pages is the smallest full book. 50 pages is the better middle. 100 pages is the best-value full keepsake.</p>
           </div>
           <div className="offer-grid">
             {coreOffers.map((offer) => (

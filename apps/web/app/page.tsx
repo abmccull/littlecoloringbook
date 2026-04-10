@@ -1,4 +1,5 @@
 import { OfferCard } from "../components/offer-card";
+import { FaqAccordion } from "../components/faq-accordion";
 import { HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "../components/proof-modules";
 import { Section } from "../components/section";
 import { TrackedLink } from "../components/tracked-link";
@@ -51,7 +52,7 @@ export default function HomePage() {
 
       <Section
         eyebrow="Choose your size"
-        title="30 pages gets you in. 50 pages feels fuller. 100 pages gives you the best value."
+        title="Good: 30 pages. Better: 50 pages. Best: 100 pages."
         copy={homepageContent.featuredOfferIntro}
       >
         <div className="offer-grid">
@@ -114,14 +115,7 @@ export default function HomePage() {
         title="The last questions people ask before they try it."
         copy="Everything you need before you try the free page or move into a full book."
       >
-        <div className="faq-grid">
-          {faqs.map((faq) => (
-            <article className="faq-card" key={faq.question}>
-              <h3>{faq.question}</h3>
-              <p className="muted">{faq.answer}</p>
-            </article>
-          ))}
-        </div>
+        <FaqAccordion items={faqs} />
       </Section>
     </main>
   );

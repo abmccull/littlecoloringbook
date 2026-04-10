@@ -121,7 +121,9 @@ export function BookMockupBlock({
         <div className="book-cover">
           <img alt="Example personalized book cover" src={coverSrc} />
           <span className="book-cover-badge">Little Color Book</span>
-          <strong>Personalized Coloring Book</strong>
+          <div className="book-cover-footer">
+            <strong>Personalized Coloring Book</strong>
+          </div>
         </div>
         <div className="book-page">
           <img alt="Example inner coloring page" src={pageSrc} />

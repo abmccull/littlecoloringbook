@@ -46,6 +46,11 @@ export type GuaranteeCard = {
   detail: string;
 };
 
+export type FaqItem = {
+  question: string;
+  answer: string;
+};
+
 export const proofAssets = {
   exampleTransformation: "/proof/example-transformation.webp",
   familyPhoto: "/proof/family-photo.jpg",
@@ -98,7 +103,7 @@ export const consumerOffers: ConsumerOffer[] = [
   {
     code: "pdf-30",
     title: "30 Pages",
-    badge: "Entry option",
+    badge: "Good starter",
     badgeTone: "sky",
     designs: 30,
     pdfPrice: 29,
@@ -110,7 +115,7 @@ export const consumerOffers: ConsumerOffer[] = [
   {
     code: "pdf-50",
     title: "50 Pages",
-    badge: "Most popular",
+    badge: "Better choice",
     badgeTone: "mint",
     designs: 50,
     pdfPrice: 39,
@@ -146,7 +151,7 @@ export const homepageContent = {
   },
   proofStripTitle: "See the photo-to-book transformation before you buy",
   featuredOfferIntro:
-    "Keep 30 pages as the entry option, use 50 pages for a fuller story, and use 100 pages when you want the strongest value for a packed photo roll.",
+    "Use a simple good-better-best ladder: 30 pages is the starter book, 50 pages gives the story more room, and 100 pages gives you the best value for a packed photo roll.",
   sampleBlock: {
     title: "Try one page first",
     description: "The free sample is there so you never have to buy blind. See your own photo as a coloring page, then decide if you want the full book.",
@@ -220,22 +225,58 @@ export const guarantees: GuaranteeCard[] = [
   },
 ];
 
-export const faqs = [
+export const faqs: FaqItem[] = [
   {
     question: "How many photos do I need for a full book?",
-    answer: "Plan on one photo per page. Choose 30 for the entry book, 50 for a fuller story, or 100 for the best value when your camera roll is packed.",
+    answer: "Plan on one photo per page. Use the simple ladder: 30 pages is the good starter option, 50 pages is the better step up, and 100 pages is the best value when your camera roll is packed.",
   },
   {
     question: "How fast is the free sample?",
     answer: "Usually a few minutes. We position it as quick, not instant, so there is room for processing and cleanup.",
   },
   {
+    question: "How fast do I get the PDF version?",
+    answer: "The PDF is the faster path. Smaller books are often ready the same session, and bigger books can take longer because every page still needs to be processed and cleaned up.",
+  },
+  {
+    question: "How long does the printed spiral book take?",
+    answer: "Printed books take longer because they have to be made, bound, and shipped. After your artwork is ready, allow production time plus shipping time shown at checkout.",
+  },
+  {
     question: "What is the difference between the PDF and the spiral book?",
     answer: "The PDF is your print-tonight option. The spiral book is the giftable version that arrives printed and bound.",
   },
   {
+    question: "Does the printed book include the PDF too?",
+    answer: "Yes. Every printed book also includes the PDF, so you still have the digital copy for quick reprints at home.",
+  },
+  {
     question: "What kinds of photos work best?",
     answer: "Tighter portraits, pets, siblings, birthdays, and one clear family moment work best. You do not need professional photos.",
+  },
+  {
+    question: "Can I use phone photos?",
+    answer: "Yes. Most parents use phone photos. Clear faces, simple backgrounds, and well-lit moments usually turn into the cleanest coloring pages.",
+  },
+  {
+    question: "What if I have multiple kids?",
+    answer: "You can mix siblings into one book if you want one shared keepsake, or build separate books if you want each child to have their own version.",
+  },
+  {
+    question: "Can I order extra copies for grandparents or gifts?",
+    answer: "Yes. On the printed-book path you can add extra copies for grandparents, birthdays, or sibling gifts without rebuilding the whole book.",
+  },
+  {
+    question: "Can each printed copy have a different name on the cover?",
+    answer: "Yes. If you choose a multi-copy printed pack, you can keep the same cover name on every copy or personalize each one for different kids or recipients.",
+  },
+  {
+    question: "What if I don't have enough photos for 50 or 100 pages?",
+    answer: "Start with the 30-page book or the free sample. The best size is the one you can fill with real favorite photos instead of stretching to hit a bigger page count.",
+  },
+  {
+    question: "Can I print the PDF more than once?",
+    answer: "Yes. The PDF is meant for home printing, so you can print it again whenever you want another copy.",
   },
   {
     question: "Do I need an account before checkout?",

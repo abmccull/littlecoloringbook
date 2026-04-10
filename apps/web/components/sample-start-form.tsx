@@ -59,12 +59,15 @@ export function SampleStartForm() {
   }
 
   return (
-    <form className="upload-stack" onSubmit={handleSubmit}>
+    <form className="upload-stack sample-start-form" onSubmit={handleSubmit}>
       <div className="form-grid">
         <label>
           <span className="muted">Email</span>
           <input
             className="input"
+            id="sample-email"
+            name="email"
+            autoComplete="email"
             placeholder="you@example.com"
             required
             type="email"
@@ -74,11 +77,19 @@ export function SampleStartForm() {
         </label>
         <label>
           <span className="muted">Child first name for the cover (optional)</span>
-          <input className="input" placeholder="Mila" value={childFirstName} onChange={(event) => setChildFirstName(event.target.value)} />
+          <input
+            className="input"
+            id="sample-child-first-name"
+            name="childFirstName"
+            autoComplete="given-name"
+            placeholder="Mila"
+            value={childFirstName}
+            onChange={(event) => setChildFirstName(event.target.value)}
+          />
         </label>
       </div>
 
-      <div className="surface">
+      <div className="surface sample-start-benefit">
         <span className="pill pill-sky">What you get</span>
         <h3>One printable page from one favorite photo.</h3>
         <p className="muted">
@@ -88,7 +99,7 @@ export function SampleStartForm() {
 
       {errorMessage ? <div className="status-banner status-banner-warning">{errorMessage}</div> : null}
 
-      <div className="hero-actions">
+      <div className="hero-actions sample-start-actions">
         <button className="button button-primary" disabled={isSubmitting} type="submit">
           {isSubmitting ? "Starting sample..." : "Continue to My Free Sample"}
         </button>
