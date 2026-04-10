@@ -62,18 +62,18 @@ export const funnelCtas = {
     eventName: "home_sample_cta_clicked",
   },
   seeThirtyPages: {
-    label: "See the 30-page book",
-    href: "/create?offer=pdf-30",
+    label: "See book sizes",
+    href: "/create?offer=pdf-100",
     eventName: "home_primary_offer_clicked",
   },
   startThirtyPdf: {
-    label: "Turn 10+ photos into a 30-page PDF",
-    href: "/create?offer=pdf-30",
+    label: "Choose my book size",
+    href: "/create?offer=pdf-100",
     eventName: "sample_ready_primary_offer_clicked",
   },
   addThirtyPrint: {
-    label: "Add the printed spiral book",
-    href: "/create?offer=print-30",
+    label: "Add the giftable spiral book",
+    href: "/create?offer=print-100",
     eventName: "sample_ready_print_upsell_clicked",
   },
   startMiniPdf: {
@@ -98,19 +98,19 @@ export const consumerOffers: ConsumerOffer[] = [
   {
     code: "pdf-30",
     title: "30 Pages",
-    badge: "Smaller album",
+    badge: "Entry option",
     badgeTone: "sky",
     designs: 30,
     pdfPrice: 29,
     printPrice: 49,
-    description: "A lighter version for tighter photo sets when you want to keep the project small.",
+    description: "The lightest full book when you want a simpler first keepsake from a smaller photo set.",
     ctaLabel: "Choose 30 pages",
-    comparisonNote: "Best when you want the shortest photo list.",
+    comparisonNote: "A solid first step when you want the smallest full-book option.",
   },
   {
     code: "pdf-50",
     title: "50 Pages",
-    badge: "Best seller",
+    badge: "Most popular",
     badgeTone: "mint",
     designs: 50,
     pdfPrice: 39,
@@ -118,19 +118,19 @@ export const consumerOffers: ConsumerOffer[] = [
     description: "The strongest mix of value, story depth, and giftability for real family albums.",
     ctaLabel: "Choose 50 pages",
     comparisonNote: "Where most full camera rolls start to feel worth turning into a real book.",
-    featured: true,
   },
   {
     code: "pdf-100",
     title: "100 Pages",
-    badge: "Lowest cost per page",
+    badge: "Best value",
     badgeTone: "coral",
     designs: 100,
     pdfPrice: 59,
     printPrice: 99,
     description: "The biggest keepsake option for packed camera rolls, sibling stories, trips, and holiday gifting.",
     ctaLabel: "Choose 100 pages",
-    comparisonNote: "Best value if you already know you want the full experience.",
+    comparisonNote: "Lowest cost per page and the fullest version of the book.",
+    featured: true,
   },
 ];
 
@@ -139,14 +139,14 @@ export const homepageContent = {
     badge: "A simple yes for busy moms",
     title: "Turn favorite photos into coloring books your kids will want to color again and again.",
     description:
-      "Start with one photo for a free sample. If it feels like them, turn 10 or more photos into a 30-page book you can print tonight or order as a spiral-bound keepsake.",
+      "Start with one photo for a free sample. If it feels like them, choose a 30, 50, or 100-page book you can print tonight or order as a spiral-bound keepsake.",
     supporting:
       "Made for moms who want something personal without turning it into a project: a screen-free activity for now and a keepsake you will actually want to save later.",
     trustPoints: ["Free sample first", "From your real family photos", "PDF tonight or spiral book shipped"],
   },
   proofStripTitle: "See the photo-to-book transformation before you buy",
   featuredOfferIntro:
-    "The 30-page book is the easiest first purchase after the free sample. It feels substantial without making the decision feel heavy.",
+    "Keep 30 pages as the entry option, use 50 pages for a fuller story, and use 100 pages when you want the strongest value for a packed photo roll.",
   sampleBlock: {
     title: "Try one page first",
     description: "The free sample is there so you never have to buy blind. See your own photo as a coloring page, then decide if you want the full book.",
@@ -223,7 +223,7 @@ export const guarantees: GuaranteeCard[] = [
 export const faqs = [
   {
     question: "How many photos do I need for a full book?",
-    answer: "Start with 10 or more. The 30-page book is the easiest first step, and larger books work best when you have a fuller camera roll.",
+    answer: "Plan on one photo per page. Choose 30 for the entry book, 50 for a fuller story, or 100 for the best value when your camera roll is packed.",
   },
   {
     question: "How fast is the free sample?",

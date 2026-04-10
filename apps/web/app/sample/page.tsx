@@ -8,7 +8,7 @@ import { faqs, photoExamples, proofAssets } from "../../lib/consumer-content";
 const sampleReasons = [
   "You only need one good photo to know whether the style feels like your family.",
   "The sample gives you proof before you ever commit to a full book.",
-  "If the sample lands, the 30-page book is the easiest next step.",
+  "If the sample lands, you can choose 30, 50, or 100 pages based on how full the photo stack already is.",
 ];
 
 export default function SamplePage() {
@@ -35,7 +35,7 @@ export default function SamplePage() {
           <ul className="feature-list">
             <li>One free sample page from one favorite photo</li>
             <li>Best for a child portrait, one sibling moment, or a favorite pet</li>
-            <li>A clear next step into the 30-page book if it feels like a yes</li>
+            <li>A clear next step into the full book size that fits your album</li>
           </ul>
         </div>
         <div className="surface sample-form-card">
@@ -71,8 +71,8 @@ export default function SamplePage() {
 
       <Section
         eyebrow="What you are moving toward"
-        title="If the sample clicks, the 30-page book is the natural next step."
-        copy="If the sample feels like a yes, the 30-page book keeps the decision simple while still feeling like a real keepsake."
+        title="If the sample clicks, pick the book size that fits your memory stack."
+        copy="30 pages keeps it lighter, 50 pages feels fuller, and 100 pages gives you the strongest value when you already know you want the full keepsake."
       >
         <BookMockupBlock
           coverSrc={proofAssets.kidPhoto}

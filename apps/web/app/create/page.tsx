@@ -35,7 +35,7 @@ export default async function CreatePage({
               <article className="builder-support-item">
                 <span className="pill pill-mint">50 pages</span>
                 <strong>The best mix of price and payoff.</strong>
-                <p className="muted">Big enough to feel like a real gift and usually the easiest upsell when the customer has a fuller camera roll.</p>
+                <p className="muted">Big enough to feel like a real gift without jumping all the way to the biggest book.</p>
               </article>
               <article className="builder-support-item">
                 <span className="pill pill-sun">100 pages</span>
@@ -45,7 +45,7 @@ export default async function CreatePage({
               <article className="builder-support-item">
                 <span className="pill pill-sky">30 pages</span>
                 <strong>Keep this for the lighter entry point.</strong>
-                <p className="muted">It still works, but it should feel like the smaller option, not the obvious default if the customer already has plenty of photos.</p>
+                <p className="muted">A good fit when you want the smallest full-book option and do not need the extra pages yet.</p>
               </article>
             </div>
           </div>

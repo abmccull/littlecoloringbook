@@ -1,11 +1,10 @@
 import { OfferCard } from "../components/offer-card";
-import { BookMockupBlock, HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "../components/proof-modules";
+import { HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "../components/proof-modules";
 import { Section } from "../components/section";
 import { TrackedLink } from "../components/tracked-link";
-import { consumerOffers, faqs, funnelCtas, guarantees, getConsumerOffer, homepageContent, parentQuotes, useCaseCards } from "../lib/consumer-content";
+import { consumerOffers, faqs, funnelCtas, guarantees, homepageContent, parentQuotes, useCaseCards } from "../lib/consumer-content";
 
-const featuredOffer = getConsumerOffer("pdf-30");
-const upgradeOffers = consumerOffers.filter((offer) => offer.code === "pdf-50" || offer.code === "pdf-100");
+const coreOffers = consumerOffers.filter((offer) => offer.code === "pdf-30" || offer.code === "pdf-50" || offer.code === "pdf-100");
 
 export default function HomePage() {
   return (
@@ -51,16 +50,14 @@ export default function HomePage() {
       </Section>
 
       <Section
-        eyebrow="Best next step"
-        title="Start with the free sample. Move into 30 pages if it feels like an easy yes."
+        eyebrow="Choose your size"
+        title="30 pages gets you in. 50 pages feels fuller. 100 pages gives you the best value."
         copy={homepageContent.featuredOfferIntro}
       >
-        <div className="feature-split">
-          <OfferCard offer={featuredOffer} />
-          <BookMockupBlock
-            title="Easy enough for tonight. Special enough to keep."
-            copy="The PDF is for the fast win. The spiral book is for the birthday table, the grandma gift, and the version you keep long after the crayons are put away."
-          />
+        <div className="offer-grid">
+          {coreOffers.map((offer) => (
+            <OfferCard key={offer.code} offer={offer} />
+          ))}
         </div>
       </Section>
 
@@ -94,18 +91,6 @@ export default function HomePage() {
           <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName="home_midpage_sample_clicked">
             {funnelCtas.freeSample.label}
           </TrackedLink>
-        </div>
-      </Section>
-
-      <Section
-        eyebrow="Upgrade when it fits"
-        title="50 and 100 pages are there when you have more memories ready."
-        copy="If you already have a fuller camera roll, these bigger books give you more room to tell the whole story."
-      >
-        <div className="offer-grid">
-          {upgradeOffers.map((offer) => (
-            <OfferCard key={offer.code} offer={offer} />
-          ))}
         </div>
       </Section>
 

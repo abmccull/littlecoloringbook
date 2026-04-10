@@ -10,7 +10,7 @@ type SampleReadyPageProps = {
   params: Promise<{ token: string }>;
 };
 
-const upgradeOffers = consumerOffers.filter((offer) => offer.code === "pdf-50" || offer.code === "pdf-100");
+const coreOffers = consumerOffers.filter((offer) => offer.code === "pdf-30" || offer.code === "pdf-50" || offer.code === "pdf-100");
 
 export default async function SampleReadyPage({ params }: SampleReadyPageProps) {
   const { token } = await params;
@@ -25,7 +25,7 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
   }
 
   const previewHref = `/api/orders/portal/${token}/preview`;
-  const featuredOffer = getConsumerOffer("pdf-30");
+  const featuredOffer = getConsumerOffer("pdf-100");
   const downsellOffer = getConsumerOffer("pdf-10");
 
   return (
@@ -41,7 +41,7 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
       <section className="sample-frame">
         <span className="pill pill-sun">Free page ready</span>
         <h1>Your sample page is ready to preview.</h1>
-        <p className="lede">If this feels like a yes, start with the 30-page PDF. Choose the spiral book if you want the keepsake version too.</p>
+        <p className="lede">If this feels like a yes, choose the book size that matches your photo stack. 30 pages is the entry book. 100 pages is the best value.</p>
 
         <div className="sample-ready-layout">
           <div className="proof-card proof-card-preview">
@@ -53,8 +53,8 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
           </div>
 
           <div className="surface sample-ready-actions">
-            <span className="pill pill-coral">Best next step</span>
-            <h3>{featuredOffer.title} is the easiest next step.</h3>
+            <span className="pill pill-coral">Best value option</span>
+            <h3>{featuredOffer.title} gives you the fullest book for the best per-page value.</h3>
             <p className="muted">{featuredOffer.description}</p>
             <div className="hero-actions">
               <TrackedLink className="button button-primary" href={funnelCtas.startThirtyPdf.href} eventName={funnelCtas.startThirtyPdf.eventName}>
@@ -97,12 +97,12 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
 
         <div className="stack">
           <div className="section-copy">
-            <p className="eyebrow">Need more pages?</p>
-            <h2>Want a bigger book?</h2>
-            <p className="lede">If you already have the photos for a fuller keepsake, trade up here.</p>
+            <p className="eyebrow">Choose your size</p>
+            <h2>Keep 30 available. Step up to 50 or 100 when you want more book.</h2>
+            <p className="lede">30 pages keeps the first purchase lighter. 50 pages is the middle ground. 100 pages is the strongest value.</p>
           </div>
           <div className="offer-grid">
-            {upgradeOffers.map((offer) => (
+            {coreOffers.map((offer) => (
               <OfferCard key={offer.code} offer={offer} />
             ))}
             <OfferCard offer={downsellOffer} buttonLabel="Keep it smaller" />

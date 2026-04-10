@@ -412,7 +412,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
     },
     pack: {
       title: "Do you want just one printed copy or a bigger pack?",
-      description: "This is the print upsell step. Add sibling or grandparent copies now while the pages only need to be generated once.",
+      description: "Add sibling or grandparent copies now while the pages only need to be generated once.",
     },
     cover: {
       title: "Which cover mood fits this book best?",

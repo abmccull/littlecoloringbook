@@ -131,8 +131,8 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
         <BookMockupBlock
           coverSrc={proofAssets.kidPhoto}
           pageSrc={proofAssets.kidPage}
-          title="If the sample lands, 30 pages is the next move."
-          copy="Use the free page as your preview. If it feels right, the full book is ready right after that."
+          title="If the sample lands, the full book is the next move."
+          copy="Use the free page as your preview. If it feels right, choose 30, 50, or 100 pages right after that."
         />
       </section>
     </main>
