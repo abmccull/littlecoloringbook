@@ -21,6 +21,7 @@ export type LuluShippingAddress = {
 export type LuluQuote = {
   label: string;
   level: LuluShippingLevel;
+  quantity: number;
   rawPayload: Record<string, unknown>;
   service: string;
   shippingCents: number;
@@ -31,15 +32,17 @@ export type LuluQuote = {
 
 type LuluCreatePrintJobInput = {
   contactEmail: string;
-  coverUrl: string;
   externalId?: string;
-  interiorUrl: string;
+  lineItems: Array<{
+    coverUrl: string;
+    interiorUrl: string;
+    quantity: number;
+    title: string;
+  }>;
   podPackageId?: string;
   productionDelay?: number;
-  quantity: number;
   shippingAddress: LuluShippingAddress;
   shippingLevel: LuluShippingLevel;
-  title: string;
 };
 
 type LuluQuoteInput = {
@@ -206,6 +209,7 @@ export async function quoteLuluShippingOptions(input: LuluQuoteInput) {
       return {
         label: humanizeShippingLevel(level),
         level,
+        quantity: input.quantity,
         rawPayload: payload,
         service: level.toLowerCase(),
         shippingCents,
@@ -235,22 +239,20 @@ export async function createLuluPrintJob(input: LuluCreatePrintJobInput) {
     body: JSON.stringify({
       contact_email: input.contactEmail,
       external_id: input.externalId,
-      line_items: [
-        {
-          external_id: `${input.externalId ?? "littlecolorbook"}-item-1`,
-          printable_normalization: {
-            cover: {
-              source_url: input.coverUrl,
-            },
-            interior: {
-              source_url: input.interiorUrl,
-            },
-            pod_package_id: podPackageId,
+      line_items: input.lineItems.map((lineItem, index) => ({
+        external_id: `${input.externalId ?? "littlecolorbook"}-item-${index + 1}`,
+        printable_normalization: {
+          cover: {
+            source_url: lineItem.coverUrl,
           },
-          quantity: input.quantity,
-          title: input.title,
+          interior: {
+            source_url: lineItem.interiorUrl,
+          },
+          pod_package_id: podPackageId,
         },
-      ],
+        quantity: lineItem.quantity,
+        title: lineItem.title,
+      })),
       production_delay: input.productionDelay ?? 120,
       shipping_address: input.shippingAddress,
       shipping_level: input.shippingLevel,

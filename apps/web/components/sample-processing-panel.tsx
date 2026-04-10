@@ -66,7 +66,7 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
       {isReady ? (
         <div className="hero-actions">
           <button className="button button-primary" type="button" onClick={() => router.push(readyHref)}>
-            View Your Sample
+            See My Free Page
           </button>
         </div>
       ) : null}
@@ -74,10 +74,10 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
       {!isReady && !isProcessing ? (
         <div className="hero-actions">
           <button className="button button-primary" disabled={isStarting || uploadCount === 0} type="button" onClick={handleStart}>
-            {isStarting ? "Starting generation..." : "Generate My Free Sample"}
+            {isStarting ? "Creating your page..." : "Create My Free Page"}
           </button>
           <button className="button button-secondary" type="button" onClick={() => router.refresh()}>
-            Refresh Status
+            Refresh Page
           </button>
         </div>
       ) : null}
@@ -85,7 +85,7 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
       {isProcessing ? (
         <div className="hero-actions">
           <button className="button button-secondary" type="button" onClick={() => router.refresh()}>
-            Refresh Status
+            Refresh Page
           </button>
         </div>
       ) : null}

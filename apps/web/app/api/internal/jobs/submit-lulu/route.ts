@@ -8,9 +8,20 @@ import { authorizeInternalJobRequest } from "../../../../../lib/internal-jobs";
 
 const submitLuluSchema = z.object({
   orderId: z.string().trim().min(1),
-  interiorUrl: z.string().url(),
-  coverUrl: z.string().url(),
-  quantity: z.number().int().positive().default(1),
+  interiorUrl: z.string().url().optional(),
+  coverUrl: z.string().url().optional(),
+  quantity: z.number().int().positive().optional(),
+  lineItems: z
+    .array(
+      z.object({
+        coverUrl: z.string().url(),
+        interiorUrl: z.string().url(),
+        quantity: z.number().int().positive().default(1),
+        title: z.string().trim().min(1),
+      }),
+    )
+    .min(1)
+    .optional(),
   title: z.string().trim().min(1).optional(),
   contactEmail: z.string().email().optional(),
   productionDelay: z.number().int().min(0).max(1440).optional(),
@@ -64,13 +75,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Lulu requires a full shipping name and phone number." }, { status: 400 });
   }
 
+  const lineItems =
+    parsed.data.lineItems && parsed.data.lineItems.length > 0
+      ? parsed.data.lineItems
+      : parsed.data.coverUrl && parsed.data.interiorUrl
+        ? [
+            {
+              coverUrl: parsed.data.coverUrl,
+              interiorUrl: parsed.data.interiorUrl,
+              quantity: parsed.data.quantity ?? context.order.quantity ?? 1,
+              title: parsed.data.title ?? `${APP_NAME} ${context.order.id}`,
+            },
+          ]
+      : [
+          null,
+        ];
+  const normalizedLineItems = lineItems.filter((lineItem): lineItem is NonNullable<(typeof lineItems)[number]> => Boolean(lineItem));
+
+  if (normalizedLineItems.length === 0) {
+    return NextResponse.json({ error: "At least one Lulu line item is required." }, { status: 400 });
+  }
+  const quantity = normalizedLineItems.reduce((total, lineItem) => total + lineItem.quantity, 0);
+
+  if (context.selectedQuote.quantity !== quantity) {
+    return NextResponse.json({ error: "Selected shipping quote does not match the order print quantity." }, { status: 400 });
+  }
+
   const submission = await createLuluPrintJob({
     contactEmail,
-    coverUrl: parsed.data.coverUrl,
     externalId: parsed.data.orderId,
-    interiorUrl: parsed.data.interiorUrl,
+    lineItems: normalizedLineItems,
     productionDelay: parsed.data.productionDelay,
-    quantity: parsed.data.quantity,
     shippingAddress: {
       city: context.shippingAddress.city,
       country_code: context.shippingAddress.countryCode,
@@ -83,7 +118,6 @@ export async function POST(request: NextRequest) {
       street2: context.shippingAddress.line2,
     },
     shippingLevel: mapQuoteServiceToLuluLevel(context.selectedQuote.service),
-    title: parsed.data.title ?? `${APP_NAME} ${context.order.id}`,
   });
 
   if (isDatabaseConfigured()) {
@@ -107,6 +141,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     orderId: parsed.data.orderId,
     mode: "live",
+    quantity,
     providerJobId: submission.providerJobId,
     status: "submitted_to_lulu",
   });

@@ -587,6 +587,7 @@ export async function executeInternalProductRender(input: InternalProductAssetRe
       renderMarketingPage({
         childFirstName: input.childFirstName,
         deliveryMode,
+        jobKind: input.orderStyle === "sample" ? "sample" : "full_book",
         pageNumber: index + 1,
         primaryModel: renderSettings.model,
         imageSize: renderSettings.imageSize,

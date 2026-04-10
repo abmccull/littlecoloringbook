@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { trackEvent } from "./analytics-provider";
 
 type UploadDropzoneProps = {
@@ -11,9 +11,21 @@ type UploadDropzoneProps = {
   allowMultiple?: boolean;
   uploadKind?: "original" | "reference";
   buttonLabel?: string;
+  initialUploads?: Array<{
+    fileName: string;
+    objectPath?: string;
+    status: "uploaded" | "failed";
+  }>;
+  onUploadStatsChange?: (stats: {
+    total: number;
+    uploaded: number;
+    failed: number;
+    isUploading: boolean;
+  }) => void;
 };
 
 type UploadItem = {
+  id: string;
   fileName: string;
   status: "queued" | "uploading" | "uploaded" | "error";
   objectPath?: string;
@@ -35,11 +47,30 @@ export function UploadDropzone({
   allowMultiple = false,
   uploadKind = "original",
   buttonLabel = "Choose Photos",
+  initialUploads = [],
+  onUploadStatsChange,
 }: UploadDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [uploads, setUploads] = useState<UploadItem[]>(
+    initialUploads.map((upload, index) => ({
+      id: `${upload.objectPath ?? upload.fileName}-${index}`,
+      fileName: upload.fileName,
+      objectPath: upload.objectPath,
+      status: upload.status === "failed" ? "error" : "uploaded",
+    })),
+  );
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    onUploadStatsChange?.({
+      total: uploads.length,
+      uploaded: uploads.filter((item) => item.status === "uploaded").length,
+      failed: uploads.filter((item) => item.status === "error").length,
+      isUploading,
+    });
+  }, [isUploading, onUploadStatsChange, uploads]);
 
   async function uploadFile(file: File) {
     const presignResponse = await fetch("/api/uploads/presign", {
@@ -107,14 +138,21 @@ export function UploadDropzone({
 
     setErrorMessage(null);
     setIsUploading(true);
-    setUploads(files.map((file) => ({ fileName: file.name, status: "queued" })));
+    const queuedUploads = files.map((file, index) => ({
+      id: `${file.name}-${Date.now()}-${index}`,
+      fileName: file.name,
+      status: "queued" as const,
+    }));
+    setUploads((current) => [...current, ...queuedUploads]);
 
     let completedCount = 0;
 
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
+      const uploadId = queuedUploads[index]?.id;
+
       setUploads((current) =>
         current.map((item) =>
-          item.fileName === file.name ? { ...item, status: "uploading", error: undefined } : item,
+          item.id === uploadId ? { ...item, status: "uploading", error: undefined } : item,
         ),
       );
 
@@ -128,7 +166,7 @@ export function UploadDropzone({
         });
         setUploads((current) =>
           current.map((item) =>
-            item.fileName === file.name ? { ...item, status: "uploaded", objectPath } : item,
+            item.id === uploadId ? { ...item, status: "uploaded", objectPath } : item,
           ),
         );
       } catch (error) {
@@ -141,7 +179,7 @@ export function UploadDropzone({
         setErrorMessage(message);
         setUploads((current) =>
           current.map((item) =>
-            item.fileName === file.name ? { ...item, status: "error", error: message } : item,
+            item.id === uploadId ? { ...item, status: "error", error: message } : item,
           ),
         );
       }
@@ -159,9 +197,34 @@ export function UploadDropzone({
 
   return (
     <div className="upload-stack">
-      <div className="upload-dropzone">
+      <div
+        className={`upload-dropzone${isDragging ? " is-dragging" : ""}`}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setIsDragging(true);
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setIsDragging(true);
+        }}
+        onDragLeave={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.currentTarget === event.target) {
+            setIsDragging(false);
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setIsDragging(false);
+          void handleSelectedFiles(event.dataTransfer.files);
+        }}
+      >
         <div>
-          <p className="upload-kicker">Drop photos here</p>
+          <p className="upload-kicker">{allowMultiple ? "Drop photos here" : "Drop your photo here"}</p>
           <h3>{title}</h3>
           <p>{hint}</p>
         </div>
@@ -193,13 +256,13 @@ export function UploadDropzone({
 
       {uploads.length > 0 ? (
         <div className="surface upload-results">
-          <span className="pill">Upload status</span>
+          <span className="pill pill-sky">Upload status</span>
           <div className="upload-results-list">
             {uploads.map((item) => (
-              <div className="upload-result" key={`${item.fileName}-${item.objectPath ?? item.status}`}>
+              <div className="upload-result" key={item.id}>
                 <div>
                   <strong>{item.fileName}</strong>
-                  {item.objectPath ? <p className="muted">{item.objectPath}</p> : null}
+                  {item.objectPath ? <p className="muted">Ready to use in your book</p> : null}
                 </div>
                 <span className={`upload-state upload-state-${item.status}`}>{item.status}</span>
               </div>

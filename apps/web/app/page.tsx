@@ -1,7 +1,11 @@
 import { OfferCard } from "../components/offer-card";
+import { BookMockupBlock, HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "../components/proof-modules";
 import { Section } from "../components/section";
 import { TrackedLink } from "../components/tracked-link";
-import { featuredOffers, faqs, proofExamples, trustPoints, useCases } from "../lib/offers";
+import { consumerOffers, faqs, funnelCtas, guarantees, getConsumerOffer, homepageContent, parentQuotes, useCaseCards } from "../lib/consumer-content";
+
+const featuredOffer = getConsumerOffer("pdf-30");
+const upgradeOffers = consumerOffers.filter((offer) => offer.code === "pdf-50" || offer.code === "pdf-100");
 
 export default function HomePage() {
   return (
@@ -9,30 +13,29 @@ export default function HomePage() {
       <header className="topbar">
         <div className="wordmark">
           littlecolorbook.com
-          <span>family photos into coloring books</span>
+          <span>personalized coloring books from your photos</span>
         </div>
-        <TrackedLink className="button button-secondary" href="/create" eventName="home_build_book_clicked">
-          Build a Book
+        <TrackedLink className="button button-secondary" href={funnelCtas.freeSample.href} eventName="home_header_sample_clicked">
+          {funnelCtas.freeSample.label}
         </TrackedLink>
       </header>
 
-      <section className="hero">
+      <section className="hero hero-home">
         <div className="hero-copy">
-          <span className="pill">Screen-free keepsake</span>
-          <h1>Turn your family photos into a coloring book your child will love.</h1>
-          <p className="lede">
-            Upload favorite photos and get a personalized coloring book as a print-at-home PDF or a spiral-bound book delivered to your door.
-          </p>
+          <span className="pill pill-sun">{homepageContent.hero.badge}</span>
+          <h1>{homepageContent.hero.title}</h1>
+          <p className="lede">{homepageContent.hero.description}</p>
+          <p className="support-note">{homepageContent.hero.supporting}</p>
           <div className="hero-actions">
-            <TrackedLink className="button button-primary" href="/sample" eventName="home_sample_cta_clicked">
-              Get Your Free Sample Page
+            <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName={funnelCtas.freeSample.eventName}>
+              {funnelCtas.freeSample.label}
             </TrackedLink>
-            <TrackedLink className="button button-secondary" href="#offers" eventName="home_examples_clicked">
-              See Example Books
+            <TrackedLink className="button button-secondary" href={funnelCtas.seeThirtyPages.href} eventName={funnelCtas.seeThirtyPages.eventName}>
+              {funnelCtas.seeThirtyPages.label}
             </TrackedLink>
           </div>
           <div className="trust-row">
-            {trustPoints.map((point) => (
+            {homepageContent.hero.trustPoints.map((point) => (
               <div className="trust-pill" key={point}>
                 {point}
               </div>
@@ -40,123 +43,91 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="hero-proof">
-          <div>
-            <span className="pill">Proof of style</span>
-            <p className="lede" style={{ marginTop: 12 }}>
-              Start with one photo. See the style before you decide on a full book.
-            </p>
-          </div>
-          <div className="mock-preview-grid">
-            {proofExamples.slice(0, 2).map((item) => (
-              <div className="mock-preview" key={item.title}>
-                <div className="scribble" />
-                <div>
-                  <strong>{item.title}</strong>
-                  <p className="muted">{"Before -> line-art page -> child colors it."}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <HeroProofModule />
       </section>
 
+      <Section eyebrow="See it work" title={homepageContent.proofStripTitle} copy="One favorite photo becomes a coloring page, then a book worth keeping." >
+        <ProofStrip />
+      </Section>
+
       <Section
-        eyebrow="How it works"
-        title="A guided flow, not a generic AI tool."
-        copy="The product stays opinionated on purpose: strong outlines, simple layouts, one clear print format, and a low-friction buying path."
+        eyebrow="Best next step"
+        title="Start with the free sample. Move into 30 pages if it feels like an easy yes."
+        copy={homepageContent.featuredOfferIntro}
       >
-        <div className="how-grid">
-          <div className="how-step">
-            <span className="pill">1</span>
-            <h3>Upload photos</h3>
-            <p>Start with one photo for a free sample, or upload a fuller album once you are ready to buy.</p>
-          </div>
-          <div className="how-step">
-            <span className="pill">2</span>
-            <h3>We turn them into child-friendly pages</h3>
-            <p>Each page is cleaned for bold outlines, open coloring space, and print-safe margins.</p>
-          </div>
-          <div className="how-step">
-            <span className="pill">3</span>
-            <h3>Choose PDF or spiral book</h3>
-            <p>Print at home the same day, or upgrade to a spiral-bound keepsake shipped to your door.</p>
-          </div>
+        <div className="feature-split">
+          <OfferCard offer={featuredOffer} />
+          <BookMockupBlock
+            title="Easy enough for tonight. Special enough to keep."
+            copy="The PDF is for the fast win. The spiral book is for the birthday table, the grandma gift, and the version you keep long after the crayons are put away."
+          />
         </div>
       </Section>
 
       <Section
-        id="offers"
-        eyebrow="Offer ladder"
-        title="Lead with the 30-page book, then let customers trade up."
-        copy="The main merchandising strategy is simple: the 30-design offer is the default, 50 is the strongest upsell, and 100 is the value anchor."
+        eyebrow="Why moms love this"
+        title="It solves two jobs at once: something fun now, something worth keeping later."
+        copy="Easy enough for a tired weekday. Special enough to bring to a birthday or tuck away as a keepsake."
+      >
+        <UseCaseModule items={useCaseCards} />
+      </Section>
+
+      <Section
+        eyebrow="How it feels"
+        title="The product has to feel easy before it ever feels impressive."
+        copy="That is why the free sample matters so much. It helps a busy parent say yes fast."
+      >
+        <ParentQuoteBlock quotes={parentQuotes} />
+      </Section>
+
+      <Section
+        eyebrow="Free sample first"
+        title={homepageContent.sampleBlock.title}
+        copy={homepageContent.sampleBlock.description}
+      >
+        <div className="cta-band">
+          <div className="stack-tight">
+            <span className="pill pill-sky">One photo is enough to start</span>
+            <h3>Get the free page. Decide after you see it.</h3>
+            <p className="muted">No full album required up front. Just one favorite photo, one quick proof step, and a clear next move if your child loves it.</p>
+          </div>
+          <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName="home_midpage_sample_clicked">
+            {funnelCtas.freeSample.label}
+          </TrackedLink>
+        </div>
+      </Section>
+
+      <Section
+        eyebrow="Upgrade when it fits"
+        title="50 and 100 pages are there when you have more memories ready."
+        copy="If you already have a fuller camera roll, these bigger books give you more room to tell the whole story."
       >
         <div className="offer-grid">
-          {featuredOffers.map((offer) => (
+          {upgradeOffers.map((offer) => (
             <OfferCard key={offer.code} offer={offer} />
           ))}
         </div>
       </Section>
 
       <Section
-        eyebrow="Before and after"
-        title="Make the proof visual and concrete."
-        copy="The site should show real-photo inputs transformed into pages that still feel personal, not generic."
+        eyebrow="Guarantee"
+        title="The details that make it easy to trust."
+        copy="The fun part comes first. These details are here to make the purchase feel easy and low-risk."
       >
-        <div className="proof-grid">
-          {proofExamples.map((item) => (
-            <article className="proof-card" key={item.title}>
-              <div className="proof-card-visual" />
-              <h3>{item.title}</h3>
-              <p className="muted">{item.blurb}</p>
+        <div className="detail-grid three-up">
+          {guarantees.map((item) => (
+            <article className="surface detail-card" key={item.title}>
+              <span className="pill pill-mint">{item.title}</span>
+              <p className="muted">{item.detail}</p>
             </article>
           ))}
         </div>
       </Section>
 
       <Section
-        eyebrow="Use cases"
-        title="Position the product as both an activity and a gift."
-        copy="The same system supports everyday family use, birthdays, holidays, grandparents, pets, and post-trip memory books."
-      >
-        <div className="use-case-grid">
-          {useCases.map((item) => (
-            <div className="use-case" key={item}>
-              {item}
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section
-        eyebrow="Guarantees"
-        title="Reduce purchase anxiety with operational promises."
-        copy="The free sample proves the style. Paid orders include limited rerenders. Printed books that arrive damaged or misprinted should be replaced."
-      >
-        <div className="stat-row">
-          <div className="surface">
-            <span className="pill">Preview Promise</span>
-            <h3>See the style before you commit to print.</h3>
-          </div>
-          <div className="surface">
-            <span className="pill">Redo Promise</span>
-            <h3>If a few pages miss, rerender up to 3 pages free.</h3>
-          </div>
-          <div className="surface">
-            <span className="pill">Arrival Promise</span>
-            <h3>Damaged or misprinted books get replaced.</h3>
-          </div>
-          <div className="surface">
-            <span className="pill">Fast PDF</span>
-            <h3>Digital books are targeted for minutes, not days.</h3>
-          </div>
-        </div>
-      </Section>
-
-      <Section
         eyebrow="FAQ"
-        title="Answer the objections early."
-        copy="The launch doc and PRD already define the core buyer questions. Surface them on the homepage instead of hiding them below the fold."
+        title="The last questions people ask before they try it."
+        copy="Everything you need before you try the free page or move into a full book."
       >
         <div className="faq-grid">
           {faqs.map((faq) => (
@@ -167,23 +138,6 @@ export default function HomePage() {
           ))}
         </div>
       </Section>
-
-      <Section
-        eyebrow="Start here"
-        title="Start with a free page from your favorite photo."
-        copy="Do not ask cold traffic to upload 10 photos immediately. Prove the value first, then move them into the 30-design upgrade path."
-      >
-        <div className="hero-actions">
-          <TrackedLink className="button button-primary" href="/sample" eventName="home_footer_sample_cta_clicked">
-            Get Your Free Sample Page
-          </TrackedLink>
-          <TrackedLink className="button button-secondary" href="/create" eventName="home_footer_builder_clicked">
-            Skip to the Builder
-          </TrackedLink>
-        </div>
-      </Section>
-
-      <p className="footer-note">littlecolorbook.com v0 scaffold. Next step is wiring real uploads, jobs, payments, and fulfillment.</p>
     </main>
   );
 }

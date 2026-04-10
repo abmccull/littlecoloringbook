@@ -1,5 +1,13 @@
 import crypto from "node:crypto";
 import { and, desc, eq, gt, inArray, isNotNull } from "drizzle-orm";
+import {
+  getNormalizedOrderQuantity,
+  getOfferByCode,
+  getOfferSubtotalForQuantity,
+  normalizeCopyNames,
+  normalizeCoverStyle,
+  normalizePrintBundleCode,
+} from "@littlecolorbook/shared";
 import { getDatabase, isDatabaseConfigured } from "./client";
 import {
   customers,
@@ -44,6 +52,10 @@ export type CreateOrderInput = {
   deliveryMode: DeliveryMode;
   selectedOfferCode: string;
   designCount: number;
+  quantity?: number;
+  bundleSelection?: string | null;
+  coverStyle?: string | null;
+  copyNames?: Array<string | null> | null;
   childFirstName?: string | null;
   dedicationText?: string | null;
   subtotalCents?: number;
@@ -72,6 +84,7 @@ export type AddressInput = {
 export type ShippingQuoteInput = {
   service: string;
   label: string;
+  quantity?: number;
   shippingCents: number;
   window: string;
   isSelected?: boolean;
@@ -97,6 +110,10 @@ export type PortalSummary = {
     status: OrderStatus;
     selectedOfferCode: string;
     designCount: number;
+    quantity: number;
+    bundleSelection: string | null;
+    coverStyle: string;
+    copyNames: Array<string | null> | null;
     childFirstName: string | null;
     dedicationText: string | null;
     subtotalCents: number;
@@ -129,6 +146,7 @@ export type PortalSummary = {
     id: string;
     service: string;
     label: string;
+    quantity: number;
     shippingCents: number;
     window: string;
     isSelected: boolean;
@@ -233,6 +251,39 @@ function allowDevelopmentFallbacks() {
   return process.env.NODE_ENV !== "production";
 }
 
+function resolveOrderCommerce(input: {
+  currentBundleSelection?: string | null;
+  currentQuantity?: number | null;
+  currentSelectedOfferCode?: string | null;
+  quantity?: number | null;
+  bundleSelection?: string | null;
+  selectedOfferCode?: string | null;
+  shippingCents?: number | null;
+}) {
+  const offer = getOfferByCode(input.selectedOfferCode ?? input.currentSelectedOfferCode ?? "pdf-30");
+  const bundleSelection = offer.format === "print" ? normalizePrintBundleCode(input.bundleSelection ?? input.currentBundleSelection ?? null) : null;
+  const quantity = getNormalizedOrderQuantity({
+    format: offer.format,
+    quantity: input.quantity ?? input.currentQuantity ?? 1,
+    bundleSelection,
+  });
+  const subtotalCents = getOfferSubtotalForQuantity(offer, {
+    quantity,
+    bundleSelection,
+  });
+  const shippingCents = Math.max(0, Math.trunc(input.shippingCents ?? 0));
+
+  return {
+    selectedOfferCode: offer.code,
+    designCount: offer.designs,
+    quantity,
+    bundleSelection,
+    subtotalCents,
+    shippingCents,
+    totalCents: subtotalCents + shippingCents,
+  };
+}
+
 export async function upsertCustomerByEmail(input: UpsertCustomerInput) {
   const normalizedEmail = normalizeEmail(input.email);
   const customer = {
@@ -287,20 +338,31 @@ export async function createOrderDraft(input: CreateOrderInput) {
     email: input.email,
   });
 
+  const initialCommerce = resolveOrderCommerce({
+    selectedOfferCode: input.selectedOfferCode,
+    quantity: input.quantity ?? 1,
+    bundleSelection: input.bundleSelection ?? null,
+    shippingCents: input.shippingCents ?? 0,
+  });
+
   const order = {
     id: createId("ord"),
     customerId: customer.id,
     orderType: input.orderType,
     deliveryMode: input.deliveryMode,
     status: "draft" as OrderStatus,
-    selectedOfferCode: input.selectedOfferCode,
-    designCount: input.designCount,
+    selectedOfferCode: initialCommerce.selectedOfferCode,
+    designCount: initialCommerce.designCount,
+    quantity: initialCommerce.quantity,
+    bundleSelection: initialCommerce.bundleSelection,
+    coverStyle: normalizeCoverStyle(input.coverStyle),
+    copyNames: normalizeCopyNames(input.copyNames, initialCommerce.quantity),
     childFirstName: input.childFirstName ?? null,
     dedicationText: input.dedicationText ?? null,
     currency: "usd",
-    subtotalCents: input.subtotalCents ?? 0,
-    shippingCents: input.shippingCents ?? 0,
-    totalCents: input.totalCents ?? 0,
+    subtotalCents: initialCommerce.subtotalCents,
+    shippingCents: initialCommerce.shippingCents,
+    totalCents: initialCommerce.totalCents,
     stripeCheckoutSessionId: null,
     stripePaymentIntentId: null,
     luluPrintJobId: null,
@@ -340,6 +402,10 @@ export async function createOrderDraft(input: CreateOrderInput) {
       orderType: input.orderType,
       deliveryMode: input.deliveryMode,
       selectedOfferCode: input.selectedOfferCode,
+      quantity: order.quantity,
+      bundleSelection: order.bundleSelection,
+      coverStyle: order.coverStyle,
+      copyNames: order.copyNames,
     },
     createdAt: now(),
   });
@@ -494,6 +560,7 @@ export async function saveShippingQuotes(orderId: string, quotes: ShippingQuoteI
     orderId,
     service: quote.service,
     label: quote.label,
+    quantity: quote.quantity ?? 1,
     shippingCents: quote.shippingCents,
     window: quote.window,
     isSelected: quote.isSelected ?? false,
@@ -525,6 +592,68 @@ export async function saveShippingQuotes(orderId: string, quotes: ShippingQuoteI
     ...quote,
     databaseConfigured: true,
   }));
+}
+
+export async function updateOrderCommerceSelection(input: {
+  orderId: string;
+  selectedOfferCode?: string | null;
+  quantity?: number | null;
+  bundleSelection?: string | null;
+  shippingCents?: number | null;
+}) {
+  const commerce = resolveOrderCommerce({
+    currentSelectedOfferCode: input.selectedOfferCode ?? null,
+    quantity: input.quantity,
+    bundleSelection: input.bundleSelection,
+    shippingCents: input.shippingCents,
+    currentQuantity: input.quantity,
+  });
+
+  if (!isDatabaseConfigured()) {
+    return {
+      orderId: input.orderId,
+      ...commerce,
+      databaseConfigured: false,
+    };
+  }
+
+  const db = getDatabase();
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, input.orderId),
+  });
+
+  if (!order) {
+    throw new Error("Order not found for commerce update.");
+  }
+
+  const updated = {
+    ...resolveOrderCommerce({
+      currentSelectedOfferCode: order.selectedOfferCode,
+      currentQuantity: order.quantity,
+      currentBundleSelection: order.bundleSelection,
+      selectedOfferCode: input.selectedOfferCode ?? order.selectedOfferCode,
+      quantity: input.quantity ?? order.quantity,
+      bundleSelection: input.bundleSelection ?? order.bundleSelection,
+      shippingCents: input.shippingCents ?? order.shippingCents,
+    }),
+    updatedAt: now(),
+  };
+
+  await db.update(orders).set(updated).where(eq(orders.id, input.orderId));
+  await appendOrderEvent(input.orderId, "order.commerce_updated", {
+    selectedOfferCode: updated.selectedOfferCode,
+    quantity: updated.quantity,
+    bundleSelection: updated.bundleSelection,
+    subtotalCents: updated.subtotalCents,
+    shippingCents: updated.shippingCents,
+    totalCents: updated.totalCents,
+  });
+
+  return {
+    ...order,
+    ...updated,
+    databaseConfigured: true,
+  };
 }
 
 export async function getOrderById(orderId: string) {
@@ -625,6 +754,9 @@ export async function getOrderByStripeCheckoutSessionId(stripeCheckoutSessionId:
 export async function attachStripeCheckoutSessionToOrder(input: {
   orderId: string;
   stripeCheckoutSessionId: string;
+  selectedOfferCode?: string | null;
+  quantity?: number | null;
+  bundleSelection?: string | null;
   shippingQuoteId?: string | null;
 }) {
   if (!isDatabaseConfigured()) {
@@ -645,8 +777,18 @@ export async function attachStripeCheckoutSessionToOrder(input: {
     throw new Error("Order not found for checkout session attachment.");
   }
 
+  const commerceSelection = resolveOrderCommerce({
+    currentSelectedOfferCode: order.selectedOfferCode,
+    currentQuantity: order.quantity,
+    currentBundleSelection: order.bundleSelection,
+    selectedOfferCode: input.selectedOfferCode ?? order.selectedOfferCode,
+    quantity: input.quantity ?? order.quantity,
+    bundleSelection: input.bundleSelection ?? order.bundleSelection,
+    shippingCents: order.shippingCents,
+  });
+
   let shippingCents = order.shippingCents;
-  let totalCents = order.totalCents;
+  let totalCents = commerceSelection.totalCents;
 
   if (input.shippingQuoteId) {
     const selectedQuote = await db.query.shippingQuotes.findFirst({
@@ -657,16 +799,25 @@ export async function attachStripeCheckoutSessionToOrder(input: {
       throw new Error("Shipping quote not found for checkout session attachment.");
     }
 
+    if (selectedQuote.quantity !== commerceSelection.quantity) {
+      throw new Error("Selected shipping quote does not match the current print quantity.");
+    }
+
     await db.update(shippingQuotes).set({ isSelected: false }).where(eq(shippingQuotes.orderId, input.orderId));
     await db.update(shippingQuotes).set({ isSelected: true }).where(eq(shippingQuotes.id, selectedQuote.id));
 
     shippingCents = selectedQuote.shippingCents;
-    totalCents = order.subtotalCents + selectedQuote.shippingCents;
+    totalCents = commerceSelection.subtotalCents + selectedQuote.shippingCents;
   }
 
   const updated = {
     status: "awaiting_payment" as OrderStatus,
     stripeCheckoutSessionId: input.stripeCheckoutSessionId,
+    selectedOfferCode: commerceSelection.selectedOfferCode,
+    designCount: commerceSelection.designCount,
+    quantity: commerceSelection.quantity,
+    bundleSelection: commerceSelection.bundleSelection,
+    subtotalCents: commerceSelection.subtotalCents,
     shippingCents,
     totalCents,
     updatedAt: now(),
@@ -676,7 +827,11 @@ export async function attachStripeCheckoutSessionToOrder(input: {
   await appendOrderEvent(input.orderId, "checkout.session_created", {
     stripeCheckoutSessionId: input.stripeCheckoutSessionId,
     shippingQuoteId: input.shippingQuoteId ?? null,
+    selectedOfferCode: commerceSelection.selectedOfferCode,
+    quantity: commerceSelection.quantity,
+    bundleSelection: commerceSelection.bundleSelection,
     shippingCents,
+    subtotalCents: commerceSelection.subtotalCents,
     totalCents,
   });
 
@@ -1353,6 +1508,10 @@ function buildDemoPortalSummary(portalKey: string): PortalSummary {
       status: "pdf_ready",
       selectedOfferCode: "pdf-30",
       designCount: 30,
+      quantity: 1,
+      bundleSelection: null,
+      coverStyle: "storybook",
+      copyNames: null,
       childFirstName: "Mila",
       dedicationText: "Made for rainy afternoons.",
       subtotalCents: 2900,
@@ -1467,6 +1626,10 @@ async function buildPortalSummaryFromOrder(order: typeof orders.$inferSelect, po
       status: order.status,
       selectedOfferCode: order.selectedOfferCode,
       designCount: order.designCount,
+      quantity: order.quantity,
+      bundleSelection: order.bundleSelection,
+      coverStyle: order.coverStyle,
+      copyNames: order.copyNames,
       childFirstName: order.childFirstName,
       dedicationText: order.dedicationText,
       subtotalCents: order.subtotalCents,
@@ -1503,6 +1666,7 @@ async function buildPortalSummaryFromOrder(order: typeof orders.$inferSelect, po
       id: quote.id,
       service: quote.service,
       label: quote.label,
+      quantity: quote.quantity,
       shippingCents: quote.shippingCents,
       window: quote.window,
       isSelected: quote.isSelected,

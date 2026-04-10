@@ -1,13 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
-import { OfferCard } from "../../../components/offer-card";
+import { BookMockupBlock } from "../../../components/proof-modules";
 import { SampleProcessingPanel } from "../../../components/sample-processing-panel";
 import { TrackPageEvent } from "../../../components/track-page-event";
 import { UploadDropzone } from "../../../components/upload-dropzone";
-import { featuredOffers } from "../../../lib/offers";
+import { proofAssets } from "../../../lib/consumer-content";
 
 const activeStatuses = new Set(["preprocessing", "generating", "qa_review"]);
+const statusLabels: Record<string, string> = {
+  draft: "Waiting for your photo",
+  preprocessing: "Turning the photo into coloring lines",
+  generating: "Building your page",
+  qa_review: "Checking the final page",
+  pdf_ready: "Ready to preview",
+};
 
 type SampleProcessingPageProps = {
   searchParams: Promise<{
@@ -23,12 +30,12 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
     return (
       <main>
         <section className="sample-frame">
-          <span className="pill">Sample in progress</span>
-          <h1>Start from the sample page first.</h1>
-          <p className="lede">This step expects a real sample token so it can show upload state and processing status.</p>
+          <span className="pill pill-sun">Free sample</span>
+          <h1>Start your free sample, then upload the photo here.</h1>
+          <p className="lede">This page only works after the sample step creates your private upload link.</p>
           <div className="hero-actions">
             <Link className="button button-primary" href="/sample">
-              Go to Free Sample
+              Start My Free Sample
             </Link>
           </div>
         </section>
@@ -42,8 +49,9 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
     return (
       <main>
         <section className="sample-frame">
-          <span className="pill">Sample not found</span>
-          <h1>We could not find that sample.</h1>
+          <span className="pill pill-coral">Sample not found</span>
+          <h1>We couldn't find that sample link.</h1>
+          <p className="lede">The safest next step is to start a new free sample so the photo and preview stay tied to the right email.</p>
           <div className="hero-actions">
             <Link className="button button-primary" href="/sample">
               Start a New Sample
@@ -72,38 +80,44 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
         }}
       />
       <section className="sample-frame">
-        <span className="pill">Sample in progress</span>
-        <h1>{uploadedCount === 0 ? "Upload one photo to continue." : isProcessing ? "Your page is being created." : "Your photo is uploaded and ready."}</h1>
+        <span className="pill pill-sun">{uploadedCount === 0 ? "Step 2 of 2" : isProcessing ? "Free page in progress" : "Photo uploaded"}</span>
+        <h1>
+          {uploadedCount === 0
+            ? "Upload the photo you want to turn into a page."
+            : isProcessing
+              ? "Your free page is on the way."
+              : "Your photo is ready when you are."}
+        </h1>
         <p className="lede">
           {uploadedCount === 0
-            ? "This sample order already exists. Upload one favorite photo so the generation worker has a real source image to process."
+            ? "Pick one clear favorite. We only need one photo for the sample."
             : isProcessing
-              ? "The worker is now building the preview page. Refresh this screen in a few moments or come back from the email link when it is ready."
-              : "The upload is attached to the sample order. Start generation when you are ready."}
+              ? "This page is your guided waiting room. We're turning your photo into bold coloring lines now."
+              : "Your photo is attached. When you hit the button, we'll start building the sample page."}
         </p>
 
-        <div className="status-banner">
-          Status: <strong>{summary.order.status.replaceAll("_", " ")}</strong>
-          {summary.order.childFirstName ? ` for ${summary.order.childFirstName}` : ""}
+        <div className="status-banner status-banner-progress">
+          <strong>{statusLabels[summary.order.status] ?? summary.order.status.replaceAll("_", " ")}</strong>
+          <span>{uploadedCount === 0 ? "Upload one photo to continue." : "Refresh this page in a moment if it is still working."}</span>
         </div>
 
         {uploadedCount === 0 ? (
           <UploadDropzone
             title="Upload one favorite photo"
-            hint="The upload now lands on the real sample order. Once the file is uploaded, use the button below to start generation."
+            hint="Close-up kid portraits, one clear family moment, and pet photos work best."
             entityType="sample"
             entityId={summary.order.id}
-            buttonLabel="Choose Sample Photo"
+            buttonLabel="Choose My Photo"
           />
         ) : (
           <div className="surface upload-results">
-            <span className="pill">Uploaded photo</span>
+            <span className="pill pill-mint">Photo ready</span>
             <div className="upload-results-list">
               {summary.uploads.map((upload) => (
                 <div className="upload-result" key={upload.id}>
                   <div>
                     <strong>{upload.fileName}</strong>
-                    <p className="muted">{upload.objectPath}</p>
+                    <p className="muted">Attached to your free sample</p>
                   </div>
                   <span className={`upload-state upload-state-${upload.status}`}>{upload.status}</span>
                 </div>
@@ -114,11 +128,12 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
 
         <SampleProcessingPanel orderId={summary.order.id} readyHref={`/sample/${token}`} status={summary.order.status} uploadCount={uploadedCount} />
 
-        <div className="offer-grid">
-          {featuredOffers.map((offer) => (
-            <OfferCard key={offer.code} offer={offer} href="/create" />
-          ))}
-        </div>
+        <BookMockupBlock
+          coverSrc={proofAssets.kidPhoto}
+          pageSrc={proofAssets.kidPage}
+          title="If the sample lands, 30 pages is the next move."
+          copy="Use the free page as your preview. If it feels right, the full book is ready right after that."
+        />
       </section>
     </main>
   );

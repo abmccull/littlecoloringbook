@@ -12,8 +12,8 @@ type SampleCreateResponse = {
 
 export function SampleStartForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("parent@example.com");
-  const [childFirstName, setChildFirstName] = useState("Mila");
+  const [email, setEmail] = useState("");
+  const [childFirstName, setChildFirstName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -63,19 +63,26 @@ export function SampleStartForm() {
       <div className="form-grid">
         <label>
           <span className="muted">Email</span>
-          <input className="input" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <input
+            className="input"
+            placeholder="you@example.com"
+            required
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
         </label>
         <label>
-          <span className="muted">Child first name (optional)</span>
-          <input className="input" value={childFirstName} onChange={(event) => setChildFirstName(event.target.value)} />
+          <span className="muted">Child first name for the cover (optional)</span>
+          <input className="input" placeholder="Mila" value={childFirstName} onChange={(event) => setChildFirstName(event.target.value)} />
         </label>
       </div>
 
       <div className="surface">
-        <span className="pill">How it works</span>
-        <h3>Create the sample first, then upload one photo.</h3>
+        <span className="pill pill-sky">What you get</span>
+        <h3>One printable page from one favorite photo.</h3>
         <p className="muted">
-          This gives the app a real order ID up front so the upload, generation job, preview, and email all stay tied to the same sample record.
+          We'll save your sample first, then take you to the photo-upload step so your preview stays connected to the right inbox.
         </p>
       </div>
 
@@ -83,7 +90,7 @@ export function SampleStartForm() {
 
       <div className="hero-actions">
         <button className="button button-primary" disabled={isSubmitting} type="submit">
-          {isSubmitting ? "Starting sample..." : "Continue to Sample Upload"}
+          {isSubmitting ? "Starting sample..." : "Continue to My Free Sample"}
         </button>
       </div>
     </form>

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOrderById, isDatabaseConfigured, saveShippingQuotes, upsertOrderAddress } from "@littlecolorbook/db";
-import { estimateInteriorPageCount } from "@littlecolorbook/shared";
+import {
+  getOrderById,
+  isDatabaseConfigured,
+  saveShippingQuotes,
+  updateOrderCommerceSelection,
+  upsertOrderAddress,
+} from "@littlecolorbook/db";
+import { estimateInteriorPageCount, getNormalizedOrderQuantity, getOfferByCode } from "@littlecolorbook/shared";
 import { isLuluShippingConfigured, quoteLuluShippingOptions } from "../../../../../lib/lulu";
 import { z } from "zod";
 
@@ -13,28 +19,34 @@ const quoteRequestSchema = z.object({
   postalCode: z.string().trim().min(3),
   countryCode: z.string().trim().length(2).default("US"),
   phone: z.string().trim().optional(),
+  quantity: z.number().int().positive().optional(),
+  bundleSelection: z.string().trim().optional(),
 });
 
 function shouldAllowDevQuoteFallback() {
   return process.env.NODE_ENV !== "production";
 }
 
-function getDevQuotes() {
+function getDevQuotes(quantity: number) {
+  const additionalCopies = Math.max(0, quantity - 1);
+
   return [
     {
       service: "ground",
       label: "Ground",
-      shippingCents: 895,
+      quantity,
+      shippingCents: 895 + additionalCopies * 250,
       window: "4-6 business days",
       isSelected: true,
-      quotePayload: { carrier: "lulu-dev-fallback" },
+      quotePayload: { carrier: "lulu-dev-fallback", quantity },
     },
     {
       service: "expedited",
       label: "Expedited",
-      shippingCents: 1495,
+      quantity,
+      shippingCents: 1495 + additionalCopies * 350,
       window: "3-5 business days",
-      quotePayload: { carrier: "lulu-dev-fallback" },
+      quotePayload: { carrier: "lulu-dev-fallback", quantity },
     },
   ];
 }
@@ -64,6 +76,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
+  const selectedOffer = getOfferByCode(existingOrder?.selectedOfferCode ?? "print-30");
+  const quantity = getNormalizedOrderQuantity({
+    format: selectedOffer.format,
+    quantity: parsed.data.quantity ?? existingOrder?.quantity ?? 1,
+    bundleSelection: parsed.data.bundleSelection ?? existingOrder?.bundleSelection ?? null,
+  });
+  const bundleSelection = parsed.data.bundleSelection ?? existingOrder?.bundleSelection ?? null;
+
   await upsertOrderAddress(orderId, {
     fullName: parsed.data.fullName ?? null,
     line1: parsed.data.line1,
@@ -75,18 +95,31 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     phone: parsed.data.phone ?? null,
   });
 
+  if (isDatabaseConfigured()) {
+    await updateOrderCommerceSelection({
+      orderId,
+      selectedOfferCode: existingOrder?.selectedOfferCode ?? selectedOffer.code,
+      quantity,
+      bundleSelection,
+      shippingCents: 0,
+    });
+  }
+
   if (!isLuluShippingConfigured()) {
     if (!shouldAllowDevQuoteFallback()) {
       return NextResponse.json({ error: "Lulu shipping is not configured." }, { status: 503 });
     }
 
-    const quotes = await saveShippingQuotes(orderId, getDevQuotes());
+    const quotes = await saveShippingQuotes(orderId, getDevQuotes(quantity));
     return NextResponse.json({
       orderId,
+      quantity,
+      bundleSelection,
       quotes: quotes.map((quote) => ({
         id: quote.id,
         service: quote.service,
         label: quote.label,
+        quantity: quote.quantity,
         shippingCents: quote.shippingCents,
         window: quote.window,
         isSelected: quote.isSelected,
@@ -103,8 +136,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
 
   try {
     const liveQuotes = await quoteLuluShippingOptions({
-      pageCount: estimateInteriorPageCount(existingOrder?.designCount ?? 30),
-      quantity: 1,
+      pageCount: estimateInteriorPageCount(existingOrder?.designCount ?? selectedOffer.designs),
+      quantity,
       shippingAddress: {
         city: parsed.data.city,
         country_code: parsed.data.countryCode,
@@ -126,6 +159,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
       liveQuotes.map((quote, index) => ({
         service: quote.service,
         label: quote.label,
+        quantity: quote.quantity,
         shippingCents: quote.shippingCents,
         window: quote.window,
         isSelected: index === 0,
@@ -135,10 +169,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
 
     return NextResponse.json({
       orderId,
+      quantity,
+      bundleSelection,
       quotes: quotes.map((quote) => ({
         id: quote.id,
         service: quote.service,
         label: quote.label,
+        quantity: quote.quantity,
         shippingCents: quote.shippingCents,
         window: quote.window,
         isSelected: quote.isSelected,
@@ -153,13 +190,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
       return NextResponse.json({ error: message }, { status: 502 });
     }
 
-    const quotes = await saveShippingQuotes(orderId, getDevQuotes());
+    const quotes = await saveShippingQuotes(orderId, getDevQuotes(quantity));
     return NextResponse.json({
       orderId,
+      quantity,
+      bundleSelection,
       quotes: quotes.map((quote) => ({
         id: quote.id,
         service: quote.service,
         label: quote.label,
+        quantity: quote.quantity,
         shippingCents: quote.shippingCents,
         window: quote.window,
         isSelected: quote.isSelected,

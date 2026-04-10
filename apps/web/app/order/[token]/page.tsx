@@ -20,30 +20,47 @@ function formatDate(value: Date | string) {
   }).format(new Date(value));
 }
 
+function prettify(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 const statusCopy: Record<string, string> = {
-  draft: "Your order draft is created. Finish checkout to start generation.",
-  awaiting_payment: "Checkout is open. Once payment clears, the generation queue starts automatically.",
-  paid: "Payment is confirmed and the job is entering the generation queue.",
-  preprocessing: "We are normalizing uploads and preparing the page plan.",
-  generating: "The coloring-page generation pass is running now.",
-  qa_review: "Pages are in the cleanup and QA pass.",
-  assembling_pdf: "The final PDF assets are being assembled.",
-  pdf_ready: "Your PDF is ready. Download it below or come back from this portal anytime.",
-  awaiting_print_submission: "The print file is ready and waiting to be submitted to Lulu.",
-  submitted_to_lulu: "The print order was submitted to Lulu and is waiting to enter production.",
-  in_production: "Lulu is printing and binding the book now.",
-  shipped: "The printed book has shipped.",
-  delivered: "The printed book shows as delivered.",
-  failed: "This order needs manual attention. Reach out and we will fix it.",
-  support_required: "This order is under manual review. Support is working on it.",
+  draft: "Your book is started. Finish checkout whenever you're ready.",
+  awaiting_payment: "Checkout is still open. Once payment clears, we start building the book automatically.",
+  paid: "Payment is confirmed and your book is getting started.",
+  preprocessing: "We're organizing the uploads and planning the pages.",
+  generating: "We're turning your photos into coloring pages now.",
+  qa_review: "We're polishing the pages so they print cleanly.",
+  assembling_pdf: "We're packaging the final PDF.",
+  pdf_ready: "Your PDF is ready below.",
+  awaiting_print_submission: "Your digital files are ready and the printed book is next.",
+  submitted_to_lulu: "The spiral book has been sent to print.",
+  in_production: "Your spiral book is being printed and bound.",
+  shipped: "Your printed book is on the way.",
+  delivered: "Your printed book shows as delivered.",
+  failed: "This order needs manual attention. Email us and we'll fix it.",
+  support_required: "This order is under manual review. We'll keep you posted.",
   refunded: "This order was refunded.",
 };
 
 function getMilestones(summary: PortalSummary) {
   const steps =
     summary.order.deliveryMode === "print"
-      ? ["paid", "generating", "pdf_ready", "submitted_to_lulu", "in_production", "shipped"]
-      : ["paid", "generating", "pdf_ready"];
+      ? [
+          { key: "paid", label: "Order confirmed" },
+          { key: "generating", label: "Pages in progress" },
+          { key: "pdf_ready", label: "PDF ready" },
+          { key: "submitted_to_lulu", label: "Sent to print" },
+          { key: "in_production", label: "Printing" },
+          { key: "shipped", label: "Shipped" },
+        ]
+      : [
+          { key: "paid", label: "Order confirmed" },
+          { key: "generating", label: "Pages in progress" },
+          { key: "pdf_ready", label: "PDF ready" },
+        ];
 
   const statusIndex = (() => {
     switch (summary.order.status) {
@@ -73,8 +90,7 @@ function getMilestones(summary: PortalSummary) {
   })();
 
   return steps.map((step, index) => ({
-    key: step,
-    label: step.replaceAll("_", " "),
+    ...step,
     completed: index <= statusIndex,
     current: index === statusIndex,
   }));
@@ -91,6 +107,17 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
   const offer = getOfferByCode(summary.order.selectedOfferCode);
   const milestones = getMilestones(summary);
   const downloadHref = summary.assets.downloadPdfPath || summary.assets.interiorPdfPath ? `/api/orders/portal/${token}/download` : null;
+  const supportEmail = process.env.SUPPORT_EMAIL ?? "support@littlecolorbook.com";
+  const supportHref = `mailto:${supportEmail}`;
+  const upsellSubject =
+    summary.order.deliveryMode === "print"
+      ? `Extra spiral copy request for order ${summary.order.id}`
+      : `Add spiral book for order ${summary.order.id}`;
+  const upsellBody =
+    summary.order.deliveryMode === "print"
+      ? `Hi, I would like to order an extra printed copy for order ${summary.order.id}.`
+      : `Hi, I would like to add the printed spiral book for order ${summary.order.id}.`;
+  const upsellHref = `mailto:${supportEmail}?subject=${encodeURIComponent(upsellSubject)}&body=${encodeURIComponent(upsellBody)}`;
 
   return (
     <main>
@@ -104,12 +131,12 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
         }}
       />
       <section className="portal-card">
-        <span className="pill">Customer portal</span>
+        <span className="pill pill-sun">Your order</span>
         <h1>{offer.title}</h1>
-        <p className="lede">{statusCopy[summary.order.status] ?? "We will keep this portal updated as the order moves forward."}</p>
-        <div className="status-banner">
-          <span className={`status-pill status-pill-${summary.order.status}`}>{summary.order.status.replaceAll("_", " ")}</span>
-          <span>{summary.customer?.email ?? "guest checkout"}</span>
+        <p className="lede">{statusCopy[summary.order.status] ?? "We'll keep this page updated as your order moves forward."}</p>
+        <div className="status-banner status-banner-progress">
+          <span className={`status-pill status-pill-${summary.order.status}`}>{prettify(summary.order.status)}</span>
+          <span>{summary.customer?.email ?? "Guest checkout"}</span>
         </div>
 
         <div className="key-value-grid">
@@ -118,7 +145,7 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
             <strong>{formatMoney(summary.order.totalCents)}</strong>
           </div>
           <div>
-            <span className="muted">Design count</span>
+            <span className="muted">Pages</span>
             <strong>{summary.order.designCount}</strong>
           </div>
           <div>
@@ -126,7 +153,11 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
             <strong>{formatDate(summary.order.createdAt)}</strong>
           </div>
           <div>
-            <span className="muted">Child name</span>
+            <span className="muted">Printed copies</span>
+            <strong>{summary.order.deliveryMode === "print" ? summary.order.quantity : "Digital only"}</strong>
+          </div>
+          <div>
+            <span className="muted">Cover name</span>
             <strong>{summary.order.childFirstName ?? "Not provided"}</strong>
           </div>
         </div>
@@ -135,7 +166,7 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
           {milestones.map((step) => (
             <div className={`surface progress-step ${step.completed ? "is-complete" : ""} ${step.current ? "is-current" : ""}`} key={step.key}>
               <strong>{step.label}</strong>
-              <p className="muted">{step.completed ? "Complete" : step.current ? "In progress" : "Pending"}</p>
+              <p className="muted">{step.completed ? "Done" : step.current ? "In progress" : "Coming next"}</p>
             </div>
           ))}
         </div>
@@ -150,22 +181,22 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
               PDF not ready yet
             </button>
           )}
-          <Link className="button button-secondary" href={`mailto:${process.env.SUPPORT_EMAIL ?? "support@littlecolorbook.com"}`}>
+          <a className="button button-secondary" href={supportHref}>
             Request Help
-          </Link>
+          </a>
         </div>
       </section>
 
       <section className="section portal-grid-two">
         <div className="surface">
-          <span className="pill">Uploads</span>
+          <span className="pill pill-sky">Uploaded photos</span>
           {summary.uploads.length > 0 ? (
             <div className="upload-results-list">
               {summary.uploads.map((upload) => (
                 <div className="upload-result" key={upload.id}>
                   <div>
                     <strong>{upload.fileName}</strong>
-                    <p className="muted">{upload.objectPath}</p>
+                    <p className="muted">Added to your book</p>
                   </div>
                   <span className={`upload-state upload-state-${upload.status}`}>{upload.status}</span>
                 </div>
@@ -177,15 +208,19 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
         </div>
 
         <div className="surface">
-          <span className="pill">Delivery</span>
+          <span className="pill pill-coral">Delivery</span>
           <div className="timeline-list">
             <div className="timeline-item">
-              <strong>{summary.order.deliveryMode === "print" ? "Print + PDF" : "PDF only"}</strong>
-              <p className="muted">{offer.priceLabel}</p>
+              <strong>{summary.order.deliveryMode === "print" ? "Giftable Spiral Book + PDF" : "Print Tonight PDF"}</strong>
+              <p className="muted">
+                {summary.order.deliveryMode === "print"
+                  ? `${summary.order.quantity} printed ${summary.order.quantity === 1 ? "copy" : "copies"}`
+                  : offer.priceLabel}
+              </p>
             </div>
             {summary.fulfillment ? (
               <div className="timeline-item">
-                <strong>{summary.fulfillment.status.replaceAll("_", " ")}</strong>
+                <strong>{prettify(summary.fulfillment.status)}</strong>
                 <p className="muted">{summary.fulfillment.trackingUrl ?? summary.fulfillment.shippingService ?? "Tracking pending"}</p>
               </div>
             ) : null}
@@ -202,16 +237,33 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
       </section>
 
       <section className="section">
+        <div className="cta-band">
+          <div className="stack-tight">
+            <span className="pill pill-mint">{summary.order.deliveryMode === "print" ? "Need another copy?" : "Want the spiral book too?"}</span>
+            <h3>{summary.order.deliveryMode === "print" ? "Need more copies for siblings or grandparents?" : "We can add the printed spiral version for you."}</h3>
+            <p className="muted">
+              {summary.order.deliveryMode === "print"
+                ? "Reply from the button below and we can help you add more printed copies without rebuilding the whole book."
+                : "Reply from the button below if you want to turn this order into a giftable spiral book too."}
+            </p>
+          </div>
+          <a className="button button-primary" href={upsellHref}>
+            {summary.order.deliveryMode === "print" ? "Ask About Extra Copies" : "Add the Spiral Book"}
+          </a>
+        </div>
+      </section>
+
+      <section className="section">
         <div className="section-copy">
-          <span className="pill">Timeline</span>
-          <h2>Recent updates</h2>
-          <p className="lede">Every significant order event is recorded here so parents can follow the pipeline from payment through delivery.</p>
+          <span className="pill pill-sun">Recent updates</span>
+          <h2>Order history</h2>
+          <p className="lede">Every meaningful update shows up here as your order moves from payment to delivery.</p>
         </div>
         <div className="timeline-list">
           {summary.events.length > 0 ? (
             summary.events.map((event) => (
               <div className="timeline-item" key={event.id}>
-                <strong>{event.eventType}</strong>
+                <strong>{prettify(event.eventType)}</strong>
                 <p className="muted">{formatDate(event.createdAt)}</p>
               </div>
             ))

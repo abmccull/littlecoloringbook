@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUploadPlaceholder, isDatabaseConfigured } from "@littlecolorbook/db";
 import { z } from "zod";
 import { buildAssetPath, createSignedUploadUrl, sanitizeObjectName } from "@littlecolorbook/shared/storage";
-import { getIntegrationStatus } from "@littlecolorbook/shared/env";
+import { getIntegrationStatus, getStorageEnvIssues } from "@littlecolorbook/shared/env";
 
 const presignRequestSchema = z.object({
   entityType: z.enum(["sample", "order"]),
@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
   if (!integrations.gcsConfigured) {
     return NextResponse.json(
       {
-        error: "Google Cloud Storage is not configured",
+        error: "Google Cloud Storage is not configured correctly.",
+        issues: getStorageEnvIssues(),
       },
       { status: 503 },
     );
@@ -49,24 +50,42 @@ export async function POST(request: NextRequest) {
     `${Date.now()}-${safeFileName}`,
   ]);
 
-  await createUploadPlaceholder({
-    orderId: parsed.data.entityId,
-    fileName: parsed.data.fileName,
-    contentType: parsed.data.contentType,
-    objectPath,
-    kind: parsed.data.uploadKind,
-  });
+  try {
+    await createUploadPlaceholder({
+      orderId: parsed.data.entityId,
+      fileName: parsed.data.fileName,
+      contentType: parsed.data.contentType,
+      objectPath,
+      kind: parsed.data.uploadKind,
+    });
 
-  const signedUpload = await createSignedUploadUrl({
-    bucket: "uploads",
-    objectPath,
-    contentType: parsed.data.contentType,
-  });
+    const signedUpload = await createSignedUploadUrl({
+      bucket: "uploads",
+      objectPath,
+      contentType: parsed.data.contentType,
+    });
 
-  return NextResponse.json({
-    objectPath,
-    bucket: "uploads",
-    databaseConfigured: isDatabaseConfigured(),
-    ...signedUpload,
-  });
+    return NextResponse.json({
+      objectPath,
+      bucket: "uploads",
+      databaseConfigured: isDatabaseConfigured(),
+      ...signedUpload,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          error: "Google Cloud Storage configuration is invalid.",
+          issues: error.issues.map((issue) => ({
+            path: issue.path.join(".") || "root",
+            message: issue.message,
+          })),
+        },
+        { status: 503 },
+      );
+    }
+
+    const message = error instanceof Error ? error.message : "Could not create an upload URL.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

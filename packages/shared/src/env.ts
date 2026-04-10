@@ -54,6 +54,11 @@ export type MarketingVideoEnv = {
   apiUrl: string;
 };
 
+export type EnvValidationIssue = {
+  path: string;
+  message: string;
+};
+
 const rawLuluEnvSchema = z.object({
   LULU_CLIENT_KEY: z.string().min(1, "LULU_CLIENT_KEY is required"),
   LULU_CLIENT_SECRET: z.string().min(1, "LULU_CLIENT_SECRET is required"),
@@ -113,6 +118,32 @@ function getNonEmptyEnvValue(value: string | undefined) {
 
 function getResolvedLuluApiBaseUrl() {
   return getNonEmptyEnvValue(process.env.LULU_API_BASE_URL) ?? "https://api.lulu.com";
+}
+
+function formatZodIssues(issues: z.ZodIssue[]): EnvValidationIssue[] {
+  return issues.map((issue) => ({
+    path: issue.path.join(".") || "root",
+    message: issue.message,
+  }));
+}
+
+function getRawStorageEnv() {
+  return {
+    GCS_PROJECT_ID: process.env.GCS_PROJECT_ID,
+    GCS_CLIENT_EMAIL: process.env.GCS_CLIENT_EMAIL,
+    GCS_PRIVATE_KEY: process.env.GCS_PRIVATE_KEY,
+    GCS_BUCKET_UPLOADS: process.env.GCS_BUCKET_UPLOADS,
+    GCS_BUCKET_EXPORTS: process.env.GCS_BUCKET_EXPORTS,
+  };
+}
+
+export function getStorageEnvIssues() {
+  const parsed = rawStorageEnvSchema.safeParse(getRawStorageEnv());
+  return parsed.success ? [] : formatZodIssues(parsed.error.issues);
+}
+
+export function isStorageConfigured() {
+  return getStorageEnvIssues().length === 0;
 }
 
 export function getLuluEnv(): LuluEnv {
@@ -230,13 +261,7 @@ export function isEmailConfigured() {
 }
 
 export function getStorageEnv(): StorageEnv {
-  const parsed = rawStorageEnvSchema.parse({
-    GCS_PROJECT_ID: process.env.GCS_PROJECT_ID,
-    GCS_CLIENT_EMAIL: process.env.GCS_CLIENT_EMAIL,
-    GCS_PRIVATE_KEY: process.env.GCS_PRIVATE_KEY,
-    GCS_BUCKET_UPLOADS: process.env.GCS_BUCKET_UPLOADS,
-    GCS_BUCKET_EXPORTS: process.env.GCS_BUCKET_EXPORTS,
-  });
+  const parsed = rawStorageEnvSchema.parse(getRawStorageEnv());
 
   return {
     projectId: parsed.GCS_PROJECT_ID,
@@ -251,19 +276,14 @@ export function getIntegrationStatus() {
   const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? process.env.STRIPE_PUBLISHABLE_KEY;
   const luluApiBaseUrl = getResolvedLuluApiBaseUrl();
   const luluAuthTokenUrl = getNonEmptyEnvValue(process.env.LULU_AUTH_TOKEN_URL) ?? getDefaultLuluAuthTokenUrl(luluApiBaseUrl);
+  const geminiConfigured = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  const gcsConfigured = isStorageConfigured();
 
   return {
     luluConfigured: Boolean(process.env.LULU_CLIENT_KEY && process.env.LULU_CLIENT_SECRET),
     luluPodPackageConfigured: Boolean(process.env.LULU_POD_PACKAGE_ID),
-    geminiConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY),
-    marketingRendererConfigured: Boolean(
-      (process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY) &&
-        process.env.GCS_PROJECT_ID &&
-        process.env.GCS_CLIENT_EMAIL &&
-        process.env.GCS_PRIVATE_KEY &&
-        process.env.GCS_BUCKET_UPLOADS &&
-        process.env.GCS_BUCKET_EXPORTS,
-    ),
+    geminiConfigured,
+    marketingRendererConfigured: geminiConfigured && gcsConfigured,
     elevenLabsConfigured: Boolean(process.env.ELEVENLABS_API_KEY),
     arcadsConfigured: Boolean(process.env.ARCADS_API_KEY && process.env.ARCADS_API_URL),
     gammaConfigured: Boolean(process.env.GAMMA_API_KEY),
@@ -275,13 +295,7 @@ export function getIntegrationStatus() {
     resendConfigured: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
     clerkConfigured: Boolean(process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY),
     emailConfigured: isEmailConfigured(),
-    gcsConfigured: Boolean(
-      process.env.GCS_PROJECT_ID &&
-        process.env.GCS_CLIENT_EMAIL &&
-        process.env.GCS_PRIVATE_KEY &&
-        process.env.GCS_BUCKET_UPLOADS &&
-        process.env.GCS_BUCKET_EXPORTS,
-    ),
+    gcsConfigured,
     gaConfigured: Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID),
     posthogConfigured: Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY),
     internalJobsProtected: Boolean(process.env.CRON_SECRET || process.env.INTERNAL_JOB_SECRET),

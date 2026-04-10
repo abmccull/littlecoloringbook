@@ -75,10 +75,10 @@ try {
   assert(health.ok === true, "Health endpoint did not report ok=true.");
 
   const home = await getText("/");
-  assert(home.includes("Get Your Free Sample Page"), "Homepage CTA copy is missing.");
+  assert(home.includes("Get My Free Sample Page"), "Homepage CTA copy is missing.");
 
   const sample = await getText("/sample");
-  assert(sample.includes("Start with one real sample"), "Sample page headline is missing.");
+  assert(sample.includes("Get a free personalized coloring page to print tonight"), "Sample page headline is missing.");
 
   const sampleOrder = await postJson("/api/samples", {
     email: "sample-smoke@example.com",
@@ -92,12 +92,14 @@ try {
     : sampleOrder.processingUrl;
   const sampleProcessing = await getText(sampleProcessingPath);
   assert(
-    sampleProcessing.includes("Sample in progress") || sampleProcessing.includes("Sample ready"),
-    "Sample processing flow did not render a processing or ready state.",
+    sampleProcessing.includes("Upload the photo you want turned into a coloring page") ||
+      sampleProcessing.includes("Your free page is being created") ||
+      sampleProcessing.includes("Your free coloring page is ready"),
+    "Sample processing flow did not render the updated upload, processing, or ready state.",
   );
 
   const create = await getText("/create");
-  assert(create.includes("Configure the paid order"), "Create page headline is missing.");
+  assert(create.includes("Choose your full book"), "Create page headline is missing.");
 
   const order = await postJson("/api/orders", {
     email: "smoke@example.com",

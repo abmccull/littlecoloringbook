@@ -15,8 +15,8 @@ export const featuredOffers: Offer[] = [
     designs: 30,
     pdfPrice: 29,
     printPrice: 49,
-    badge: "Best Start",
-    description: "The core offer for first-time buyers. Big enough to feel substantial without slowing the decision down.",
+    badge: "Best place to start",
+    description: "The easiest first order. Enough pages to feel like a real keepsake without turning the decision into homework.",
   },
   {
     code: "pdf-50",
@@ -25,7 +25,7 @@ export const featuredOffers: Offer[] = [
     pdfPrice: 39,
     printPrice: 64,
     badge: "Most Popular",
-    description: "The strongest value upgrade for families with a fuller camera roll and gift intent.",
+    description: "The strongest value upgrade for fuller camera rolls, birthdays, sibling stories, and gift-worthy memory books.",
   },
   {
     code: "pdf-100",
@@ -34,39 +34,72 @@ export const featuredOffers: Offer[] = [
     pdfPrice: 59,
     printPrice: 99,
     badge: "Best Value",
-    description: "A deeper keepsake product for birthdays, grandparents, and memory-heavy albums.",
+    description: "The high-anchor keepsake for vacations, year-in-review albums, grandparents, and memory-heavy photo libraries.",
   },
 ];
 
 export const trustPoints = [
-  "Screen-free activity",
-  "Made from your own photos",
-  "PDF in minutes",
-  "Spiral book shipped to your door",
+  "Upload 1 photo to preview the style",
+  "Printable PDF in minutes",
+  "Made from your real family photos",
+  "Printed spiral book shipped to your door",
 ];
 
 export const useCases = [
-  "Birthday gift",
-  "Rainy day activity",
-  "Grandparent gift",
+  "Rainy afternoon win",
+  "Birthday gift that feels personal",
+  "Grandparent keepsake",
   "Vacation memory book",
   "Pet coloring book",
-  "Sibling keepsake",
+  "Sibling set",
 ];
 
-export const proofExamples = [
+export const differencePoints = [
   {
-    title: "Beach Day",
-    blurb: "A candid family photo becomes a bold, open coloring page with clean outlines and simple details.",
+    title: "Your memories, not stock illustrations",
+    description: "The book starts with photos your family already cares about, so the finished pages feel personal instead of generic.",
   },
   {
-    title: "Birthday Morning",
-    blurb: "Messy, emotional real-life photos are simplified into pages kids can actually color.",
+    title: "Built for coloring, not for prompting",
+    description: "We simplify photos into bold outlines, cleaner shapes, and open space instead of handing you a fiddly AI art experiment.",
   },
   {
-    title: "Dog Best Friend",
-    blurb: "Pet photos turn into fast wins for kids who already love coloring familiar faces.",
+    title: "Preview first, then decide",
+    description: "The free sample removes the guesswork. You see the style on your own photo before you commit to a full book.",
   },
+];
+
+export const includedFeatures = [
+  "A personalized cover with your child's name",
+  "Kid-friendly line cleanup for bold, colorable pages",
+  "A print-ready PDF with re-download access",
+  "Up to 3 free page redos if a few pages miss",
+];
+
+export const guaranteePoints = [
+  {
+    name: "Preview Promise",
+    detail: "See your own photo turned into a page before you pay for a full print book.",
+  },
+  {
+    name: "Redo Promise",
+    detail: "If a few paid pages miss the mark, we rerender up to 3 pages free.",
+  },
+  {
+    name: "Arrival Promise",
+    detail: "If a printed book arrives damaged or misprinted, we replace it.",
+  },
+  {
+    name: "Fast PDF",
+    detail: "Digital books are targeted for minutes, not days.",
+  },
+];
+
+export const sampleBenefits = [
+  "Made from one real family photo",
+  "Printable page delivered by email",
+  "Usually ready in about 5 to 15 minutes",
+  "No full album required up front",
 ];
 
 export const faqs = [
@@ -80,10 +113,14 @@ export const faqs = [
   },
   {
     question: "How long does the printed book take?",
-    answer: "The app should submit print-ready books within one business day. Lulu production is typically 3 to 5 business days, plus shipping transit time.",
+    answer: "Printed books are typically sent to production within one business day. Lulu production is usually 3 to 5 business days, plus shipping transit time.",
   },
   {
     question: "Do I preview before printing?",
     answer: "Yes. The free sample is the style proof. Print books also include the PDF, and the team can rerender up to 3 weak pages if needed.",
+  },
+  {
+    question: "What kinds of photos work best?",
+    answer: "Clear photos with one strong moment work best: kids, siblings, pets, birthdays, trips, and everyday family scenes. You do not need a professional photo.",
   },
 ];

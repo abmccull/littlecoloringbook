@@ -72,7 +72,9 @@ export async function POST(request: NextRequest) {
 
   const deliveryMode = summary?.order.deliveryMode === "print" ? "print" : "pdf";
   const designCount = summary?.order.designCount ?? 30;
+  const quantity = summary?.order.quantity ?? 1;
   const plan = buildGenerationPlan({
+    coverCount: quantity,
     deliveryMode,
     designCount,
     jobKind: "full_book",
@@ -127,15 +129,13 @@ export async function POST(request: NextRequest) {
       objectPath: plan.pdf.downloadPdfPath,
       mimeType: "application/pdf",
     },
-    ...(plan.pdf.coverPdfPath
-      ? [
-          {
-            orderId: parsed.data.orderId,
-            kind: "cover_pdf" as const,
-            objectPath: plan.pdf.coverPdfPath,
-            mimeType: "application/pdf",
-          },
-        ]
+    ...(plan.pdf.coverPdfPaths.length > 0
+      ? plan.pdf.coverPdfPaths.map((objectPath) => ({
+          orderId: parsed.data.orderId,
+          kind: "cover_pdf" as const,
+          objectPath,
+          mimeType: "application/pdf",
+        }))
       : []),
   ]);
 
@@ -173,8 +173,11 @@ export async function POST(request: NextRequest) {
   try {
     const materialized = await materializeGenerationPlan({
       childFirstName: summary?.order.childFirstName ?? null,
+      copyNames: summary?.order.copyNames ?? null,
+      coverStyle: summary?.order.coverStyle ?? "storybook",
       dedicationText: summary?.order.dedicationText ?? null,
       plan,
+      quantity,
       selectedOfferCode: summary?.order.selectedOfferCode ?? null,
       uploads: selectedUploads.map((upload) => ({
         id: upload.id,
@@ -226,30 +229,38 @@ export async function POST(request: NextRequest) {
       previewCount: plan.targetPages,
     });
 
-    if (deliveryMode === "print" && plan.pdf.coverPdfPath) {
-      const [interiorSigned, coverSigned] = await Promise.all([
+    if (deliveryMode === "print" && plan.pdf.coverPdfPaths.length > 0) {
+      const [interiorSigned, ...coverSignedUrls] = await Promise.all([
         createSignedDownloadUrl({
           bucket: "exports",
           objectPath: plan.pdf.interiorPdfPath,
           expiresInMinutes: 180,
         }),
-        createSignedDownloadUrl({
-          bucket: "exports",
-          objectPath: plan.pdf.coverPdfPath,
-          expiresInMinutes: 180,
-        }),
+        ...plan.pdf.coverPdfPaths.map((objectPath) =>
+          createSignedDownloadUrl({
+            bucket: "exports",
+            objectPath,
+            expiresInMinutes: 180,
+          }),
+        ),
       ]);
 
       try {
-        const luluSubmission = await dispatchInternalJob<{ status?: string; providerJobId?: string }>( {
+        const luluSubmission = await dispatchInternalJob<{ status?: string; providerJobId?: string }>({
           path: "/api/internal/jobs/submit-lulu",
           body: {
             orderId: parsed.data.orderId,
-            interiorUrl: interiorSigned.url,
-            coverUrl: coverSigned.url,
-            title: summary?.order.childFirstName
-              ? `${summary.order.childFirstName}'s memory coloring book`
-              : "littlecolorbook.com memory coloring book",
+            lineItems: coverSignedUrls.map((coverSigned, index) => {
+              const copyName = summary?.order.copyNames?.[index] ?? summary?.order.childFirstName ?? null;
+              const title = copyName ? `${copyName}'s memory coloring book` : "littlecolorbook.com memory coloring book";
+
+              return {
+                coverUrl: coverSigned.url,
+                interiorUrl: interiorSigned.url,
+                quantity: 1,
+                title,
+              };
+            }),
           },
         });
 

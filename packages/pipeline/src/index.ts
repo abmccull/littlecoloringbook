@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import sharp from "sharp";
-import { estimateInteriorPageCount, type DeliveryMode } from "@littlecolorbook/shared";
+import { estimateInteriorPageCount, normalizeCoverStyle, type CoverStyleCode, type DeliveryMode } from "@littlecolorbook/shared";
 import { downloadObject } from "@littlecolorbook/shared/storage";
 
 export const cleanupSteps = [
@@ -68,13 +68,13 @@ const FALLBACK_IMAGE_MODEL = "gemini-3-pro-image-preview";
 const MAX_RENDER_ATTEMPTS = 2;
 const DEFAULT_ASPECT_RATIO = "3:4";
 
-const variationGoals = [
-  "focus on the main subject with a clean white background and only one or two playful props",
-  "turn the scene into a simple portrait page with bold outlines and lots of open coloring space",
-  "keep the subject recognizable while simplifying the background into a few stars, hearts, clouds, or soft shapes",
-  "make the page feel adventurous and playful, but keep every shape easy for a child to color",
-  "emphasize the face, clothing, and pose while removing photo clutter and tiny texture detail",
-  "compose the page like a classic workbook illustration with clear foreground subject and a lightly simplified setting",
+const compositionGoals = [
+  "crop closer on the main subjects and remove distant background detail",
+  "keep faces large and readable with simple clothing shapes and strong outer contours",
+  "reduce the scene to the clearest interaction and the biggest recognizable forms",
+  "leave generous white space around the subjects and keep props minimal",
+  "simplify the environment into one or two large grounding shapes at most",
+  "favor a clean portrait composition over preserving every object from the photo",
 ];
 
 export type PlannedGenerationPage = {
@@ -88,6 +88,7 @@ export type PlannedGenerationPage = {
 
 export type PlannedPdfAssets = {
   coverPdfPath: string | null;
+  coverPdfPaths: string[];
   downloadPdfPath: string;
   interiorPdfPath: string;
 };
@@ -132,7 +133,9 @@ type GeneratedImagePart = {
 type ProcessedPageAsset = {
   blackRatio: number;
   finalPng: Buffer;
+  noisyComponentCount: number;
   previewJpeg: Buffer;
+  speckleRatio: number;
 };
 
 type RenderedPage = {
@@ -178,8 +181,12 @@ function inferUploadMimeType(upload: SourceUpload) {
   return "image/jpeg";
 }
 
-function getVariationGoal(pageNumber: number) {
-  return variationGoals[(pageNumber - 1) % variationGoals.length];
+function getCompositionGoal(jobKind: PipelineJobKind, pageNumber: number) {
+  if (jobKind === "sample") {
+    return compositionGoals[0]!;
+  }
+
+  return compositionGoals[(pageNumber - 1) % compositionGoals.length];
 }
 
 function supportsImageSize(model: string) {
@@ -192,14 +199,14 @@ export function getPipelineRenderSettings(deliveryMode: DeliveryMode, jobKind: P
     deliveryMode === "print"
       ? (process.env.GEMINI_IMAGE_SIZE_PRINT as GeminiImageSize | undefined) ?? defaultImageSize
       : jobKind === "sample"
-        ? (process.env.GEMINI_IMAGE_SIZE_SAMPLE as GeminiImageSize | undefined) ?? "2K"
+        ? (process.env.GEMINI_IMAGE_SIZE_SAMPLE as GeminiImageSize | undefined) ?? "4K"
         : (process.env.GEMINI_IMAGE_SIZE as GeminiImageSize | undefined) ?? defaultImageSize;
 
   const model =
     deliveryMode === "print"
       ? process.env.GEMINI_IMAGE_MODEL_PRINT ?? process.env.GEMINI_IMAGE_MODEL ?? PRIMARY_IMAGE_MODEL
       : jobKind === "sample"
-        ? process.env.GEMINI_IMAGE_MODEL_SAMPLE ?? process.env.GEMINI_IMAGE_MODEL ?? PRIMARY_IMAGE_MODEL
+        ? process.env.GEMINI_IMAGE_MODEL_SAMPLE ?? process.env.GEMINI_IMAGE_MODEL ?? FALLBACK_IMAGE_MODEL
         : process.env.GEMINI_IMAGE_MODEL ?? PRIMARY_IMAGE_MODEL;
 
   return {
@@ -216,6 +223,7 @@ function buildColoringPrompt(input: {
   attempt: number;
   childFirstName?: string | null;
   deliveryMode: DeliveryMode;
+  jobKind: PipelineJobKind;
   pageNumber: number;
   sourceLabel: string;
 }) {
@@ -225,20 +233,28 @@ function buildColoringPrompt(input: {
 
   const retryLine =
     input.attempt > 0
-      ? "The previous result was too muddy or too dark. Simplify the scene even more, remove background clutter, and use fewer but clearer outlines."
+      ? "The previous result was not premium enough. Remove more background, use fewer but cleaner closed contours, enlarge the faces, and eliminate sketchy fragments or noise."
       : null;
 
   return [
-    "Turn the provided family photo into a black-and-white children's coloring book page.",
+    "Convert the provided photo into a premium black-and-white children's coloring book page.",
     personalization,
-    `Variation goal: ${getVariationGoal(input.pageNumber)}.`,
+    `Composition goal: ${getCompositionGoal(input.jobKind, input.pageNumber)}.`,
     "Preserve the subject's pose, expression, clothing, hair, and overall identity from the original photo.",
-    "Use only strong black outlines on a pure white background.",
-    "Do not add color, gray shading, crosshatching, halftones, speech bubbles, captions, borders, or text.",
-    "Avoid large filled black regions. Keep the image open, simple, friendly, and easy for a child to color.",
+    input.jobKind === "sample"
+      ? "Optimize for the strongest single sellable page, even if that means simplifying or removing more of the original scene."
+      : "Keep the page consistent with a premium keepsake book rather than a novelty sketch.",
+    "Use smooth, continuous, closed black contours with medium-thick, consistent line weight.",
+    "Faces must stay readable with a few clean lines. Keep the eyes, nose, mouth, hair shape, and clothing silhouette recognizable without adding texture.",
+    "Use a pure white background or at most one or two large simple grounding shapes.",
+    "Do not add color, gray shading, crosshatching, halftones, stippling, sketch texture, speech bubbles, captions, borders, or text.",
+    "Do not leave disconnected stray marks, floating fragments, or tiny noisy details anywhere on the page.",
+    "Do not fill dark clothing, shadows, or hair with solid black. Convert dark regions into open outline shapes a child can color.",
+    "Keep the image open, simple, friendly, and easy for a child to color, with large colorable areas and clear silhouettes.",
+    "If the photo contains multiple people, enlarge and simplify the primary one to three subjects so each face reads clearly at coloring-book scale.",
     "Compose the artwork vertically for an 8.5 x 11 coloring page with generous outer margins and trim-safe spacing.",
     input.deliveryMode === "print"
-      ? "The page must hold up in print. Favor crisp outlines, simple backgrounds, and larger shapes over photo-realistic detail."
+      ? "The page must hold up in print. Favor crisp outlines, simple backgrounds, larger shapes, and stable line weight over photo-realistic detail."
       : "The page should look clean on screen and be easy to print at home.",
     `Reference photo label: ${input.sourceLabel}.`,
     retryLine,
@@ -369,6 +385,80 @@ function pagePassesQa(blackRatio: number) {
   return blackRatio >= 0.012 && blackRatio <= 0.33;
 }
 
+async function measureNoiseMetrics(input: Buffer) {
+  const { data, info } = await sharp(input)
+    .grayscale()
+    .resize({
+      width: 320,
+      height: 414,
+      fit: "inside",
+      background: "#ffffff",
+      withoutEnlargement: true,
+    })
+    .threshold(200)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const width = info.width;
+  const height = info.height;
+  const visited = new Uint8Array(width * height);
+  let noisyComponentCount = 0;
+  let noisyPixelCount = 0;
+
+  for (let index = 0; index < data.length; index += 1) {
+    if (data[index] !== 0 || visited[index]) {
+      continue;
+    }
+
+    let componentSize = 0;
+    const stack = [index];
+    visited[index] = 1;
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      componentSize += 1;
+      const x = current % width;
+      const y = Math.floor(current / width);
+
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          if (offsetX === 0 && offsetY === 0) {
+            continue;
+          }
+
+          const nextX = x + offsetX;
+          const nextY = y + offsetY;
+
+          if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) {
+            continue;
+          }
+
+          const nextIndex = nextY * width + nextX;
+
+          if (data[nextIndex] === 0 && !visited[nextIndex]) {
+            visited[nextIndex] = 1;
+            stack.push(nextIndex);
+          }
+        }
+      }
+    }
+
+    if (componentSize < 40) {
+      noisyComponentCount += 1;
+      noisyPixelCount += componentSize;
+    }
+  }
+
+  return {
+    noisyComponentCount,
+    speckleRatio: noisyPixelCount / data.length,
+  };
+}
+
+function processedPagePassesQa(input: { blackRatio: number; noisyComponentCount: number; speckleRatio: number }) {
+  return pagePassesQa(input.blackRatio) && input.noisyComponentCount <= 110 && input.speckleRatio <= 0.005;
+}
+
 async function cleanupGeneratedPage(input: {
   deliveryMode: DeliveryMode;
   imageBuffer: Buffer;
@@ -425,16 +515,21 @@ async function cleanupGeneratedPage(input: {
     .jpeg({ quality: 84, mozjpeg: true })
     .toBuffer();
 
+  const noiseMetrics = await measureNoiseMetrics(finalPng);
+
   return {
     blackRatio: await measureBlackRatio(finalPng),
     finalPng,
+    noisyComponentCount: noiseMetrics.noisyComponentCount,
     previewJpeg,
+    speckleRatio: noiseMetrics.speckleRatio,
   } satisfies ProcessedPageAsset;
 }
 
 async function materializePage(input: {
   childFirstName?: string | null;
   deliveryMode: DeliveryMode;
+  jobKind: PipelineJobKind;
   pageNumber: number;
   primaryModel: string;
   imageSize: GeminiImageSize;
@@ -453,6 +548,7 @@ async function materializePage(input: {
       attempt,
       childFirstName: input.childFirstName,
       deliveryMode: input.deliveryMode,
+      jobKind: input.jobKind,
       pageNumber: input.pageNumber,
       sourceLabel: input.upload.fileName,
     });
@@ -472,8 +568,10 @@ async function materializePage(input: {
         imageBuffer: rendered.buffer,
       });
 
-      if (!pagePassesQa(processed.blackRatio)) {
-        lastError = new Error(`Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}.`);
+      if (!processedPagePassesQa(processed)) {
+        lastError = new Error(
+          `Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}, noisy components ${processed.noisyComponentCount}, and speckle ratio ${processed.speckleRatio.toFixed(4)}.`,
+        );
         continue;
       }
 
@@ -492,6 +590,7 @@ async function materializePage(input: {
 export async function renderMarketingPage(input: {
   childFirstName?: string | null;
   deliveryMode: DeliveryMode;
+  jobKind: PipelineJobKind;
   pageNumber: number;
   primaryModel: string;
   imageSize: GeminiImageSize;
@@ -509,6 +608,7 @@ export async function renderMarketingPage(input: {
       attempt,
       childFirstName: input.childFirstName,
       deliveryMode: input.deliveryMode,
+      jobKind: input.jobKind,
       pageNumber: input.pageNumber,
       sourceLabel: input.source.fileName,
     });
@@ -528,8 +628,10 @@ export async function renderMarketingPage(input: {
         imageBuffer: rendered.buffer,
       });
 
-      if (!pagePassesQa(processed.blackRatio)) {
-        lastError = new Error(`Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}.`);
+      if (!processedPagePassesQa(processed)) {
+        lastError = new Error(
+          `Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}, noisy components ${processed.noisyComponentCount}, and speckle ratio ${processed.speckleRatio.toFixed(4)}.`,
+        );
         continue;
       }
 
@@ -726,8 +828,9 @@ async function createPrintInteriorPdf(input: {
 }
 
 async function createPrintCoverPdf(input: {
-  childFirstName?: string | null;
+  coverStyle?: string | null;
   designCount: number;
+  titleName?: string | null;
 }) {
   const doc = await PDFDocument.create();
   const page = doc.addPage([PRINT_COVER_PAGE.width, PRINT_COVER_PAGE.height]);
@@ -735,13 +838,36 @@ async function createPrintCoverPdf(input: {
   const bodyFont = await doc.embedFont(StandardFonts.Helvetica);
   const frontX = PRINT_COVER_PAGE.width / 2 + 42;
   const backX = 42;
+  const coverStyle = normalizeCoverStyle(input.coverStyle);
+  const palette: Record<CoverStyleCode, { back: [number, number, number]; front: [number, number, number]; title: [number, number, number]; body: [number, number, number] }> =
+    {
+      storybook: {
+        back: [0.99, 0.96, 0.9],
+        front: [0.97, 0.88, 0.62],
+        title: [0.18, 0.14, 0.08],
+        body: [0.28, 0.22, 0.14],
+      },
+      sunshine: {
+        back: [1, 0.98, 0.9],
+        front: [1, 0.9, 0.52],
+        title: [0.27, 0.15, 0.1],
+        body: [0.36, 0.21, 0.12],
+      },
+      adventure: {
+        back: [0.94, 0.98, 0.99],
+        front: [0.68, 0.86, 0.96],
+        title: [0.12, 0.18, 0.22],
+        body: [0.18, 0.27, 0.31],
+      },
+    };
+  const colors = palette[coverStyle];
 
   page.drawRectangle({
     x: 0,
     y: 0,
     width: PRINT_COVER_PAGE.width,
     height: PRINT_COVER_PAGE.height,
-    color: rgb(0.99, 0.96, 0.9),
+    color: rgb(...colors.back),
   });
 
   page.drawRectangle({
@@ -749,7 +875,7 @@ async function createPrintCoverPdf(input: {
     y: 0,
     width: PRINT_COVER_PAGE.width / 2,
     height: PRINT_COVER_PAGE.height,
-    color: rgb(0.97, 0.88, 0.62),
+    color: rgb(...colors.front),
   });
 
   page.drawText("littlecolorbook.com", {
@@ -757,43 +883,44 @@ async function createPrintCoverPdf(input: {
     y: PRINT_COVER_PAGE.height - 92,
     size: 18,
     font: titleFont,
-    color: rgb(0.2, 0.17, 0.12),
+    color: rgb(...colors.title),
   });
   page.drawText("A personalized coloring book made from real family photos.", {
     x: backX,
     y: PRINT_COVER_PAGE.height - 130,
     size: 12,
     font: bodyFont,
-    color: rgb(0.28, 0.24, 0.18),
+    color: rgb(...colors.body),
     maxWidth: PRINT_COVER_PAGE.width / 2 - 84,
   });
 
-  page.drawText(input.childFirstName ? `${input.childFirstName}'s` : "My", {
+  page.drawText(input.titleName ? `${input.titleName}'s` : "My", {
     x: frontX,
     y: PRINT_COVER_PAGE.height - 180,
     size: 34,
     font: titleFont,
-    color: rgb(0.18, 0.14, 0.08),
+    color: rgb(...colors.title),
   });
   page.drawText("memory coloring book", {
     x: frontX,
     y: PRINT_COVER_PAGE.height - 226,
     size: 28,
     font: titleFont,
-    color: rgb(0.18, 0.14, 0.08),
+    color: rgb(...colors.title),
   });
   page.drawText(`${input.designCount} personalized designs`, {
     x: frontX,
     y: PRINT_COVER_PAGE.height - 268,
     size: 16,
     font: bodyFont,
-    color: rgb(0.28, 0.22, 0.14),
+    color: rgb(...colors.body),
   });
 
   return Buffer.from(await doc.save());
 }
 
 export function buildGenerationPlan(input: {
+  coverCount?: number;
   deliveryMode: DeliveryMode;
   designCount: number;
   jobKind: PipelineJobKind;
@@ -802,6 +929,11 @@ export function buildGenerationPlan(input: {
 }) {
   const targetPages = input.jobKind === "sample" ? 1 : input.designCount;
   const sourceUploadIds = input.sourceUploadIds.length > 0 ? input.sourceUploadIds : [""];
+  const coverCount = input.deliveryMode === "print" ? Math.max(1, Math.trunc(input.coverCount ?? 1)) : 0;
+  const coverPdfPaths =
+    input.deliveryMode === "print"
+      ? Array.from({ length: coverCount }, (_, index) => `orders/${input.orderId}/pdf/covers/${index + 1}.pdf`)
+      : [];
 
   const pages = Array.from({ length: targetPages }, (_, index) => {
     const pageNumber = index + 1;
@@ -825,7 +957,8 @@ export function buildGenerationPlan(input: {
     orderId: input.orderId,
     pages,
     pdf: {
-      coverPdfPath: input.deliveryMode === "print" ? `orders/${input.orderId}/pdf/cover.pdf` : null,
+      coverPdfPath: coverPdfPaths[0] ?? null,
+      coverPdfPaths,
       downloadPdfPath: `orders/${input.orderId}/pdf/download.pdf`,
       interiorPdfPath: `orders/${input.orderId}/pdf/interior.pdf`,
     },
@@ -835,8 +968,11 @@ export function buildGenerationPlan(input: {
 
 export async function materializeGenerationPlan(input: {
   childFirstName?: string | null;
+  copyNames?: Array<string | null> | null;
+  coverStyle?: string | null;
   dedicationText?: string | null;
   plan: GenerationPlan;
+  quantity?: number;
   selectedOfferCode?: string | null;
   uploads: SourceUpload[];
 }): Promise<MaterializedPlan> {
@@ -851,6 +987,7 @@ export async function materializeGenerationPlan(input: {
     const rendered = await materializePage({
       childFirstName: input.childFirstName,
       deliveryMode: input.plan.deliveryMode,
+      jobKind: input.plan.jobKind,
       pageNumber: page.pageNumber,
       primaryModel: renderSettings.model,
       imageSize: renderSettings.imageSize,
@@ -908,18 +1045,33 @@ export async function materializeGenerationPlan(input: {
       objectPath: input.plan.pdf.downloadPdfPath,
     });
 
-    if (input.plan.pdf.coverPdfPath) {
-      const coverPdf = await createPrintCoverPdf({
-        childFirstName: input.childFirstName,
-        designCount: input.plan.designCount,
+    if (input.plan.pdf.coverPdfPaths.length > 0) {
+      const requestedCoverCount = Math.max(1, input.quantity ?? input.plan.pdf.coverPdfPaths.length);
+      const coverNames = Array.from({ length: requestedCoverCount }, (_, index) => {
+        const specificName = input.copyNames?.[index];
+
+        if (specificName) {
+          return specificName;
+        }
+
+        const fallbackName = input.childFirstName?.trim();
+        return fallbackName ? fallbackName : null;
       });
 
-      assets.push({
-        body: coverPdf,
-        contentType: "application/pdf",
-        kind: "cover_pdf",
-        objectPath: input.plan.pdf.coverPdfPath,
-      });
+      for (const [index, objectPath] of input.plan.pdf.coverPdfPaths.entries()) {
+        const coverPdf = await createPrintCoverPdf({
+          coverStyle: input.coverStyle,
+          designCount: input.plan.designCount,
+          titleName: coverNames[index] ?? null,
+        });
+
+        assets.push({
+          body: coverPdf,
+          contentType: "application/pdf",
+          kind: "cover_pdf",
+          objectPath,
+        });
+      }
     }
   }
 
