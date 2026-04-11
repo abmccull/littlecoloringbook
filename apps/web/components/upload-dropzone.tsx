@@ -33,10 +33,10 @@ type UploadItem = {
 };
 
 const uploadStateLabels: Record<UploadItem["status"], string> = {
-  queued: "Waiting",
+  queued: "Queued",
   uploading: "Uploading",
   uploaded: "Ready",
-  error: "Needs attention",
+  error: "Try again",
 };
 
 type PresignResponse = {
@@ -45,6 +45,30 @@ type PresignResponse = {
   method: "PUT";
   headers: Record<string, string>;
 };
+
+function getUploadFailureMessage(status: number) {
+  if (status === 401 || status === 403) {
+    return "We couldn't upload that photo just now. Choose it again and try one more time.";
+  }
+
+  if (status === 413) {
+    return "That photo is too large to send as-is. Choose a smaller one and try again.";
+  }
+
+  if (status === 415) {
+    return "That photo format did not come through cleanly. Choose a different photo and try again.";
+  }
+
+  return "We couldn't upload that photo. Please choose it again and try once more.";
+}
+
+function getCustomerUploadErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "We couldn't upload that photo. Please choose it again and try once more.";
+  }
+
+  return error.message;
+}
 
 export function UploadDropzone({
   title,
@@ -97,17 +121,17 @@ export function UploadDropzone({
     const presignPayload = (await presignResponse.json()) as PresignResponse | { error?: string };
 
     if (!presignResponse.ok || !("url" in presignPayload)) {
-      throw new Error(("error" in presignPayload && presignPayload.error) || "Could not create an upload URL.");
+      throw new Error("We couldn't start that upload. Please try again.");
     }
 
     const uploadResponse = await fetch(presignPayload.url, {
       method: presignPayload.method,
-      headers: presignPayload.headers,
+      headers: Object.keys(presignPayload.headers).length > 0 ? presignPayload.headers : undefined,
       body: file,
     });
 
     if (!uploadResponse.ok) {
-      throw new Error(`Upload failed with status ${uploadResponse.status}. Confirm bucket CORS and credentials.`);
+      throw new Error(getUploadFailureMessage(uploadResponse.status));
     }
 
     const completeResponse = await fetch("/api/uploads/complete", {
@@ -123,7 +147,7 @@ export function UploadDropzone({
     });
 
     if (!completeResponse.ok) {
-      throw new Error("Upload finalization failed.");
+      throw new Error("Your photo uploaded, but we couldn't save it to your book yet. Please try once more.");
     }
 
     return presignPayload.objectPath;
@@ -177,12 +201,13 @@ export function UploadDropzone({
           ),
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Upload failed.";
+        const message = getCustomerUploadErrorMessage(error);
         trackEvent("upload_file_failed", {
           entityType,
           entityId,
           fileName: file.name,
         });
+        console.error("Upload failed", error);
         setErrorMessage(message);
         setUploads((current) =>
           current.map((item) =>
@@ -259,17 +284,37 @@ export function UploadDropzone({
         </div>
       </div>
 
-      {errorMessage ? <div className="status-banner status-banner-warning">{errorMessage}</div> : null}
+      {errorMessage ? (
+        <div className="status-banner status-banner-warning">
+          <div className="stack-tight">
+            <strong>That photo did not make it through.</strong>
+            <p>{errorMessage}</p>
+          </div>
+        </div>
+      ) : null}
 
       {uploads.length > 0 ? (
         <div className="surface upload-results">
-          <span className="pill pill-sky">Photos added</span>
+          <div className="upload-results-header">
+            <span className="pill pill-sky">
+              {uploads.length === 1 ? "Photo added" : "Photos added"}
+            </span>
+            <p className="mini-note">
+              {uploads.some((item) => item.status === "error")
+                ? "Any photo marked try again just needs to be chosen one more time."
+                : "The clearest favorites are the best ones to keep at the top of the stack."}
+            </p>
+          </div>
           <div className="upload-results-list">
             {uploads.map((item) => (
               <div className="upload-result" key={item.id}>
-                <div>
+                <div className="upload-result-copy">
                   <strong>{item.fileName}</strong>
-                  {item.objectPath ? <p className="muted">Ready for your book</p> : item.error ? <p className="muted">{item.error}</p> : null}
+                  {item.objectPath ? (
+                    <p className="muted">Ready for your book</p>
+                  ) : item.error ? (
+                    <p className="muted">{item.error}</p>
+                  ) : null}
                 </div>
                 <span className={`upload-state upload-state-${item.status}`}>{uploadStateLabels[item.status]}</span>
               </div>

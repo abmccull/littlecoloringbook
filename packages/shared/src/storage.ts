@@ -74,7 +74,6 @@ export function buildAssetPath(parts: string[]) {
 export async function createSignedUploadUrl({
   bucket,
   objectPath,
-  contentType,
   expiresInMinutes = 15,
 }: SignedUploadRequest) {
   const file = getStorageClient().bucket(getBucketName(bucket)).file(objectPath);
@@ -83,16 +82,13 @@ export async function createSignedUploadUrl({
     version: "v4",
     action: "write",
     expires: expiresAt,
-    contentType,
   });
 
   return {
     url,
     expiresAt: new Date(expiresAt).toISOString(),
     method: "PUT" as const,
-    headers: {
-      "Content-Type": contentType,
-    },
+    headers: {},
   };
 }
 
@@ -143,4 +139,10 @@ export async function downloadObject({ bucket, objectPath }: DownloadObjectReque
   const file = getStorageClient().bucket(getBucketName(bucket)).file(objectPath);
   const [buffer] = await file.download();
   return buffer;
+}
+
+export async function objectExists({ bucket, objectPath }: DownloadObjectRequest) {
+  const file = getStorageClient().bucket(getBucketName(bucket)).file(objectPath);
+  const [exists] = await file.exists();
+  return exists;
 }

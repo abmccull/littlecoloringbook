@@ -46,6 +46,13 @@ export type GuaranteeCard = {
   detail: string;
 };
 
+export type HeroCallout = {
+  badge: string;
+  title: string;
+  detail: string;
+  tone: BadgeTone;
+};
+
 export type FaqItem = {
   question: string;
   answer: string;
@@ -111,38 +118,38 @@ export const consumerOffers: ConsumerOffer[] = [
   {
     code: "pdf-30",
     title: "30 Pages",
-    badge: "Good starter",
+    badge: "Easy first book",
     badgeTone: "sky",
     designs: 30,
     pdfPrice: 29,
     printPrice: 49,
-    description: "The easiest full-book starting point when you want a lighter first keepsake.",
-    ctaLabel: "Choose 30 pages",
-    comparisonNote: "Good when you want the smallest full-book option.",
+    description: "A lighter first book when you want something personal, useful, and easy to say yes to right away.",
+    ctaLabel: "Start with 30 pages",
+    comparisonNote: "Best for your first full book.",
   },
   {
     code: "pdf-50",
     title: "50 Pages",
-    badge: "Better choice",
+    badge: "Most popular",
     badgeTone: "mint",
     designs: 50,
     pdfPrice: 39,
     printPrice: 64,
-    description: "The sweet spot for fuller camera rolls, sibling stories, and gift-worthy books.",
+    description: "A fuller book for bigger camera rolls, sibling stories, birthdays, and gifts that should feel complete.",
     ctaLabel: "Choose 50 pages",
-    comparisonNote: "Better when you want the book to feel fuller without going all the way up.",
+    comparisonNote: "Best when you want the book to feel full without going all the way to 100.",
   },
   {
     code: "pdf-100",
     title: "100 Pages",
-    badge: "Best value",
+    badge: "Best keepsake value",
     badgeTone: "coral",
     designs: 100,
     pdfPrice: 59,
     printPrice: 99,
-    description: "The biggest, best-value version for packed camera rolls, family trips, birthdays, and gift copies.",
-    ctaLabel: "Choose 100 pages",
-    comparisonNote: "Best when you already know you want the fullest version.",
+    description: "The biggest, best-value keepsake when the camera roll is full and you want the whole story in one book.",
+    ctaLabel: "Get the 100-page book",
+    comparisonNote: "Best when you want the most book for the money.",
     featured: true,
   },
 ];
@@ -155,13 +162,32 @@ export const homepageContent = {
       "Start with one favorite photo for a free sample page. If it feels right, turn the rest into a personalized book you can print tonight or order as a spiral-bound keepsake.",
     supporting:
       "No craft-project energy required. Just familiar faces, pets, birthdays, trips, and family moments turned into pages they will actually recognize and want to color.",
-    trustPoints: ["Free sample first", "From your real family photos", "PDF tonight or spiral book shipped"],
+    callouts: [
+      {
+        badge: "Start here",
+        title: "Try one page free first",
+        detail: "See your own photo in the style before you pay for the full book.",
+        tone: "sun",
+      },
+      {
+        badge: "Made from your photos",
+        title: "Familiar faces make it click",
+        detail: "Kids recognize the people, pets, and moments right away.",
+        tone: "sky",
+      },
+      {
+        badge: "Choose your version",
+        title: "Print tonight or ship the spiral book",
+        detail: "Go fast with the PDF or order the giftable keepsake version.",
+        tone: "coral",
+      },
+    ] satisfies HeroCallout[],
   },
   proofStripTitle: "See how a real photo turns into a coloring page worth keeping.",
   proofStripCopy:
     "The point is simple: the input feels familiar, the lines stay clean, and the finished result feels personal enough to keep instead of toss.",
   featuredOfferIntro:
-    "Start with 30 when you want a lighter first keepsake. Choose 50 when you want it to feel more complete. Go 100 when you already know the camera roll is full and you want the best value per page.",
+    "Start with 30 if you want the easiest first book. Move up to 50 when you want it to feel fuller. Choose 100 when you already know the camera roll is packed and you want the best keepsake value.",
   sampleBlock: {
     title: "See one page before you commit to the whole book.",
     description: "See one real page made from your own photo first. If you already know you want the full book, you can skip the sample and head straight to the builder.",

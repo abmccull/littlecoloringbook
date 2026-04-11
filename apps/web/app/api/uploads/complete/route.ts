@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isDatabaseConfigured, markUploadCompleted } from "@littlecolorbook/db";
+import { objectExists } from "@littlecolorbook/shared/storage";
 import { z } from "zod";
 
 const uploadCompleteSchema = z.object({
@@ -24,6 +25,20 @@ export async function POST(request: NextRequest) {
 
   if (!isDatabaseConfigured() && process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "DATABASE_URL is not configured." }, { status: 503 });
+  }
+
+  const exists = await objectExists({
+    bucket: "uploads",
+    objectPath: parsed.data.objectPath,
+  }).catch(() => false);
+
+  if (!exists) {
+    return NextResponse.json(
+      {
+        error: "We couldn't find that uploaded photo yet. Please choose it again.",
+      },
+      { status: 409 },
+    );
   }
 
   const upload = await markUploadCompleted(parsed.data.entityId, parsed.data.objectPath).catch((error: unknown) => {

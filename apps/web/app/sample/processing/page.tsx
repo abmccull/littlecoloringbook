@@ -130,7 +130,7 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
           <strong>{statusLabels[summary.order.status] ?? summary.order.status.replaceAll("_", " ")}</strong>
           <span>
             {uploadedCount === 0
-              ? "Upload one photo to keep going."
+              ? "Choose one favorite photo to start your free page."
               : isProcessing
                 ? "We will keep checking this screen automatically and move you forward when the page is ready."
                 : "Your photo is attached. Start the free page whenever you are ready."}
@@ -140,7 +140,7 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
         {uploadedCount === 0 ? (
           <UploadDropzone
             title="Upload one favorite photo"
-            hint="Close-up kid portraits, one clear family moment, and pet photos work best."
+            hint="Action shots, siblings together, vacation favorites, close-up portraits, and pet photos all work well. Pick one photo with a clear main subject."
             entityType="sample"
             entityId={summary.order.id}
             buttonLabel="Choose My Photo"
@@ -165,10 +165,11 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
         <SampleProcessingPanel orderId={summary.order.id} readyHref={`/sample/${token}`} status={summary.order.status} uploadCount={uploadedCount} />
 
         <BookMockupBlock
-          coverSrc={proofAssets.kidPhoto}
-          pageSrc={proofAssets.kidPage}
-          title="If the free page feels like a yes, the full book is next."
-          copy="Use this sample as your proof. If your child loves it, turn the rest of your favorite photos into the 30, 50, or 100-page version right after this."
+          badge="Real photo to real keepsake"
+          coverSrc={proofAssets.realSwordPlayPhoto}
+          pageSrc={proofAssets.realSwordPlayPage}
+          title="If this sample feels like them, the full book is the easy next yes."
+          copy="That is the whole job of the free page. See your own photo in the style first, then turn the rest of your camera roll into the 30, 50, or 100-page book you can print tonight or order as a spiral keepsake."
         />
       </section>
     </main>

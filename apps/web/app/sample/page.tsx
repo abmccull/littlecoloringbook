@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { BrandLogo } from "../../components/brand-logo";
 import { FaqAccordion } from "../../components/faq-accordion";
+import { MarketingFooter } from "../../components/marketing-footer";
+import { MarketingHeader } from "../../components/marketing-header";
 import { SampleStartForm } from "../../components/sample-start-form";
 import { BookMockupBlock, PhotoExampleGrid } from "../../components/proof-modules";
 import { Section } from "../../components/section";
@@ -16,6 +16,21 @@ const sampleReasons = [
   "If the sample feels right, you can turn the rest of your favorite photos into the full book next.",
 ];
 
+const sampleSupportNotes = [
+  {
+    badge: "Best for",
+    title: "One child, one sibling moment, or one favorite pet",
+    detail: "Simple, recognizable photos usually make the strongest free sample pages.",
+    tone: "sky",
+  },
+  {
+    badge: "Why start here",
+    title: "You get proof before you buy the full book",
+    detail: "If the sample feels right, the rest of your camera roll can become the full book next.",
+    tone: "sun",
+  },
+] as const;
+
 export default async function SamplePage({
   searchParams,
 }: {
@@ -26,12 +41,7 @@ export default async function SamplePage({
   return (
     <main>
       <TrackPageEvent eventName="sample_entry_viewed" />
-      <header className="topbar topbar-flow">
-        <BrandLogo href="/" subtitle="free sample page" />
-        <Link className="topbar-link" href="/">
-          Home
-        </Link>
-      </header>
+      <MarketingHeader subtitle="free sample page" />
 
       <section className="sample-frame sample-entry">
         <div className="sample-entry-copy">
@@ -45,6 +55,15 @@ export default async function SamplePage({
             <li>Best for a child portrait, a sibling moment, or a favorite pet</li>
             <li>If your child loves it, you are one step away from the full book.</li>
           </ul>
+          <div className="sample-entry-support-grid">
+            {sampleSupportNotes.map((note) => (
+              <article className={`sample-entry-note sample-entry-note-${note.tone}`} key={note.title}>
+                <span className="sample-entry-note-badge">{note.badge}</span>
+                <strong>{note.title}</strong>
+                <p>{note.detail}</p>
+              </article>
+            ))}
+          </div>
         </div>
         <div className="surface sample-form-card">
           <span className="pill pill-coral">Start here</span>
@@ -70,8 +89,8 @@ export default async function SamplePage({
 
       <Section
         eyebrow="What happens next"
-        title="The free page has one job: make the full book feel easy to picture."
-        copy="This is the low-risk first look. If the sample feels right, the rest of the decision becomes much easier."
+        title="One good sample page makes the full book feel obvious."
+        copy="That is the whole point of the free page. You get to see your own photo in the style first, then decide whether you want to turn the rest of your camera roll into the full book."
       >
         <div className="detail-grid three-up">
           {sampleReasons.map((reason, index) => (
@@ -84,16 +103,17 @@ export default async function SamplePage({
       </Section>
 
       <Section
-        eyebrow="What you are moving toward"
-        title="If the sample clicks, choose the book that fits your photo stack."
-        copy="30 is the light starter. 50 feels fuller. 100 is the best-value keepsake when the camera roll is packed."
+        eyebrow="What comes next"
+        title="If the sample feels like a yes, turn the rest of your camera roll into the full book."
+        copy="Start with 30 if you want the easiest first book. Move up to 50 when you want it to feel fuller. Choose 100 when you want the best keepsake value and enough room for the whole story."
       >
         <div id="sample-page-proof-module">
           <BookMockupBlock
-            coverSrc={proofAssets.kidPhoto}
-            pageSrc={proofAssets.kidPage}
-            title="Print tonight or make it giftable."
-            copy="The same pages can become a quick PDF for tonight or a spiral-bound keepsake for birthdays, grandma gifts, and family shelf moments."
+            badge="Real photo to real keepsake"
+            coverSrc={proofAssets.realSwordPlayPhoto}
+            pageSrc={proofAssets.realSwordPlayPage}
+            title="Print tonight first, or order the spiral book worth keeping."
+            copy="The same personalized pages can be a quick PDF for today or a spiral-bound book for birthdays, grandparents, and shelf-worthy family keepsakes."
           />
         </div>
       </Section>
@@ -107,12 +127,15 @@ export default async function SamplePage({
       />
 
       <Section
+        id="faq"
         eyebrow="FAQ"
         title="Questions moms and grandparents usually ask before they start."
         copy="Timing, print versus PDF, multiple kids, gift copies, and the practical details most people want before they upload."
       >
         <FaqAccordion items={faqs} />
       </Section>
+
+      <MarketingFooter />
     </main>
   );
 }

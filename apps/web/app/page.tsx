@@ -1,6 +1,7 @@
-import { BrandLogo } from "../components/brand-logo";
 import { OfferCard } from "../components/offer-card";
 import { FaqAccordion } from "../components/faq-accordion";
+import { MarketingFooter } from "../components/marketing-footer";
+import { MarketingHeader } from "../components/marketing-header";
 import { HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "../components/proof-modules";
 import { Section } from "../components/section";
 import { TrackVisibilityStage } from "../components/track-visibility-stage";
@@ -12,17 +13,7 @@ const coreOffers = consumerOffers.filter((offer) => offer.code === "pdf-30" || o
 export default function HomePage() {
   return (
     <main>
-      <header className="topbar">
-        <BrandLogo href="/" priority subtitle="personalized coloring books from your photos" />
-        <div className="hero-actions">
-          <TrackedLink className="button button-secondary" href={funnelCtas.directBuilder.href} eventName="home_header_builder_clicked">
-            Build My Book
-          </TrackedLink>
-          <TrackedLink className="button button-secondary" href={funnelCtas.freeSample.href} eventName="home_header_sample_clicked">
-            {funnelCtas.freeSample.label}
-          </TrackedLink>
-        </div>
-      </header>
+      <MarketingHeader />
 
       <section className="hero-home-shell" id="homepage-proof-module">
         <div className="hero-home-surface">
@@ -55,11 +46,13 @@ export default function HomePage() {
               </p>
             </div>
             <div className="hero-home-trust">
-              <div className="trust-row">
-                {homepageContent.hero.trustPoints.map((point) => (
-                  <div className="trust-pill" key={point}>
-                    {point}
-                  </div>
+              <div className="hero-callout-row">
+                {homepageContent.hero.callouts.map((callout) => (
+                  <article className={`hero-callout hero-callout-${callout.tone}`} key={callout.title}>
+                    <span className="hero-callout-badge">{callout.badge}</span>
+                    <strong>{callout.title}</strong>
+                    <p>{callout.detail}</p>
+                  </article>
                 ))}
               </div>
             </div>
@@ -82,7 +75,7 @@ export default function HomePage() {
       <Section
         id="book-sizes"
         eyebrow="Choose your size"
-        title="Choose the book size that fits the memories you want to include."
+        title="Pick the book size that fits the photos already sitting in your camera roll."
         copy={homepageContent.featuredOfferIntro}
       >
         <div className="offer-grid">
@@ -147,12 +140,15 @@ export default function HomePage() {
       </Section>
 
       <Section
+        id="faq"
         eyebrow="FAQ"
         title="A few practical questions before you start."
         copy="Everything most moms and grandparents want to know before they try the free page or build the full book."
       >
         <FaqAccordion items={faqs} />
       </Section>
+
+      <MarketingFooter />
     </main>
   );
 }

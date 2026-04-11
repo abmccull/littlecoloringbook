@@ -149,7 +149,7 @@ export function UploadsStep({ deliveryMode, orderId, selectedOffer, initialUploa
 
       <UploadDropzone
         title={`Upload ${requiredUploads} photos`}
-        hint={`A mix of close-up kid photos, siblings, pets, and family moments works best. You can upload more than ${requiredUploads}, but we only need the first ${requiredUploads} ready to keep moving.`}
+        hint={`Use the clearest favorites first: kids playing together, pet moments, birthday shots, trips, and close-up portraits all work well. We only need ${requiredUploads} ready to keep moving.`}
         entityType="order"
         entityId={orderId}
         allowMultiple
