@@ -63,21 +63,7 @@ export function ProofStrip() {
             <span className="mini-note">{step.frame === "book" ? "What you keep" : step.frame === "page" ? "What they color" : "What you start with"}</span>
           </div>
           {step.frame === "book" ? (
-            <div aria-label={step.alt} className="proof-strip-book-preview" role="img">
-              <div className="proof-strip-book-spiral" aria-hidden="true" />
-              <div className="proof-strip-book-cover">
-                <img alt="" src={step.coverSrc} />
-                <div className="book-cover-badge">
-                  <BrandLogo size="cover" />
-                </div>
-                <div className="book-cover-footer">
-                  <strong>Personalized Coloring Book</strong>
-                </div>
-              </div>
-              <div className="proof-strip-book-page">
-                <img alt="" src={step.pageSrc} />
-              </div>
-            </div>
+            <SpiralBookPreview alt={step.alt} coverSrc={step.coverSrc} pageSrc={step.pageSrc} variant="proof-strip" />
           ) : (
             <img alt={step.alt} className="proof-strip-image" src={step.src} />
           )}
@@ -107,25 +93,44 @@ export function BookMockupBlock({
 }) {
   return (
     <div className="book-mockup-block">
-      <div className="book-mockup">
-        <div className="book-spiral" aria-hidden="true" />
-        <div className="book-cover">
-          <img alt="Example personalized book cover" src={coverSrc} />
-          <div className="book-cover-badge">
-            <BrandLogo size="cover" />
-          </div>
-          <div className="book-cover-footer">
-            <strong>Personalized Coloring Book</strong>
-          </div>
-        </div>
-        <div className="book-page">
-          <img alt="Example inner coloring page" src={pageSrc} />
-        </div>
-      </div>
+      <SpiralBookPreview alt="Example personalized spiral coloring book" coverSrc={coverSrc} pageSrc={pageSrc} variant="feature" />
       <div className="stack-tight">
         <span className="pill pill-mint">{badge}</span>
         <h3>{title}</h3>
         <p className="muted">{copy}</p>
+      </div>
+    </div>
+  );
+}
+
+function SpiralBookPreview({
+  alt,
+  coverSrc,
+  pageSrc,
+  variant,
+}: {
+  alt: string;
+  coverSrc?: string;
+  pageSrc?: string;
+  variant: "proof-strip" | "feature";
+}) {
+  return (
+    <div aria-label={alt} className={`spiral-book-preview spiral-book-preview-${variant}`} role="img">
+      <div className="spiral-book-coil" aria-hidden="true" />
+      <div className="spiral-book-stack" aria-hidden="true" />
+      <div className="spiral-book-cover">
+        <img alt="" className="spiral-book-cover-image" src={coverSrc} />
+        <div className="spiral-book-brand">
+          <BrandLogo size="cover" />
+        </div>
+        <div className="spiral-book-title-panel">
+          <span className="spiral-book-kicker">Personalized activity book</span>
+          <strong>Mila&apos;s Coloring Book</strong>
+          <span>Made from favorite family photos</span>
+        </div>
+      </div>
+      <div className="spiral-book-inner-page">
+        <img alt="" className="spiral-book-page-image" src={pageSrc} />
       </div>
     </div>
   );

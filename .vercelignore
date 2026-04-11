@@ -1,0 +1,6 @@
+.env
+.env.local
+.env*.local
+apps/web/.env.local
+apps/web/.env.local.*
+hero-slider-verification-updated.png

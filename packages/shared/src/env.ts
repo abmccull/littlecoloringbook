@@ -73,9 +73,10 @@ const rawGeminiEnvSchema = z.object({
 });
 
 const rawStorageEnvSchema = z.object({
-  GCS_PROJECT_ID: z.string().min(1, "GCS_PROJECT_ID is required"),
-  GCS_CLIENT_EMAIL: z.string().email("GCS_CLIENT_EMAIL must be a valid service-account email"),
-  GCS_PRIVATE_KEY: z.string().min(1, "GCS_PRIVATE_KEY is required"),
+  GCS_SERVICE_ACCOUNT_JSON_BASE64: z.string().optional(),
+  GCS_PROJECT_ID: z.string().optional(),
+  GCS_CLIENT_EMAIL: z.string().optional(),
+  GCS_PRIVATE_KEY: z.string().optional(),
   GCS_BUCKET_UPLOADS: z.string().min(1, "GCS_BUCKET_UPLOADS is required"),
   GCS_BUCKET_EXPORTS: z.string().min(1, "GCS_BUCKET_EXPORTS is required"),
 });
@@ -129,6 +130,7 @@ function formatZodIssues(issues: z.ZodIssue[]): EnvValidationIssue[] {
 
 function getRawStorageEnv() {
   return {
+    GCS_SERVICE_ACCOUNT_JSON_BASE64: process.env.GCS_SERVICE_ACCOUNT_JSON_BASE64,
     GCS_PROJECT_ID: process.env.GCS_PROJECT_ID,
     GCS_CLIENT_EMAIL: process.env.GCS_CLIENT_EMAIL,
     GCS_PRIVATE_KEY: process.env.GCS_PRIVATE_KEY,
@@ -137,9 +139,68 @@ function getRawStorageEnv() {
   };
 }
 
+function decodeStorageServiceAccount(base64Value: string) {
+  const normalized = base64Value.trim();
+
+  if (!normalized) {
+    throw new Error("GCS_SERVICE_ACCOUNT_JSON_BASE64 is empty.");
+  }
+
+  const decoded = Buffer.from(normalized, "base64").toString("utf8");
+  const parsed = z
+    .object({
+      project_id: z.string().min(1, "service account project_id is required"),
+      client_email: z.string().email("service account client_email must be a valid service-account email"),
+      private_key: z.string().min(1, "service account private_key is required"),
+    })
+    .parse(JSON.parse(decoded));
+
+  return {
+    projectId: parsed.project_id,
+    clientEmail: parsed.client_email,
+    privateKey: parsed.private_key.replace(/\\n/g, "\n"),
+  };
+}
+
 export function getStorageEnvIssues() {
   const parsed = rawStorageEnvSchema.safeParse(getRawStorageEnv());
-  return parsed.success ? [] : formatZodIssues(parsed.error.issues);
+
+  if (!parsed.success) {
+    return formatZodIssues(parsed.error.issues);
+  }
+
+  if (parsed.data.GCS_SERVICE_ACCOUNT_JSON_BASE64) {
+    try {
+      decodeStorageServiceAccount(parsed.data.GCS_SERVICE_ACCOUNT_JSON_BASE64);
+    } catch (error) {
+      return [
+        {
+          path: "GCS_SERVICE_ACCOUNT_JSON_BASE64",
+          message: error instanceof Error ? error.message : "GCS_SERVICE_ACCOUNT_JSON_BASE64 is invalid",
+        },
+      ];
+    }
+
+    return [];
+  }
+
+  const issues: EnvValidationIssue[] = [];
+
+  if (!parsed.data.GCS_PROJECT_ID?.trim()) {
+    issues.push({ path: "GCS_PROJECT_ID", message: "GCS_PROJECT_ID is required" });
+  }
+
+  if (!parsed.data.GCS_CLIENT_EMAIL?.trim()) {
+    issues.push({ path: "GCS_CLIENT_EMAIL", message: "GCS_CLIENT_EMAIL is required" });
+  } else if (!z.string().email().safeParse(parsed.data.GCS_CLIENT_EMAIL).success) {
+    issues.push({ path: "GCS_CLIENT_EMAIL", message: "GCS_CLIENT_EMAIL must be a valid service-account email" });
+  }
+
+  if (!parsed.data.GCS_PRIVATE_KEY?.trim()) {
+    issues.push({ path: "GCS_PRIVATE_KEY", message: "GCS_PRIVATE_KEY is required" });
+  }
+
+  return issues;
 }
 
 export function isStorageConfigured() {
@@ -263,10 +324,22 @@ export function isEmailConfigured() {
 export function getStorageEnv(): StorageEnv {
   const parsed = rawStorageEnvSchema.parse(getRawStorageEnv());
 
+  if (parsed.GCS_SERVICE_ACCOUNT_JSON_BASE64) {
+    const serviceAccount = decodeStorageServiceAccount(parsed.GCS_SERVICE_ACCOUNT_JSON_BASE64);
+
+    return {
+      projectId: serviceAccount.projectId,
+      clientEmail: serviceAccount.clientEmail,
+      privateKey: serviceAccount.privateKey,
+      uploadsBucket: parsed.GCS_BUCKET_UPLOADS,
+      exportsBucket: parsed.GCS_BUCKET_EXPORTS,
+    };
+  }
+
   return {
-    projectId: parsed.GCS_PROJECT_ID,
-    clientEmail: parsed.GCS_CLIENT_EMAIL,
-    privateKey: parsed.GCS_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    projectId: z.string().min(1).parse(parsed.GCS_PROJECT_ID),
+    clientEmail: z.string().email().parse(parsed.GCS_CLIENT_EMAIL),
+    privateKey: z.string().min(1).parse(parsed.GCS_PRIVATE_KEY).replace(/\\n/g, "\n"),
     uploadsBucket: parsed.GCS_BUCKET_UPLOADS,
     exportsBucket: parsed.GCS_BUCKET_EXPORTS,
   };
