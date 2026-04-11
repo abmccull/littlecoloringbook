@@ -6,6 +6,7 @@ import { BookMockupBlock, PhotoExampleGrid } from "../../components/proof-module
 import { Section } from "../../components/section";
 import { TrackVisibilityStage } from "../../components/track-visibility-stage";
 import { TrackPageEvent } from "../../components/track-page-event";
+import { TrackedLink } from "../../components/tracked-link";
 import { faqs, photoExamples, proofAssets } from "../../lib/consumer-content";
 
 const sampleReasons = [
@@ -43,6 +44,12 @@ export default function SamplePage() {
           <h3>Tell us where to send it.</h3>
           <p className="muted">You&apos;ll upload the photo on the next screen. This first step just keeps your free page connected to the right inbox.</p>
           <SampleStartForm />
+          <p className="mini-note">
+            Already know you want the full book?{" "}
+            <TrackedLink href="/create?offer=pdf-100&source=sample-bypass" eventName="sample_page_direct_builder_clicked">
+              Skip the sample and build it now.
+            </TrackedLink>
+          </p>
         </div>
       </section>
 

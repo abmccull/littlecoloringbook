@@ -13,6 +13,30 @@ The job of this plan is to answer:
 2. where are people dropping before the next belief forms?
 3. which steps correlate with higher AOV, print take-rate, bundle take-rate, and activation speed?
 
+## Two Allowed Funnel Paths
+
+Little Color Book should intentionally support two different customer paths:
+
+### 1. Default path: sample first
+
+This is still the main cold-traffic path:
+
+`proof -> free sample -> personalized win -> full-book builder -> upload -> checkout -> activation`
+
+### 2. Fast path: direct buy
+
+This is for:
+
+- returning customers
+- warm traffic that already understands the product
+- buyers who already know they want the full book
+
+That path is:
+
+`proof -> builder -> upload -> checkout -> activation`
+
+The sample-first path should remain the default for cold traffic, but the direct-buy path should stay visible and measurable so high-intent buyers are not forced through unnecessary friction.
+
 ## Primary Tracking Model
 
 Use one normalized event as the main reporting layer:
@@ -38,6 +62,7 @@ Every `buyer_journey_stage_reached` event should include some combination of:
 - `bundleSelection`
 - `quantity`
 - `uploadCount`
+- `source`
 
 Not every property applies to every stage.
 
@@ -111,6 +136,16 @@ For the ideal path, measure the share of buyers who move through this sequence i
 8. `full_upload_completed`
 9. `checkout_started`
 10. `purchase_confirmed`
+
+For direct-buy traffic, also measure the fast path separately:
+
+1. `proof_viewed`
+2. `builder_started`
+3. `offer_selected`
+4. `order_draft_created`
+5. `full_upload_completed`
+6. `checkout_started`
+7. `purchase_confirmed`
 
 Print buyers should also show:
 
@@ -206,6 +241,7 @@ What is still weak:
 
 - the direct `/sample` page still asks for email before showing its strongest product proof
 - that means cold traffic sent straight to the sample page is not being forced through proof as cleanly as the homepage path
+- the direct-buy fast path now exists intentionally, which is good for warm and returning buyers, but it means reporting needs to segment `sample-first` vs `direct-buy` instead of treating one path as universally correct
 
 Conclusion:
 
@@ -307,6 +343,11 @@ The main strategic gap is still the top of the direct sample path:
 - direct sample visitors can still start the sample before seeing enough product proof
 
 If the goal is to force the journey more aggressively, the next design iteration should focus on moving transformation proof higher on the `/sample` page so that cold visitors who land there still experience proof before the email/form step.
+
+The fast-path change does not break the buyer-journey model. It just means the model now has:
+
+- a default `sample-first` journey for cold traffic
+- an intentional `direct-buy` journey for already-convinced traffic
 
 ## Next Measurement Improvements
 

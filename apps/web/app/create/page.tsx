@@ -9,19 +9,20 @@ import { proofAssets } from "../../lib/consumer-content";
 export default async function CreatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ offer?: string }>;
+  searchParams: Promise<{ offer?: string; source?: string }>;
 }) {
-  const { offer } = await searchParams;
+  const { offer, source } = await searchParams;
 
   return (
     <main>
-      <TrackPageEvent eventName="builder_viewed" eventProperties={{ initialOffer: offer ?? "pdf-30" }} />
+      <TrackPageEvent eventName="builder_viewed" eventProperties={{ initialOffer: offer ?? "pdf-30", source: source ?? "default" }} />
       <TrackBuyerJourneyStage
         stage="builder_started"
         onceKey="builder-started"
         stageProperties={{
           initialOffer: offer ?? "pdf-30",
           surface: "builder_page",
+          source: source ?? "default",
         }}
       />
       <header className="topbar topbar-flow">

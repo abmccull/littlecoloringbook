@@ -66,8 +66,13 @@ export const funnelCtas = {
     href: "/sample",
     eventName: "home_sample_cta_clicked",
   },
-  seeThirtyPages: {
-    label: "See Book Options",
+  directBuilder: {
+    label: "Already Sold? Build My Book",
+    href: "/create?offer=pdf-100&source=direct-buy",
+    eventName: "home_direct_builder_clicked",
+  },
+  seeBookSizes: {
+    label: "See Book Sizes",
     href: "#book-sizes",
     eventName: "home_book_sizes_clicked",
   },
@@ -156,7 +161,7 @@ export const homepageContent = {
     "Start with 30 when you want a lighter first keepsake. Choose 50 when you want it to feel more complete. Go 100 when you already know the camera roll is full and you want the best value per page.",
   sampleBlock: {
     title: "See one page before you commit to the whole book.",
-    description: "See one real page made from your own photo first. Then decide if you want to turn the rest into the full book.",
+    description: "See one real page made from your own photo first. If you already know you want the full book, you can skip the sample and head straight to the builder.",
   },
 };
 
