@@ -14,15 +14,15 @@ const heroSteps: ProofStep[] = [
   {
     label: "Start with one favorite photo",
     caption: "A kid, a pet, a birthday, a vacation, or one family moment",
-    src: proofAssets.kidPhoto,
-    alt: "Demo photo of a child",
+    src: proofAssets.realFamilyPlayPhoto,
+    alt: "Real family photo used as the source image",
     frame: "photo",
   },
   {
     label: "We turn it into clean, colorable lines",
     caption: "Bold, open pages that still feel personal instead of generic",
-    src: proofAssets.kidPage,
-    alt: "Example coloring page output",
+    src: proofAssets.realFamilyPlayPage,
+    alt: "Real coloring page generated from the family photo",
     frame: "page",
   },
   {
@@ -39,15 +39,14 @@ export function HeroProofModule() {
   return (
     <div className="hero-proof-panel hero-showcase-panel">
       <div className="hero-showcase-topline">
-        <span className="pill pill-sun">Preview the product first</span>
-        <span className="mini-note">Shown with licensed demo photos</span>
+        <span className="pill pill-sun">Real photo to real coloring page</span>
       </div>
 
       <div className="hero-showcase-stage">
         <div className="book-mockup hero-book-mockup">
           <div className="book-spiral" aria-hidden="true" />
           <div className="book-cover">
-            <img alt="Example personalized coloring book cover" src={proofAssets.familyPhoto} />
+            <img alt="Real family photo used in the coloring book" className="hero-book-photo" src={proofAssets.realFamilyPlayPhoto} />
             <div className="book-cover-badge">
               <BrandLogo size="cover" />
             </div>
@@ -56,13 +55,8 @@ export function HeroProofModule() {
             </div>
           </div>
           <div className="book-page">
-            <img alt="Example inner coloring page" src={proofAssets.kidPage} />
+            <img alt="Real coloring page generated from the family photo" className="hero-book-page" src={proofAssets.realFamilyPlayPage} />
           </div>
-        </div>
-
-        <div className="hero-sample-card">
-          <span className="mini-note">Sample page preview</span>
-          <img alt="Example transformation from source photo to coloring page" className="hero-sample-image" src={proofAssets.exampleTransformation} />
         </div>
       </div>
     </div>

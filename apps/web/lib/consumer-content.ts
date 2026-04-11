@@ -52,12 +52,13 @@ export type FaqItem = {
 };
 
 export const proofAssets = {
-  exampleTransformation: "/proof/example-transformation.webp",
   familyPhoto: "/proof/family-photo.jpg",
   kidPhoto: "/proof/kid-photo.jpg",
   kidPage: "/proof/kid-page-edges.png",
   petPhoto: "/proof/pet-photo.jpg",
   petPage: "/proof/pet-page-edges.png",
+  realFamilyPlayPhoto: "/proof/real-family-play-photo.jpeg",
+  realFamilyPlayPage: "/proof/real-family-play-coloring-page.jpeg",
 } as const;
 
 export const funnelCtas = {
@@ -156,7 +157,7 @@ export const homepageContent = {
   },
   proofStripTitle: "See how a real photo turns into a coloring page worth keeping.",
   proofStripCopy:
-    "Examples below use licensed demo photos, but the point is simple: the input feels familiar, the lines stay clean, and the finished book still feels giftable.",
+    "The point is simple: the input feels familiar, the lines stay clean, and the finished result feels personal enough to keep instead of toss.",
   featuredOfferIntro:
     "Start with 30 when you want a lighter first keepsake. Choose 50 when you want it to feel more complete. Go 100 when you already know the camera roll is full and you want the best value per page.",
   sampleBlock: {
