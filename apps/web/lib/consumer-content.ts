@@ -188,14 +188,14 @@ export const useCaseCards: UseCaseCard[] = [
 
 export const parentQuotes: ParentQuote[] = [
   {
-    quote: "This feels like one of those rare ideas that is actually easy enough to do tonight.",
-    name: "What a busy mom wants to feel",
-    context: "Easy enough for a weekday, personal enough to feel special",
+    quote: "My kid would know these pages were ours right away. That is what makes it feel different from generic coloring pages.",
+    name: "What makes it land",
+    context: "Familiar faces and favorite moments make the book feel personal from page one",
   },
   {
-    quote: "It works for quiet time now, but it still feels good enough to hand to a grandparent later.",
-    name: "Why the product is compelling",
-    context: "Activity + keepsake in one purchase",
+    quote: "I can print the PDF for tonight and still order the spiral book when I want the nicer version to keep or gift.",
+    name: "Why the format works",
+    context: "Screen-free activity now, giftable keepsake later",
   },
 ];
 

@@ -39,9 +39,9 @@ const heroSteps: ProofStep[] = [
   },
 ];
 
-export function HeroProofModule() {
+export function HeroProofModule({ embedded = false }: { embedded?: boolean }) {
   return (
-    <div className="hero-proof-panel hero-showcase-panel">
+    <div className={`hero-proof-panel hero-showcase-panel${embedded ? " hero-showcase-panel-embedded" : ""}`}>
       <div className="hero-showcase-topline">
         <span className="pill pill-sun">Real photo to real coloring page</span>
       </div>

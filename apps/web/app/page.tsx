@@ -24,36 +24,46 @@ export default function HomePage() {
         </div>
       </header>
 
-      <section className="hero hero-home">
-        <div className="hero-copy">
-          <span className="pill pill-sun">{homepageContent.hero.badge}</span>
-          <h1>{homepageContent.hero.title}</h1>
-          <p className="lede">{homepageContent.hero.description}</p>
-          <p className="support-note">{homepageContent.hero.supporting}</p>
-          <div className="hero-actions">
-            <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName={funnelCtas.freeSample.eventName}>
-              {funnelCtas.freeSample.label}
-            </TrackedLink>
-            <TrackedLink className="button button-secondary" href={funnelCtas.directBuilder.href} eventName={funnelCtas.directBuilder.eventName}>
-              {funnelCtas.directBuilder.label}
-            </TrackedLink>
+      <section className="hero-home-shell" id="homepage-proof-module">
+        <div className="hero-home-surface">
+          <div className="hero-copy hero-home-heading">
+            <span className="pill pill-sun">{homepageContent.hero.badge}</span>
+            <h1>{homepageContent.hero.title}</h1>
           </div>
-          <p className="mini-note">
-            Want to compare sizes first?{" "}
-            <TrackedLink href={funnelCtas.seeBookSizes.href} eventName={funnelCtas.seeBookSizes.eventName}>
-              {funnelCtas.seeBookSizes.label}
-            </TrackedLink>
-          </p>
-          <div className="trust-row">
-            {homepageContent.hero.trustPoints.map((point) => (
-              <div className="trust-pill" key={point}>
-                {point}
+          <div className="hero-proof-column">
+            <HeroProofModule embedded />
+          </div>
+          <div className="hero-home-details">
+            <div className="hero-home-story">
+              <p className="lede">{homepageContent.hero.description}</p>
+              <p className="support-note">{homepageContent.hero.supporting}</p>
+            </div>
+            <div className="hero-home-cta">
+              <div className="hero-actions">
+                <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName={funnelCtas.freeSample.eventName}>
+                  {funnelCtas.freeSample.label}
+                </TrackedLink>
+                <TrackedLink className="button button-secondary" href={funnelCtas.directBuilder.href} eventName={funnelCtas.directBuilder.eventName}>
+                  {funnelCtas.directBuilder.label}
+                </TrackedLink>
               </div>
-            ))}
+              <p className="mini-note">
+                Want to compare sizes first?{" "}
+                <TrackedLink href={funnelCtas.seeBookSizes.href} eventName={funnelCtas.seeBookSizes.eventName}>
+                  {funnelCtas.seeBookSizes.label}
+                </TrackedLink>
+              </p>
+            </div>
+            <div className="hero-home-trust">
+              <div className="trust-row">
+                {homepageContent.hero.trustPoints.map((point) => (
+                  <div className="trust-pill" key={point}>
+                    {point}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="hero-proof-column" id="homepage-proof-module">
-          <HeroProofModule />
         </div>
       </section>
       <TrackVisibilityStage
@@ -91,9 +101,9 @@ export default function HomePage() {
       </Section>
 
       <Section
-        eyebrow="How it feels"
-        title="This should feel like an easy yes, not one more thing on your list."
-        copy="The free sample keeps the decision low-pressure. You get to see your own photo in the style before you commit."
+        eyebrow="Why this works"
+        title="An easy screen-free win now. A keepsake worth saving later."
+        copy="That is the real reason parents say yes. Your child recognizes the people and moments on the page right away, and you still end up with something nice enough to print, gift, and keep."
       >
         <ParentQuoteBlock quotes={parentQuotes} />
       </Section>
