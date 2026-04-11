@@ -459,8 +459,12 @@ textarea:focus-visible {
 .hero-home-details {
   grid-area: details;
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(240px, 0.9fr) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.9fr);
+  grid-template-areas:
+    "story cta"
+    "trust trust";
+  column-gap: 22px;
+  row-gap: 18px;
   align-items: start;
   padding: 2px 22px 22px;
 }
@@ -473,6 +477,7 @@ textarea:focus-visible {
 }
 
 .hero-home-story {
+  grid-area: story;
   gap: 16px;
 }
 
@@ -483,7 +488,9 @@ textarea:focus-visible {
 }
 
 .hero-home-cta {
+  grid-area: cta;
   gap: 12px;
+  align-self: start;
 }
 
 .hero-home-cta .hero-actions,
@@ -501,6 +508,10 @@ textarea:focus-visible {
 
 .hero-home-trust .hero-callout-row {
   height: 100%;
+}
+
+.hero-home-trust {
+  grid-area: trust;
 }
 
 .support-note {
