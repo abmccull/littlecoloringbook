@@ -11,26 +11,26 @@ type ProofStep = {
 
 const heroSteps: ProofStep[] = [
   {
-    label: "Start with a favorite photo",
-    caption: "Choose one moment your child already loves",
+    label: "Pick one favorite photo",
+    caption: "The kind already sitting in your camera roll",
     src: proofAssets.kidPhoto,
     alt: "Demo photo of a child",
     frame: "photo",
   },
   {
-    label: "We turn it into a bold coloring page",
-    caption: "Simplified lines, open coloring space, kid-friendly detail",
+    label: "We turn it into clean, colorable lines",
+    caption: "Bold enough for little hands, personal enough to feel like them",
     src: proofAssets.kidPage,
     alt: "Example coloring page output",
     frame: "page",
   },
   {
-    label: "Print tonight or keep it giftable",
-    caption: "Same story, two formats: PDF now or spiral book later",
+    label: "Choose the quick version or the keepsake version",
+    caption: "Print tonight as a PDF or order the spiral book for later",
     src: proofAssets.petPhoto,
     alt: "Printed spiral book cover mockup",
     frame: "book",
-    note: "Every printed book includes the PDF too",
+    note: "Every spiral book includes the PDF too",
   },
 ];
 
@@ -40,9 +40,9 @@ export function HeroProofModule() {
       <div className="hero-proof-feature">
         <div className="hero-proof-heading">
           <span className="hand-note">Real product proof using licensed demo images</span>
-          <h3>See how one photo becomes a page kids want to color.</h3>
+          <h3>See how one favorite photo becomes a page they will actually want to color.</h3>
           <p className="muted">
-            The product has to feel personal, readable, and giftable. This is the transformation the free sample is there to prove.
+            This is the part parents need to see. One real photo turns into bold, open lines a child can color now and you can still feel good saving later.
           </p>
         </div>
         <div className="hero-proof-comparison">
@@ -88,7 +88,7 @@ export function ProofStrip() {
         <article className={`proof-strip-item proof-strip-item-${step.frame}`} key={step.label}>
           <div className="proof-strip-topline">
             <span className="proof-step-index">0{index + 1}</span>
-            <span className="mini-note">{step.frame === "book" ? "Best for gifting" : step.frame === "page" ? "What they color" : "What you upload"}</span>
+            <span className="mini-note">{step.frame === "book" ? "What you keep" : step.frame === "page" ? "What they color" : "What you start with"}</span>
           </div>
           <img alt={step.alt} className="proof-strip-image" src={step.src} />
           <div className="stack-tight">

@@ -67,22 +67,22 @@ export const funnelCtas = {
     eventName: "home_sample_cta_clicked",
   },
   seeThirtyPages: {
-    label: "See book sizes",
+    label: "Build My Book",
     href: "/create?offer=pdf-100",
     eventName: "home_primary_offer_clicked",
   },
   startThirtyPdf: {
-    label: "Choose my book size",
+    label: "Build The 100-Page Book",
     href: "/create?offer=pdf-100",
     eventName: "sample_ready_primary_offer_clicked",
   },
   addThirtyPrint: {
-    label: "Add the giftable spiral book",
+    label: "Get The Spiral Book Version",
     href: "/create?offer=print-100",
     eventName: "sample_ready_print_upsell_clicked",
   },
   startMiniPdf: {
-    label: "Start smaller with 10 pages",
+    label: "Keep It Light With 10 Pages",
     href: "/create?offer=pdf-10",
     eventName: "sample_ready_downsell_clicked",
   },
@@ -96,9 +96,9 @@ export const consumerOffers: ConsumerOffer[] = [
     badgeTone: "sky",
     designs: 10,
     pdfPrice: 14,
-    description: "A small first book for one favorite moment, one pet, or a quick rainy-day win.",
+    description: "A tiny first version for one favorite memory, one pet, or a quick rainy-afternoon win.",
     ctaLabel: "Start with 10 pages",
-    comparisonNote: "Best for testing the idea beyond the free sample.",
+    comparisonNote: "Best if you want to stay small after the free sample.",
   },
   {
     code: "pdf-30",
@@ -108,9 +108,9 @@ export const consumerOffers: ConsumerOffer[] = [
     designs: 30,
     pdfPrice: 29,
     printPrice: 49,
-    description: "The lightest full book when you want a simpler first keepsake from a smaller photo set.",
+    description: "The easiest full-book starting point when you want a lighter first keepsake.",
     ctaLabel: "Choose 30 pages",
-    comparisonNote: "A solid first step when you want the smallest full-book option.",
+    comparisonNote: "Good when you want the smallest full-book option.",
   },
   {
     code: "pdf-50",
@@ -120,9 +120,9 @@ export const consumerOffers: ConsumerOffer[] = [
     designs: 50,
     pdfPrice: 39,
     printPrice: 64,
-    description: "The strongest mix of value, story depth, and giftability for real family albums.",
+    description: "The sweet spot for fuller camera rolls, sibling stories, and gift-worthy books.",
     ctaLabel: "Choose 50 pages",
-    comparisonNote: "Where most full camera rolls start to feel worth turning into a real book.",
+    comparisonNote: "Better when you want the book to feel fuller without going all the way up.",
   },
   {
     code: "pdf-100",
@@ -132,58 +132,58 @@ export const consumerOffers: ConsumerOffer[] = [
     designs: 100,
     pdfPrice: 59,
     printPrice: 99,
-    description: "The biggest keepsake option for packed camera rolls, sibling stories, trips, and holiday gifting.",
+    description: "The biggest, best-value version for packed camera rolls, family trips, birthdays, and gift copies.",
     ctaLabel: "Choose 100 pages",
-    comparisonNote: "Lowest cost per page and the fullest version of the book.",
+    comparisonNote: "Best when you already know you want the fullest version.",
     featured: true,
   },
 ];
 
 export const homepageContent = {
   hero: {
-    badge: "A simple yes for busy moms",
-    title: "Turn favorite photos into coloring books your kids will want to color again and again.",
+    badge: "The easiest screen-free win hiding in your camera roll",
+    title: "Turn the favorite photos already on your phone into a coloring book they will want to use tonight.",
     description:
-      "Start with one photo for a free sample. If it feels like them, choose a 30, 50, or 100-page book you can print tonight or order as a spiral-bound keepsake.",
+      "Start with one favorite photo for a free sample page. If it feels like a yes, turn the rest into a 30, 50, or 100-page book you can print at home or order as a spiral-bound keepsake.",
     supporting:
-      "Made for moms who want something personal without turning it into a project: a screen-free activity for now and a keepsake you will actually want to save later.",
+      "No design project. No perfect-photo hunt. Just familiar faces, pets, trips, and family moments turned into pages they can color now and you can save later.",
     trustPoints: ["Free sample first", "From your real family photos", "PDF tonight or spiral book shipped"],
   },
-  proofStripTitle: "See the photo-to-book transformation before you buy",
+  proofStripTitle: "From favorite photo to coloring page to spiral book.",
   featuredOfferIntro:
-    "Use a simple good-better-best ladder: 30 pages is the starter book, 50 pages gives the story more room, and 100 pages gives you the best value for a packed photo roll.",
+    "30 gets you in. 50 feels fuller. 100 gives you the best value when your camera roll is already packed with favorites.",
   sampleBlock: {
-    title: "Try one page first",
-    description: "The free sample is there so you never have to buy blind. See your own photo as a coloring page, then decide if you want the full book.",
+    title: "See one page before you commit to the whole book.",
+    description: "See one real page made from your own photo first. Then decide if you want to turn the rest into the full book.",
   },
 };
 
 export const useCaseCards: UseCaseCard[] = [
   {
     title: "Quiet time that feels like a win",
-    description: "A personalized activity for afternoons when you need something easy, low-prep, and genuinely engaging.",
+    description: "An easy personal activity for afternoons when you need something low-prep that still feels special.",
     tone: "sun",
   },
   {
     title: "A birthday gift that feels thoughtful",
-    description: "More personal than a generic book, but easier than planning a custom craft project from scratch.",
+    description: "More personal than a generic gift, without turning you into the party craft department.",
     tone: "coral",
   },
   {
     title: "A keepsake grandparents actually keep",
-    description: "Turn favorite family photos into a gift that gets colored now and tucked away later.",
+    description: "Turn favorite family photos into something that gets colored now and saved later.",
     tone: "mint",
   },
 ];
 
 export const parentQuotes: ParentQuote[] = [
   {
-    quote: "This feels like something I could do tonight without turning it into a whole extra task.",
+    quote: "This feels like one of those rare ideas that is actually easy enough to do tonight.",
     name: "What a busy mom wants to feel",
     context: "Easy enough for a weekday, personal enough to feel special",
   },
   {
-    quote: "It lands in that sweet spot where it works for quiet time now and still feels gift-worthy later.",
+    quote: "It works for quiet time now, but it still feels good enough to hand to a grandparent later.",
     name: "Why the product is compelling",
     context: "Activity + keepsake in one purchase",
   },
@@ -213,11 +213,11 @@ export const photoExamples: PhotoExample[] = [
 export const guarantees: GuaranteeCard[] = [
   {
     title: "Free sample before you decide",
-    detail: "You see the style on your own photo before you commit to the full book.",
+    detail: "You get to see the style on your own photo before you spend money on the full book.",
   },
   {
     title: "PDF included with every printed book",
-    detail: "The spiral book is the keepsake version, and the PDF gives you instant reprint access too.",
+    detail: "The spiral book is the giftable version, and the PDF gives you the print-tonight backup too.",
   },
   {
     title: "Damaged print? We replace it.",
@@ -228,19 +228,19 @@ export const guarantees: GuaranteeCard[] = [
 export const faqs: FaqItem[] = [
   {
     question: "How many photos do I need for a full book?",
-    answer: "Plan on one photo per page. Use the simple ladder: 30 pages is the good starter option, 50 pages is the better step up, and 100 pages is the best value when your camera roll is packed.",
+    answer: "Plan on one photo per page. Start with 30 if you want the smaller first version, move to 50 when the album is fuller, and choose 100 when your camera roll is packed and you want the best value.",
   },
   {
     question: "How fast is the free sample?",
-    answer: "Usually a few minutes. We position it as quick, not instant, so there is room for processing and cleanup.",
+    answer: "Usually a few minutes. It is fast enough to feel easy, but we still leave room to clean up the page so it looks worth showing your child.",
   },
   {
     question: "How fast do I get the PDF version?",
-    answer: "The PDF is the faster path. Smaller books are often ready the same session, and bigger books can take longer because every page still needs to be processed and cleaned up.",
+    answer: "The PDF is the faster path. Smaller books are often ready the same session, while bigger books can take longer because every page still has to be cleaned up and prepared.",
   },
   {
     question: "How long does the printed spiral book take?",
-    answer: "Printed books take longer because they have to be made, bound, and shipped. After your artwork is ready, allow production time plus shipping time shown at checkout.",
+    answer: "Printed books take longer because they have to be made, bound, and shipped. Once the artwork is ready, you will see delivery timing at checkout based on the shipping option you pick.",
   },
   {
     question: "What is the difference between the PDF and the spiral book?",
@@ -260,11 +260,11 @@ export const faqs: FaqItem[] = [
   },
   {
     question: "What if I have multiple kids?",
-    answer: "You can mix siblings into one book if you want one shared keepsake, or build separate books if you want each child to have their own version.",
+    answer: "You can mix siblings into one shared book, or make separate versions if you want each child to have their own. The printed-copy packs are useful for that too.",
   },
   {
     question: "Can I order extra copies for grandparents or gifts?",
-    answer: "Yes. On the printed-book path you can add extra copies for grandparents, birthdays, or sibling gifts without rebuilding the whole book.",
+    answer: "Yes. On the printed-book path you can add extra copies for grandparents, birthdays, or sibling gifts without rebuilding the book from scratch.",
   },
   {
     question: "Can each printed copy have a different name on the cover?",

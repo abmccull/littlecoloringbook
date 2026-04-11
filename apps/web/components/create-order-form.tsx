@@ -44,12 +44,12 @@ const formatCards: Record<
   }
 > = {
   pdf: {
-    label: "Print now PDF",
+    label: "Print Tonight PDF",
     title: "Fastest path",
     description: "Best when you want the pages today and already have a printer at home.",
   },
   print: {
-    label: "Professionally printed copy + PDF",
+    label: "Giftable Spiral Book + PDF",
     title: "Keepsake path",
     description: "Best when you want the bound version shipped to you and the PDF included too.",
   },
@@ -339,7 +339,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
       const payload = await readApiPayload<CreateOrderResponse & { error?: string }>(response);
 
       if (!response.ok || !payload.id) {
-        throw new Error(payload.error ?? "Could not create the order draft.");
+        throw new Error(payload.error ?? "We couldn't save your book yet. Please try again.");
       }
 
       trackEvent("order_draft_created", {
@@ -360,7 +360,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
         selectedOffer: selectedOffer.code,
         coverStyle,
       });
-      setErrorMessage(error instanceof Error ? error.message : "Could not start the order.");
+      setErrorMessage(error instanceof Error ? error.message : "We couldn't start your book. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -400,31 +400,28 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
     }
   > = {
     format: {
-      title: "First, how do you want to get it?",
-      description: "Pick the format first. The rest of the flow will adapt around that choice.",
+      title: "First, how do you want it to arrive?",
+      description: "Pick the version that fits tonight. The rest of the builder will adapt around that choice.",
     },
     pages: {
       title: "How many pages do you want in the book?",
-      description:
-        deliveryMode === "print"
-          ? "50 and 100 deliver the best overall value if you already have a fuller photo stack. You will upload that many photos on the next step."
-          : "50 and 100 deliver the best overall value if you already have a fuller photo stack. You will upload that many photos on the next step.",
+      description: "Choose the size that fits your camera roll. You will upload that many photos on the next step.",
     },
     pack: {
       title: "Do you want just one printed copy or a bigger pack?",
-      description: "Add sibling or grandparent copies now while the pages only need to be generated once.",
+      description: "If you want sibling copies or grandparent gifts, lock them in now while the pages only need to be made once.",
     },
     cover: {
       title: "Which cover mood fits this book best?",
-      description: "Pick the cover direction before you move into personalization details.",
+      description: "Pick the cover mood that fits the memories inside.",
     },
     details: {
       title: "Who is this book for?",
       description: "Add the email we should keep the order under, plus the cover name and optional dedication.",
     },
     review: {
-      title: "Quick review before photo upload",
-      description: "Make sure the format, size, pack, and cover direction all look right before you move into uploads.",
+      title: "Quick review before photo upload.",
+      description: "Make sure the format, size, pack, and cover direction all feel right before you move into the photo step.",
     },
   };
 
@@ -440,7 +437,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
               </button>
             ) : (
               <span className="builder-progress-placeholder builder-progress-placeholder-left">
-                <strong>Free sample first</strong>
+                <strong>Free sample</strong>
               </span>
             )}
           </div>
@@ -458,7 +455,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
               </button>
             ) : currentStep === "review" ? (
               <button className="builder-progress-action" disabled={isSubmitting} form={formId} type="submit">
-                <strong>{isSubmitting ? "Saving..." : "Photo Upload"}</strong>
+                <strong>{isSubmitting ? "Saving..." : "Uploads"}</strong>
                 <span aria-hidden="true">→</span>
               </button>
             ) : nextStep ? (
@@ -574,7 +571,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
               <p className="muted">
                 {deliveryMode === "print"
                   ? `${selectedPrintBundle.quantity} printed ${selectedPrintBundle.quantity === 1 ? "copy" : "copies"} plus the PDF download`
-                  : "Printable PDF delivered after processing"}
+                  : "Printable PDF ready as soon as the pages are finished"}
               </p>
               <p className="mini-note">You will upload {selectedOffer.designs} photos right after this step.</p>
             </div>
@@ -612,8 +609,10 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
               <label>
                 <span className="muted">Email</span>
                 <input
+                  autoComplete="email"
                   className="input"
                   name="email"
+                  inputMode="email"
                   placeholder="you@example.com"
                   required
                   type="email"
@@ -629,6 +628,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
                       : "Name on the cover"}
                   </span>
                   <input
+                    autoComplete="given-name"
                     className="input"
                     name="childFirstName"
                     placeholder="Mila"
@@ -645,6 +645,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
                   <label key={`copy-name-${index + 1}`}>
                     <span className="muted">Copy {index + 1} cover name</span>
                     <input
+                      autoComplete="given-name"
                       className="input"
                       placeholder={index === 0 ? "Mila" : `Copy ${index + 1} name`}
                       value={copyNames[index] ?? ""}
@@ -686,7 +687,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
               <h3>{selectedMerchOffer.title}</h3>
               <p className="muted">{selectedMerchOffer.description}</p>
               <ul className="feature-list">
-                <li>{deliveryMode === "print" ? `${selectedPrintBundle.quantity} printed ${selectedPrintBundle.quantity === 1 ? "copy" : "copies"} plus the PDF download` : "Printable PDF delivered after processing"}</li>
+                <li>{deliveryMode === "print" ? `${selectedPrintBundle.quantity} printed ${selectedPrintBundle.quantity === 1 ? "copy" : "copies"} plus the PDF download` : "Printable PDF ready as soon as the pages are finished"}</li>
                 <li>{coverStyleCard.title} selected for the cover direction</li>
                 <li>
                   {deliveryMode === "print" && resolvedCopyNames?.some((value) => value)
@@ -704,7 +705,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
               <span className="pill pill-mint">What happens next</span>
               <h3>Next comes photo upload.</h3>
               <p className="muted">
-                After you confirm this setup, you will upload the photos for the book. Print orders move into shipping after uploads. PDF orders move straight toward processing.
+                After you confirm this setup, you will upload the photos for the book. PDF orders move straight into page-making. Spiral books move into delivery and checkout after upload.
               </p>
               <div className="builder-review-list">
                 {summaryItems.map((item) => (

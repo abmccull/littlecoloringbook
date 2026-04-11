@@ -13,13 +13,13 @@ export default async function CreateShippingPage({
 
   return (
     <main>
-      <header className="topbar">
+      <header className="topbar topbar-flow">
         <div className="wordmark">
           littlecolorbook.com
           <span>delivery details</span>
         </div>
-        <Link className="button button-secondary" href={`/create/uploads${params.orderId ? `?orderId=${encodeURIComponent(params.orderId)}${selectedOffer ? `&selectedOffer=${encodeURIComponent(selectedOffer)}` : ""}&deliveryMode=print` : ""}`}>
-          Back to Uploads
+        <Link className="topbar-link" href={`/create/uploads${params.orderId ? `?orderId=${encodeURIComponent(params.orderId)}${selectedOffer ? `&selectedOffer=${encodeURIComponent(selectedOffer)}` : ""}&deliveryMode=print` : ""}`}>
+          Uploads
         </Link>
       </header>
       <ShippingCheckoutForm

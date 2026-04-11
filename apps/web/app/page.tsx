@@ -64,16 +64,16 @@ export default function HomePage() {
 
       <Section
         eyebrow="Why moms love this"
-        title="It solves two jobs at once: something fun now, something worth keeping later."
-        copy="Easy enough for a tired weekday. Special enough to bring to a birthday or tuck away as a keepsake."
+        title="It gives you something easy for now and something sweet to keep later."
+        copy="That is the real magic: it works on a regular weekday, but it still feels thoughtful enough to gift."
       >
         <UseCaseModule items={useCaseCards} />
       </Section>
 
       <Section
         eyebrow="How it feels"
-        title="The product has to feel easy before it ever feels impressive."
-        copy="That is why the free sample matters so much. It helps a busy parent say yes fast."
+        title="This should feel like an easy yes, not one more thing on your list."
+        copy="The free sample keeps the decision low-pressure. You get to see your own photo in the style before you commit."
       >
         <ParentQuoteBlock quotes={parentQuotes} />
       </Section>
@@ -86,8 +86,8 @@ export default function HomePage() {
         <div className="cta-band">
           <div className="stack-tight">
             <span className="pill pill-sky">One photo is enough to start</span>
-            <h3>Get the free page. Decide after you see it.</h3>
-            <p className="muted">No full album required up front. Just one favorite photo, one quick proof step, and a clear next move if your child loves it.</p>
+            <h3>Get the free page first. Decide after you see it.</h3>
+            <p className="muted">No full album required up front. Just one favorite photo, one quick preview, and a clear next move if your child lights up.</p>
           </div>
           <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName="home_midpage_sample_clicked">
             {funnelCtas.freeSample.label}
@@ -97,8 +97,8 @@ export default function HomePage() {
 
       <Section
         eyebrow="Guarantee"
-        title="The details that make it easy to trust."
-        copy="The fun part comes first. These details are here to make the purchase feel easy and low-risk."
+        title="The practical details that make this easy to trust."
+        copy="The fun part should stay front and center. These are the details that keep the purchase low-stress."
       >
         <div className="detail-grid three-up">
           {guarantees.map((item) => (
@@ -112,8 +112,8 @@ export default function HomePage() {
 
       <Section
         eyebrow="FAQ"
-        title="The last questions people ask before they try it."
-        copy="Everything you need before you try the free page or move into a full book."
+        title="A few practical questions before you start."
+        copy="Everything most moms and grandparents want to know before they try the free page or build the full book."
       >
         <FaqAccordion items={faqs} />
       </Section>

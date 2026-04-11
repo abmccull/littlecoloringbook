@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { trackEvent } from "./analytics-provider";
 
 type SampleProcessingPanelProps = {
@@ -20,10 +20,34 @@ type StartSampleResponse = {
 export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount }: SampleProcessingPanelProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = useState(false);
+  const [isAwaitingGeneration, setIsAwaitingGeneration] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isProcessing = status === "preprocessing" || status === "generating" || status === "qa_review";
   const isReady = status === "pdf_ready";
+  const isWorking = isProcessing || isAwaitingGeneration;
+
+  useEffect(() => {
+    if (isProcessing || isReady || uploadCount === 0) {
+      setIsAwaitingGeneration(false);
+    }
+  }, [isProcessing, isReady, uploadCount]);
+
+  useEffect(() => {
+    if (!isWorking) {
+      return;
+    }
+
+    const refreshTimer = window.setTimeout(() => {
+      startTransition(() => {
+        router.refresh();
+      });
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(refreshTimer);
+    };
+  }, [isWorking, router, status]);
 
   async function handleStart() {
     setIsStarting(true);
@@ -41,9 +65,10 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
       const payload = (await response.json()) as StartSampleResponse;
 
       if (!response.ok || !payload.jobQueued) {
-        throw new Error(payload.error ?? "Could not start sample generation.");
+        throw new Error(payload.error ?? "We couldn't start your free page. Please try again.");
       }
 
+      setIsAwaitingGeneration(true);
       trackEvent("sample_generation_started", {
         orderId,
         uploadCount,
@@ -53,7 +78,7 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
         router.refresh();
       });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not start sample generation.");
+      setErrorMessage(error instanceof Error ? error.message : "We couldn't start your free page. Please try again.");
     } finally {
       setIsStarting(false);
     }
@@ -71,22 +96,23 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
         </div>
       ) : null}
 
-      {!isReady && !isProcessing ? (
+      {!isReady && !isWorking ? (
         <div className="hero-actions">
           <button className="button button-primary" disabled={isStarting || uploadCount === 0} type="button" onClick={handleStart}>
             {isStarting ? "Creating your page..." : "Create My Free Page"}
           </button>
-          <button className="button button-secondary" type="button" onClick={() => router.refresh()}>
-            Refresh Page
-          </button>
         </div>
       ) : null}
 
-      {isProcessing ? (
-        <div className="hero-actions">
-          <button className="button button-secondary" type="button" onClick={() => router.refresh()}>
-            Refresh Page
-          </button>
+      {isWorking ? (
+        <div aria-live="polite" className="processing-note surface">
+          <span className="pill pill-sky">{isProcessing ? "Auto-updating" : "Getting started"}</span>
+          <div className="stack-tight">
+            <strong>{isProcessing ? "We will keep checking for you." : "We are getting your free page started."}</strong>
+            <p className="muted">
+              Stay here for a moment. This screen refreshes on its own and moves you forward as soon as the free page is ready.
+            </p>
+          </div>
         </div>
       ) : null}
     </div>

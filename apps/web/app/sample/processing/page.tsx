@@ -31,8 +31,8 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
       <main>
         <section className="sample-frame">
           <span className="pill pill-sun">Free sample</span>
-          <h1>Start your free sample, then upload the photo here.</h1>
-          <p className="lede">This page only works after the sample step creates your private upload link.</p>
+          <h1>Start your free page first, then upload the photo here.</h1>
+          <p className="lede">This screen only works after the first sample step creates your private link.</p>
           <div className="hero-actions">
             <Link className="button button-primary" href="/sample">
               Start My Free Sample
@@ -51,7 +51,7 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
         <section className="sample-frame">
           <span className="pill pill-coral">Sample not found</span>
           <h1>We couldn't find that sample link.</h1>
-          <p className="lede">The safest next step is to start a new free sample so the photo and preview stay tied to the right email.</p>
+          <p className="lede">The safest next move is to start a new free sample so the photo and preview stay tied to the right inbox.</p>
           <div className="hero-actions">
             <Link className="button button-primary" href="/sample">
               Start a New Sample
@@ -83,22 +83,28 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
         <span className="pill pill-sun">{uploadedCount === 0 ? "Step 2 of 2" : isProcessing ? "Free page in progress" : "Photo uploaded"}</span>
         <h1>
           {uploadedCount === 0
-            ? "Upload the photo you want to turn into a page."
+            ? "Upload the photo you want us to turn into your free page."
             : isProcessing
               ? "Your free page is on the way."
-              : "Your photo is ready when you are."}
+              : "Your photo is in. Ready for the fun part?"}
         </h1>
         <p className="lede">
           {uploadedCount === 0
-            ? "Pick one clear favorite. We only need one photo for the sample."
+            ? "Pick one clear favorite. One child portrait, sibling moment, or pet photo is plenty for the free sample."
             : isProcessing
-              ? "This page is your guided waiting room. We're turning your photo into bold coloring lines now."
-              : "Your photo is attached. When you hit the button, we'll start building the sample page."}
+              ? "This is your quick waiting room. We are turning that photo into bold coloring lines now."
+              : "Your photo is attached. When you hit the button, we will build the sample page from it."}
         </p>
 
         <div className="status-banner status-banner-progress">
           <strong>{statusLabels[summary.order.status] ?? summary.order.status.replaceAll("_", " ")}</strong>
-          <span>{uploadedCount === 0 ? "Upload one photo to continue." : "Refresh this page in a moment if it is still working."}</span>
+          <span>
+            {uploadedCount === 0
+              ? "Upload one photo to keep going."
+              : isProcessing
+                ? "We will keep checking this screen automatically and move you forward when the page is ready."
+                : "Your photo is attached. Start the free page whenever you are ready."}
+          </span>
         </div>
 
         {uploadedCount === 0 ? (
@@ -131,8 +137,8 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
         <BookMockupBlock
           coverSrc={proofAssets.kidPhoto}
           pageSrc={proofAssets.kidPage}
-          title="If the sample lands, the full book is the next move."
-          copy="Use the free page as your preview. If it feels right, choose 30, 50, or 100 pages right after that."
+          title="If the free page feels like a yes, the full book is next."
+          copy="Use this sample as your proof. If your child loves it, turn the rest of your favorite photos into the 30, 50, or 100-page version right after this."
         />
       </section>
     </main>

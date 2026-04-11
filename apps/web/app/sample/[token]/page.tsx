@@ -41,21 +41,21 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
       <section className="sample-frame">
         <span className="pill pill-sun">Free page ready</span>
         <h1>Your sample page is ready to preview.</h1>
-        <p className="lede">If this feels like a yes, use the simple good-better-best ladder: 30 pages gets you in, 50 pages gives you more story, and 100 pages is the best value.</p>
+        <p className="lede">If your child lights up when they see this, turn the rest of your camera roll into the full book. Start with 30, move to 50 if the album is fuller, or go to 100 if you want the best-value keepsake.</p>
 
         <div className="sample-ready-layout">
           <div className="proof-card proof-card-preview">
             <img alt="Generated coloring page preview" className="proof-card-visual preview-image" src={previewHref} />
             <div className="stack-tight">
               <strong>Free sample preview</strong>
-              <p className="muted">This is the proof step: see the style on your own photo before committing to a full book.</p>
+              <p className="muted">This is what the full book style will feel like on your own photos.</p>
             </div>
           </div>
 
           <div className="surface sample-ready-actions">
-            <span className="pill pill-coral">Best value option</span>
-            <h3>{featuredOffer.title} gives you the fullest book for the best per-page value.</h3>
-            <p className="muted">{featuredOffer.description}</p>
+            <span className="pill pill-coral">Best-value keepsake</span>
+            <h3>{featuredOffer.title} is the fullest version and the best value if your photo stack is ready.</h3>
+            <p className="muted">It is the strongest fit for bigger camera rolls, sibling stories, trips, birthday memories, and gift copies.</p>
             <div className="hero-actions">
               <TrackedLink className="button button-primary" href={funnelCtas.startThirtyPdf.href} eventName={funnelCtas.startThirtyPdf.eventName}>
                 {funnelCtas.startThirtyPdf.label}
@@ -65,13 +65,13 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
               </TrackedLink>
             </div>
             <p className="muted">
-              Want to look at the page again first?{" "}
+              Want to sit with the sample a little longer?{" "}
               <a href={previewHref} rel="noreferrer" target="_blank">
                 Open the sample preview.
               </a>
             </p>
             <p className="muted">
-              Need a smaller first step?{" "}
+              Want the lighter first version instead?{" "}
               <TrackedLink href={funnelCtas.startMiniPdf.href} eventName={funnelCtas.startMiniPdf.eventName}>
                 {funnelCtas.startMiniPdf.label}
               </TrackedLink>
@@ -82,8 +82,8 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
         <BookMockupBlock
           coverSrc={proofAssets.kidPhoto}
           pageSrc={proofAssets.kidPage}
-          title="Print tonight or make it giftable."
-          copy="The PDF gets you pages fast. The spiral book turns the same idea into a keepsake you can hand to a child, grandparent, or birthday guest."
+          title="Print tonight or turn it into a real keepsake."
+          copy="The PDF gets you pages fast. The spiral book turns the same idea into something you can hand to a child, a grandparent, or a birthday guest."
         />
 
         <div className="detail-grid three-up">
@@ -98,8 +98,8 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
         <div className="stack">
           <div className="section-copy">
             <p className="eyebrow">Choose your size</p>
-            <h2>Keep 30 as the good starter option, then step up to 50 or 100.</h2>
-            <p className="lede">30 pages is the smallest full book. 50 pages is the better middle. 100 pages is the best-value full keepsake.</p>
+            <h2>Start light with 30, or go bigger if the photo stack is ready.</h2>
+            <p className="lede">30 is the good starter, 50 is the fuller middle, and 100 is the best-value keepsake when you already know you want the whole story in one book.</p>
           </div>
           <div className="offer-grid">
             {coreOffers.map((offer) => (

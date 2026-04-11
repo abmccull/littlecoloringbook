@@ -71,8 +71,8 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
     return (
       <section className="builder-card">
         <span className="pill pill-coral">Delivery</span>
-        <h1>Choose the printed book first, then pick delivery.</h1>
-        <p className="lede">Once you have a print order started, this page shows live shipping choices and final checkout totals.</p>
+        <h1>Choose the spiral book first, then pick delivery.</h1>
+        <p className="lede">Once your print order is started, this page shows real delivery choices and your final total before payment.</p>
         <div className="hero-actions">
           <Link className="button button-primary" href="/create?offer=print-30">
             Go to Book Builder
@@ -114,7 +114,7 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
       const payload = await readApiPayload<QuoteResponse>(response);
 
       if (!response.ok || !payload.quotes) {
-        throw new Error(payload.error ?? "Could not quote shipping.");
+        throw new Error(payload.error ?? "We couldn't load delivery choices. Please try again.");
       }
 
       setQuotes(payload.quotes);
@@ -124,7 +124,7 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
         quoteCount: payload.quotes.length,
       });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not quote shipping.");
+      setErrorMessage(error instanceof Error ? error.message : "We couldn't load delivery choices. Please try again.");
     } finally {
       setIsQuoting(false);
     }
@@ -132,7 +132,7 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
 
   async function handleCheckout() {
     if (!selectedQuote) {
-      setErrorMessage("Choose a delivery option before checkout.");
+      setErrorMessage("Choose a delivery option before you head to checkout.");
       return;
     }
 
@@ -158,7 +158,7 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
       const payload = await readApiPayload<CheckoutResponse>(response);
 
       if (!response.ok || !payload.checkoutUrl) {
-        throw new Error(payload.error ?? "Could not start checkout.");
+        throw new Error(payload.error ?? "We couldn't open checkout. Please try again.");
       }
 
       trackEvent("checkout_started", {
@@ -171,7 +171,7 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
 
       window.location.assign(payload.checkoutUrl);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not start checkout.");
+      setErrorMessage(error instanceof Error ? error.message : "We couldn't open checkout. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -181,28 +181,28 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
     <section className="builder-card">
       <span className="pill pill-coral">Delivery</span>
       <h1>Where should we send the spiral book?</h1>
-      <p className="lede">Enter the shipping address to see live delivery choices. You'll choose the best arrival option before payment.</p>
+      <p className="lede">Add the shipping address to see real delivery choices before payment. Your PDF still comes with it either way.</p>
 
       <div className="surface selection-summary">
-        <span className="pill pill-mint">Your printed set</span>
+        <span className="pill pill-mint">Your giftable set</span>
         <h3>
           {quantity} printed {quantity === 1 ? "copy" : "copies"}
         </h3>
-        <p className="muted">{offer.title} with the PDF included. Shipping is quoted separately after you enter the address.</p>
+        <p className="muted">{offer.title} with the PDF included. Shipping gets added after you pick the delivery speed that fits.</p>
       </div>
 
       <div className="detail-grid three-up">
         <article className="surface detail-card">
-          <span className="pill pill-sky">1 business day</span>
-          <p className="muted">Our target to get the finished print file moving toward production.</p>
+          <span className="pill pill-sky">Usually within 1 business day</span>
+          <p className="muted">That is our target to get your finished book moving toward print.</p>
         </article>
         <article className="surface detail-card">
           <span className="pill pill-sun">3-5 business days</span>
-          <p className="muted">Typical Lulu print and bind window once the job is in production.</p>
+          <p className="muted">Typical print-and-bind window once the book reaches production.</p>
         </article>
         <article className="surface detail-card">
-          <span className="pill pill-mint">You choose transit</span>
-          <p className="muted">Live delivery options show up after you enter the address below.</p>
+          <span className="pill pill-mint">You choose the arrival speed</span>
+          <p className="muted">Delivery options show up right after you enter the address below.</p>
         </article>
       </div>
 
@@ -210,42 +210,93 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
         <div className="form-grid">
           <label>
             <span className="muted">Full name</span>
-            <input className="input" name="fullName" placeholder="Jordan Smith" required value={fullName} onChange={(event) => setFullName(event.target.value)} />
+            <input
+              autoComplete="name"
+              className="input"
+              name="fullName"
+              placeholder="Jordan Smith"
+              required
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+            />
           </label>
           <label>
             <span className="muted">Phone</span>
-            <input className="input" name="phone" placeholder="(555) 555-0142" required value={phone} onChange={(event) => setPhone(event.target.value)} />
+            <input
+              autoComplete="tel"
+              className="input"
+              inputMode="tel"
+              name="phone"
+              placeholder="(555) 555-0142"
+              required
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+            />
           </label>
           <label>
             <span className="muted">Address</span>
-            <input className="input" name="line1" placeholder="123 Cottonwood Lane" required value={line1} onChange={(event) => setLine1(event.target.value)} />
+            <input
+              autoComplete="address-line1"
+              className="input"
+              name="line1"
+              placeholder="123 Cottonwood Lane"
+              required
+              value={line1}
+              onChange={(event) => setLine1(event.target.value)}
+            />
           </label>
           <label>
             <span className="muted">Address line 2</span>
-            <input className="input" name="line2" value={line2} onChange={(event) => setLine2(event.target.value)} />
+            <input autoComplete="address-line2" className="input" name="line2" value={line2} onChange={(event) => setLine2(event.target.value)} />
           </label>
           <label>
             <span className="muted">City</span>
-            <input className="input" name="city" placeholder="Denver" required value={city} onChange={(event) => setCity(event.target.value)} />
+            <input
+              autoComplete="address-level2"
+              className="input"
+              name="city"
+              placeholder="Denver"
+              required
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+            />
           </label>
           <label>
             <span className="muted">State</span>
-            <input className="input" name="state" placeholder="CO" required value={state} onChange={(event) => setState(event.target.value)} />
+            <input
+              autoComplete="address-level1"
+              className="input"
+              name="state"
+              placeholder="CO"
+              required
+              value={state}
+              onChange={(event) => setState(event.target.value)}
+            />
           </label>
           <label>
             <span className="muted">ZIP code</span>
-            <input className="input" name="postalCode" placeholder="80202" required value={postalCode} onChange={(event) => setPostalCode(event.target.value)} />
+            <input
+              autoComplete="postal-code"
+              className="input"
+              inputMode="numeric"
+              name="postalCode"
+              placeholder="80202"
+              required
+              value={postalCode}
+              onChange={(event) => setPostalCode(event.target.value)}
+            />
           </label>
         </div>
 
         <div className="status-banner status-banner-progress">
-          <strong>US shipping only in v1</strong>
-          <span>Production still runs first. The shipping choice below changes transit speed after the book is printed.</span>
+          <strong>US shipping only for now</strong>
+          <span>Your delivery choice changes transit time after the book is printed and bound.</span>
         </div>
 
-        <div className="hero-actions">
+        <div className="hero-actions hero-actions-mobile-bar">
           <button className="button button-secondary" disabled={isQuoting} type="submit">
-            {isQuoting ? "Getting delivery options..." : "Show Delivery Options"}
+            {isQuoting ? "Getting delivery choices..." : "Show Delivery Choices"}
           </button>
         </div>
       </form>
@@ -270,24 +321,24 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
             })}
           </div>
           <div className="surface selection-summary">
-            <span className="pill pill-coral">Checkout total</span>
+            <span className="pill pill-coral">Your total today</span>
             <h3>{formatMoney(orderSubtotalCents + (selectedQuote?.shippingCents ?? 0))}</h3>
             <p className="muted">
               {quantity} printed {quantity === 1 ? "copy" : "copies"} plus {selectedQuote ? selectedQuote.label.toLowerCase() : "selected delivery"}
             </p>
-            <p className="mini-note">Your printed book still includes the PDF version too.</p>
+            <p className="mini-note">The PDF is still included, so you can print at home while the spiral book is on the way.</p>
           </div>
         </div>
       ) : null}
 
       {errorMessage ? <div className="status-banner status-banner-warning">{errorMessage}</div> : null}
 
-      <div className="hero-actions">
+      <div className="hero-actions hero-actions-mobile-bar">
         <button className="button button-primary" disabled={!selectedQuote || isSubmitting} type="button" onClick={handleCheckout}>
-          {isSubmitting ? "Starting checkout..." : "Continue to Secure Checkout"}
+          {isSubmitting ? "Starting checkout..." : "Go to Secure Checkout"}
         </button>
         <Link className="button button-secondary" href={`/create?offer=${encodeURIComponent(offer.code)}`}>
-          Back to Book Choice
+          Back to photo upload
         </Link>
       </div>
     </section>

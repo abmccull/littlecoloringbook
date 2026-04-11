@@ -16,27 +16,27 @@ export default function SamplePage() {
   return (
     <main>
       <TrackPageEvent eventName="sample_entry_viewed" />
-      <header className="topbar">
+      <header className="topbar topbar-flow">
         <div className="wordmark">
           littlecolorbook.com
           <span>free sample page</span>
         </div>
-        <Link className="button button-secondary" href="/">
-          Back Home
+        <Link className="topbar-link" href="/">
+          Home
         </Link>
       </header>
 
       <section className="sample-frame sample-entry">
         <div className="sample-entry-copy">
           <span className="pill pill-sun">Free sample</span>
-          <h1>Turn one favorite photo into a free coloring page before you buy the full book.</h1>
+          <h1>Turn one photo they already love into a free coloring page.</h1>
           <p className="lede">
-            Start with one photo your child already loves. We&apos;ll turn it into a printable sample so you can see the style before deciding on the full book.
+            Start with one favorite photo first. If the page feels like them, you can turn the rest of your camera roll into the full book right after that.
           </p>
           <ul className="feature-list">
             <li>One free sample page from one favorite photo</li>
-            <li>Best for a child portrait, one sibling moment, or a favorite pet</li>
-            <li>If your child loves the sample, turn the rest of your photos into a full book.</li>
+            <li>Best for a child portrait, a sibling moment, or a favorite pet</li>
+            <li>If your child loves it, you are one step away from the full book.</li>
           </ul>
         </div>
         <div className="surface sample-form-card">
@@ -57,8 +57,8 @@ export default function SamplePage() {
 
       <Section
         eyebrow="What happens next"
-        title="The free page has one job: help you decide quickly."
-        copy="This is the low-risk proof step. If the page feels right, the full book becomes an easy decision."
+        title="The free page has one job: make the full book feel easy to picture."
+        copy="This is the low-risk first look. If the sample feels right, the rest of the decision becomes much easier."
       >
         <div className="detail-grid three-up">
           {sampleReasons.map((reason, index) => (
@@ -72,21 +72,21 @@ export default function SamplePage() {
 
       <Section
         eyebrow="What you are moving toward"
-        title="If the sample clicks, pick the book size that fits your memory stack."
-        copy="Keep it simple: 30 pages is the good starter book, 50 pages is the better step up, and 100 pages is the best-value full keepsake."
+        title="If the sample clicks, choose the book that fits your photo stack."
+        copy="30 is the light starter. 50 feels fuller. 100 is the best-value keepsake when the camera roll is packed."
       >
         <BookMockupBlock
           coverSrc={proofAssets.kidPhoto}
           pageSrc={proofAssets.kidPage}
-          title="Print Tonight PDF or Giftable Spiral Book"
+          title="Print tonight or make it giftable."
           copy="The same pages can become a quick PDF for tonight or a spiral-bound keepsake for birthdays, grandma gifts, and family shelf moments."
         />
       </Section>
 
       <Section
         eyebrow="FAQ"
-        title="Questions moms and grandparents usually ask before they upload."
-        copy="Timing, print versus PDF, multiple kids, gift copies, and the rest of the details people want before they start."
+        title="Questions moms and grandparents usually ask before they start."
+        copy="Timing, print versus PDF, multiple kids, gift copies, and the practical details most people want before they upload."
       >
         <FaqAccordion items={faqs} />
       </Section>

@@ -185,6 +185,20 @@ textarea:focus-visible {
   padding: 10px 0 28px;
 }
 
+.topbar-flow {
+  align-items: flex-start;
+}
+
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-dark);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
 .wordmark {
   font-size: 1rem;
   font-weight: 900;
@@ -264,6 +278,10 @@ textarea:focus-visible {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 28px;
+}
+
+.hero-actions-mobile-bar {
+  margin-top: 20px;
 }
 
 .builder-support-list,
@@ -913,6 +931,10 @@ textarea:focus-visible {
   color: var(--warning);
 }
 
+.processing-note {
+  gap: 12px;
+}
+
 .builder-card,
 .portal-card,
 .sample-frame {
@@ -1220,6 +1242,12 @@ select.text-input {
   border-color: rgba(43, 31, 26, 0.18);
 }
 
+.upload-dropzone-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
 .upload-dropzone.is-dragging {
   border-color: rgba(179, 72, 53, 0.46);
   box-shadow:
@@ -1503,7 +1531,7 @@ select.text-input {
 @media (max-width: 680px) {
   main {
     width: min(100%, calc(100% - 16px));
-    padding: 16px 0 72px;
+    padding: 12px 0 72px;
   }
 
   .topbar {
@@ -1519,6 +1547,18 @@ select.text-input {
     padding: 14px 18px;
   }
 
+  .topbar-flow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 0 14px;
+  }
+
+  .topbar-link {
+    font-size: 0.88rem;
+  }
+
   .hero-copy,
   .sample-frame,
   .builder-card,
@@ -1531,7 +1571,12 @@ select.text-input {
   .use-case-card,
   .photo-example-card,
   .parent-quote {
-    padding: 20px;
+    padding: 18px;
+  }
+
+  .section {
+    margin-top: 20px;
+    padding: 22px 18px;
   }
 
   .hero-actions,
@@ -1554,9 +1599,14 @@ select.text-input {
     margin: 0;
   }
 
+  .builder-card {
+    gap: 14px;
+  }
+
   .builder-progress-shell {
-    gap: 8px;
-    padding: 10px 12px 9px;
+    gap: 6px;
+    padding: 8px 10px 7px;
+    border-radius: 20px;
   }
 
   .builder-progress-link,
@@ -1566,36 +1616,52 @@ select.text-input {
   }
 
   .builder-progress-count {
-    font-size: 0.68rem;
+    font-size: 0.62rem;
   }
 
   .builder-progress-link strong,
   .builder-progress-action strong,
   .builder-progress-placeholder strong,
   .builder-progress-current strong {
-    font-size: 0.96rem;
+    font-size: 0.88rem;
+  }
+
+  .builder-progress-track {
+    height: 4px;
   }
 
   .builder-step-intro {
-    gap: 8px;
+    gap: 6px;
   }
 
   .builder-step-intro h1 {
-    max-width: 9ch;
-    font-size: clamp(2.35rem, 12vw, 3.8rem);
+    max-width: 7ch;
+    font-size: clamp(2rem, 10.5vw, 3rem);
+  }
+
+  .builder-step-intro .lede {
+    font-size: 0.98rem;
+    line-height: 1.52;
   }
 
   .toggle-row button,
   .offer-switch button,
   .cover-style-card {
-    min-height: 126px;
-    padding: 16px 16px 18px;
+    min-height: 0;
+    padding: 14px 14px 16px;
+    gap: 8px;
+  }
+
+  .toggle-row button strong,
+  .offer-switch button strong,
+  .cover-style-card strong {
+    font-size: 1.06rem;
   }
 
   .progress-callout,
   .status-banner,
   .selection-summary {
-    padding: 18px;
+    padding: 16px;
   }
 
   .wordmark {
@@ -1603,8 +1669,75 @@ select.text-input {
   }
 
   .wordmark span {
-    margin-top: 4px;
+    margin-top: 2px;
     font-size: 0.78rem;
+  }
+
+  .preview-image {
+    min-height: 260px;
+    padding: 12px;
+  }
+
+  .book-mockup {
+    min-height: 236px;
+  }
+
+  .book-cover,
+  .book-page {
+    height: 192px;
+  }
+
+  .book-page {
+    top: 30px;
+  }
+
+  .builder-support-grid {
+    display: none;
+  }
+
+  .upload-dropzone {
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .upload-actions {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .upload-actions .button {
+    width: 100%;
+  }
+
+  .upload-result,
+  .timeline-item,
+  .admin-order-row,
+  .table-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .upload-state,
+  .status-pill {
+    align-self: flex-start;
+  }
+
+  .hero-actions-mobile-bar {
+    position: sticky;
+    bottom: 10px;
+    z-index: 12;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 18px 34px rgba(56, 34, 22, 0.12);
+    backdrop-filter: blur(10px);
+  }
+
+  .hero-actions-mobile-bar .button,
+  .hero-actions-mobile-bar a.button {
+    width: 100%;
   }
 }
 
@@ -1616,5 +1749,9 @@ select.text-input {
   .topbar .button,
   .topbar a.button {
     width: 100%;
+  }
+
+  .topbar-flow {
+    display: flex;
   }
 }

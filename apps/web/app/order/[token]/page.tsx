@@ -27,23 +27,34 @@ function prettify(value: string) {
 }
 
 const statusCopy: Record<string, string> = {
-  draft: "Your book is started. Finish checkout whenever you're ready.",
-  awaiting_payment: "Checkout is still open. Once payment clears, we start building the book automatically.",
-  paid: "Payment is confirmed and your book is getting started.",
-  preprocessing: "We're organizing the uploads and planning the pages.",
-  generating: "We're turning your photos into coloring pages now.",
-  qa_review: "We're polishing the pages so they print cleanly.",
-  assembling_pdf: "We're packaging the final PDF.",
+  draft: "Your book is started. Finish checkout and we will take it from here.",
+  awaiting_payment: "Checkout is still open. Once payment clears, we start building automatically.",
+  paid: "You are officially in. We are getting your book started now.",
+  preprocessing: "We are sorting your photos and laying out the pages.",
+  generating: "We are turning your favorite photos into coloring pages now.",
+  qa_review: "We are cleaning up the lines so the book feels ready to print and gift.",
+  assembling_pdf: "We are wrapping up the PDF so it is ready to open and print.",
   pdf_ready: "Your PDF is ready below.",
-  awaiting_print_submission: "Your digital files are ready and the printed book is next.",
+  awaiting_print_submission: "Your PDF is ready and your spiral book is next in line for print.",
   submitted_to_lulu: "The spiral book has been sent to print.",
-  in_production: "Your spiral book is being printed and bound.",
+  in_production: "Your spiral book is being printed and spiral-bound now.",
   shipped: "Your printed book is on the way.",
   delivered: "Your printed book shows as delivered.",
   failed: "This order needs manual attention. Email us and we'll fix it.",
   support_required: "This order is under manual review. We'll keep you posted.",
   refunded: "This order was refunded.",
 };
+
+function prettifyUploadStatus(value: string) {
+  switch (value) {
+    case "uploaded":
+      return "Ready";
+    case "failed":
+      return "Needs attention";
+    default:
+      return prettify(value);
+  }
+}
 
 function getMilestones(summary: PortalSummary) {
   const steps =
@@ -133,7 +144,7 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
       <section className="portal-card">
         <span className="pill pill-sun">Your order</span>
         <h1>{offer.title}</h1>
-        <p className="lede">{statusCopy[summary.order.status] ?? "We'll keep this page updated as your order moves forward."}</p>
+        <p className="lede">{statusCopy[summary.order.status] ?? "We will keep this page updated as your order moves forward."}</p>
         <div className="status-banner status-banner-progress">
           <span className={`status-pill status-pill-${summary.order.status}`}>{prettify(summary.order.status)}</span>
           <span>{summary.customer?.email ?? "Guest checkout"}</span>
@@ -182,7 +193,7 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
             </button>
           )}
           <a className="button button-secondary" href={supportHref}>
-            Request Help
+            Email Support
           </a>
         </div>
       </section>
@@ -198,7 +209,7 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
                     <strong>{upload.fileName}</strong>
                     <p className="muted">Added to your book</p>
                   </div>
-                  <span className={`upload-state upload-state-${upload.status}`}>{upload.status}</span>
+                  <span className={`upload-state upload-state-${upload.status}`}>{prettifyUploadStatus(upload.status)}</span>
                 </div>
               ))}
             </div>
@@ -240,11 +251,11 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
         <div className="cta-band">
           <div className="stack-tight">
             <span className="pill pill-mint">{summary.order.deliveryMode === "print" ? "Need another copy?" : "Want the spiral book too?"}</span>
-            <h3>{summary.order.deliveryMode === "print" ? "Need more copies for siblings or grandparents?" : "We can add the printed spiral version for you."}</h3>
+            <h3>{summary.order.deliveryMode === "print" ? "Want extra copies for siblings or grandparents?" : "Love the PDF and want the spiral book too?"}</h3>
             <p className="muted">
               {summary.order.deliveryMode === "print"
-                ? "Reply from the button below and we can help you add more printed copies without rebuilding the whole book."
-                : "Reply from the button below if you want to turn this order into a giftable spiral book too."}
+                ? "Use the button below and we can help you add more printed copies without rebuilding the whole book."
+                : "Use the button below if you want to turn this order into the giftable spiral version too."}
             </p>
           </div>
           <a className="button button-primary" href={upsellHref}>
@@ -256,8 +267,8 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
       <section className="section">
         <div className="section-copy">
           <span className="pill pill-sun">Recent updates</span>
-          <h2>Order history</h2>
-          <p className="lede">Every meaningful update shows up here as your order moves from payment to delivery.</p>
+          <h2>Your order timeline</h2>
+          <p className="lede">Every meaningful update shows up here as your book moves from payment to delivery.</p>
         </div>
         <div className="timeline-list">
           {summary.events.length > 0 ? (

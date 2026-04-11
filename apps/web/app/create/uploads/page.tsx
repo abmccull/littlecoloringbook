@@ -24,13 +24,13 @@ export default async function CreateUploadsPage({
 
   return (
     <main>
-      <header className="topbar">
+      <header className="topbar topbar-flow">
         <div className="wordmark">
           littlecolorbook.com
           <span>photo upload</span>
         </div>
-        <Link className="button button-secondary" href={`/create${params.selectedOffer ? `?offer=${encodeURIComponent(params.selectedOffer)}` : ""}`}>
-          Back to Builder
+        <Link className="topbar-link" href={`/create${params.selectedOffer ? `?offer=${encodeURIComponent(params.selectedOffer)}` : ""}`}>
+          Builder
         </Link>
       </header>
       <UploadsStep

@@ -34,11 +34,11 @@ export default async function OrderConfirmationPage({
       />
       <section className="portal-card">
         <span className={`pill ${hasConfirmedOrder ? "pill-mint" : "pill-sun"}`}>{hasConfirmedOrder ? "You're in" : "Order lookup"}</span>
-        <h1>{hasConfirmedOrder ? "We're making your coloring book now." : "We couldn't confirm that order yet."}</h1>
+        <h1>{hasConfirmedOrder ? "You are officially in. We are making your book now." : "We could not confirm that order just yet."}</h1>
         <p className="lede">
           {hasConfirmedOrder
-            ? "Your order is confirmed. Use the order page anytime to follow progress, download the PDF when it's ready, and check print delivery updates if you chose the spiral book."
-            : "If checkout just finished, give it another moment and use the button below to start from your builder or try the order page again from the email link."}
+            ? "Your order is confirmed. Use the order page anytime to follow progress, download the PDF when it is ready, and check print delivery updates if you chose the spiral book."
+            : "If checkout just finished, give it another moment and use the button below to head back to the builder or reopen the order page from the email link."}
         </p>
         <div className="portal-status-list">
           <div className="surface">
@@ -59,8 +59,8 @@ export default async function OrderConfirmationPage({
             <h3>What happens next</h3>
             <p className="muted">
               {hasConfirmedOrder
-                ? "Digital orders move toward PDF delivery first. Printed orders move from PDF prep into print and shipping after that."
-                : "If the payment succeeded, this page will become your progress tracker. If not, go back to the builder and start again."}
+                ? "PDF orders move toward download first. Printed orders move from page prep into print and shipping after that."
+                : "If payment succeeded, this page becomes your progress tracker. If not, head back to the builder and start fresh."}
             </p>
           </div>
         </div>

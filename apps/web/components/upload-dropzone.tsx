@@ -32,6 +32,13 @@ type UploadItem = {
   error?: string;
 };
 
+const uploadStateLabels: Record<UploadItem["status"], string> = {
+  queued: "Waiting",
+  uploading: "Uploading",
+  uploaded: "Ready",
+  error: "Needs attention",
+};
+
 type PresignResponse = {
   objectPath: string;
   url: string;
@@ -223,8 +230,8 @@ export function UploadDropzone({
           void handleSelectedFiles(event.dataTransfer.files);
         }}
       >
-        <div>
-          <p className="upload-kicker">{allowMultiple ? "Drop photos here" : "Drop your photo here"}</p>
+        <div className="upload-dropzone-copy">
+          <p className="upload-kicker">{allowMultiple ? "Drop favorite photos here" : "Drop your favorite photo here"}</p>
           <h3>{title}</h3>
           <p>{hint}</p>
         </div>
@@ -248,7 +255,7 @@ export function UploadDropzone({
           >
             {isUploading ? "Uploading..." : buttonLabel}
           </button>
-          <p className="muted">{allowMultiple ? "Supports multi-photo upload" : "One photo at a time"}</p>
+          <p className="muted">{allowMultiple ? "Add several at once from your camera roll" : "One photo is all we need to start"}</p>
         </div>
       </div>
 
@@ -256,15 +263,15 @@ export function UploadDropzone({
 
       {uploads.length > 0 ? (
         <div className="surface upload-results">
-          <span className="pill pill-sky">Upload status</span>
+          <span className="pill pill-sky">Photos added</span>
           <div className="upload-results-list">
             {uploads.map((item) => (
               <div className="upload-result" key={item.id}>
                 <div>
                   <strong>{item.fileName}</strong>
-                  {item.objectPath ? <p className="muted">Ready to use in your book</p> : null}
+                  {item.objectPath ? <p className="muted">Ready for your book</p> : item.error ? <p className="muted">{item.error}</p> : null}
                 </div>
-                <span className={`upload-state upload-state-${item.status}`}>{item.status}</span>
+                <span className={`upload-state upload-state-${item.status}`}>{uploadStateLabels[item.status]}</span>
               </div>
             ))}
           </div>
