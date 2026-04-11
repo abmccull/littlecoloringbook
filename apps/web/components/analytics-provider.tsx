@@ -6,6 +6,7 @@ import Script from "next/script";
 import posthog from "posthog-js";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { buyerJourneyStageMeta, type BuyerJourneyStage } from "../lib/buyer-journey";
 
 declare global {
   interface Window {
@@ -21,6 +22,10 @@ const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.postho
 const analyticsDebug = process.env.NEXT_PUBLIC_ANALYTICS_DEBUG === "true";
 
 let posthogInitialized = false;
+
+type BuyerJourneyTrackOptions = {
+  onceKey?: string;
+};
 
 function debugAnalytics(eventName: string, properties: Record<string, unknown>) {
   if (analyticsDebug) {
@@ -42,6 +47,40 @@ export function trackEvent(eventName: string, properties: Record<string, unknown
   }
 
   debugAnalytics(eventName, properties);
+}
+
+export function trackBuyerJourneyStage(
+  stage: BuyerJourneyStage,
+  properties: Record<string, unknown> = {},
+  options: BuyerJourneyTrackOptions = {},
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (options.onceKey) {
+    try {
+      const storageKey = `buyer-journey:${options.onceKey}`;
+
+      if (window.sessionStorage.getItem(storageKey) === "1") {
+        return;
+      }
+
+      window.sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // Ignore storage errors and still send the event.
+    }
+  }
+
+  const meta = buyerJourneyStageMeta[stage];
+  trackEvent("buyer_journey_stage_reached", {
+    stage,
+    stageOrder: meta.order,
+    stageLabel: meta.label,
+    journeyPhase: meta.phase,
+    expectedBelief: meta.expectedBelief,
+    ...properties,
+  });
 }
 
 function trackPageview(pathname: string, search: string) {

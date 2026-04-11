@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { trackEvent } from "./analytics-provider";
+import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
 type SampleCreateResponse = {
   error?: string;
@@ -44,6 +44,17 @@ export function SampleStartForm() {
         orderId: payload.id,
         hasChildName: Boolean(childFirstName.trim()),
       });
+      trackBuyerJourneyStage(
+        "free_sample_started",
+        {
+          orderId: payload.id,
+          hasChildName: Boolean(childFirstName.trim()),
+          surface: "sample_start_form",
+        },
+        {
+          onceKey: `free-sample-started:${payload.id}`,
+        },
+      );
 
       const nextUrl = new URL(payload.processingUrl, window.location.origin);
       nextUrl.searchParams.set("orderId", payload.id);

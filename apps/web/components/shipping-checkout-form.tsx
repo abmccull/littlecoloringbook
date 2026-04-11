@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { defaultOffer, getOfferByCode } from "@littlecolorbook/shared";
 import { useMemo, useState } from "react";
-import { trackEvent } from "./analytics-provider";
+import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
 type ShippingCheckoutFormProps = {
   orderId?: string;
@@ -168,6 +168,20 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
         quantity,
         shippingQuote: selectedQuote.id,
       });
+      trackBuyerJourneyStage(
+        "checkout_started",
+        {
+          orderId,
+          deliveryMode: "print",
+          selectedOffer: offer.code,
+          quantity,
+          shippingQuote: selectedQuote.id,
+          surface: "shipping_checkout_step",
+        },
+        {
+          onceKey: `checkout-started:${orderId}`,
+        },
+      );
 
       window.location.assign(payload.checkoutUrl);
     } catch (error) {

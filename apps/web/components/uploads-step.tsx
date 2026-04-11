@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { defaultOffer, getOfferByCode, type OfferCode } from "@littlecolorbook/shared";
 import { getConsumerOffer } from "../lib/consumer-content";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UploadDropzone } from "./upload-dropzone";
-import { trackEvent } from "./analytics-provider";
+import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
 type UploadsStepProps = {
   deliveryMode?: string;
@@ -52,6 +52,27 @@ export function UploadsStep({ deliveryMode, orderId, selectedOffer, initialUploa
   const uploadsReady = uploadedCount >= requiredUploads;
   const photosRemaining = Math.max(requiredUploads - uploadedCount, 0);
 
+  useEffect(() => {
+    if (!orderId || !uploadsReady) {
+      return;
+    }
+
+    trackBuyerJourneyStage(
+      "full_upload_completed",
+      {
+        orderId,
+        deliveryMode: resolvedMode,
+        selectedOffer: offer.code,
+        uploadedCount,
+        requiredUploads,
+        surface: "uploads_step",
+      },
+      {
+        onceKey: `full-upload-completed:${orderId}`,
+      },
+    );
+  }, [offer.code, orderId, requiredUploads, resolvedMode, uploadedCount, uploadsReady]);
+
   async function handleCheckout() {
     if (!uploadsReady) {
       setErrorMessage(`Add all ${requiredUploads} photos before you head to checkout.`);
@@ -83,6 +104,18 @@ export function UploadsStep({ deliveryMode, orderId, selectedOffer, initialUploa
         orderId,
         selectedOffer: offer.code,
       });
+      trackBuyerJourneyStage(
+        "checkout_started",
+        {
+          orderId,
+          deliveryMode: resolvedMode,
+          selectedOffer: offer.code,
+          surface: "uploads_step_checkout",
+        },
+        {
+          onceKey: `checkout-started:${orderId}`,
+        },
+      );
 
       window.location.assign(payload.checkoutUrl);
     } catch (error) {

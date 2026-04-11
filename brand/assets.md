@@ -8,3 +8,4 @@
 | funnel copy refresh brief | campaign-asset | 2026-04-10 | funnel-copy-refresh | updated | Messaging system, CTA hierarchy, and offer ladder for homepage, sample flow, builder, uploads, shipping, confirmation, and portal |
 | little color book brand guidelines | brand-foundation | 2026-04-10 | foundation | updated | Consolidated voice, positioning, messaging, visual system, and UX guardrails based on the current product and site |
 | little color book buyer journey engineering | growth-strategy | 2026-04-10 | buyer-journey-engineering | updated | Hypothesized best-customer purchase path, forced journey design, activation metrics, and tracking plan for Little Color Book |
+| little color book buyer journey measurement plan | growth-strategy | 2026-04-10 | buyer-journey-engineering | updated | Normalized buyer-journey event schema, dashboard questions, and current funnel validation with pass/partial-pass findings |

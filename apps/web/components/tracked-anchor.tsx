@@ -1,20 +1,18 @@
 "use client";
 
-import Link, { type LinkProps } from "next/link";
 import type { AnchorHTMLAttributes, MouseEvent } from "react";
 import type { BuyerJourneyStage } from "../lib/buyer-journey";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
-type TrackedLinkProps = LinkProps &
-  Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps> & {
-    eventName: string;
-    eventProperties?: Record<string, unknown>;
-    journeyStage?: BuyerJourneyStage;
-    journeyProperties?: Record<string, unknown>;
-    journeyOnceKey?: string;
-  };
+type TrackedAnchorProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
+  eventName: string;
+  eventProperties?: Record<string, unknown>;
+  journeyStage?: BuyerJourneyStage;
+  journeyProperties?: Record<string, unknown>;
+  journeyOnceKey?: string;
+};
 
-export function TrackedLink({
+export function TrackedAnchor({
   eventName,
   eventProperties,
   journeyStage,
@@ -22,9 +20,9 @@ export function TrackedLink({
   journeyOnceKey,
   onClick,
   ...props
-}: TrackedLinkProps) {
+}: TrackedAnchorProps) {
   return (
-    <Link
+    <a
       {...props}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         trackEvent(eventName, eventProperties ?? {});

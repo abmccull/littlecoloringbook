@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BrandLogo } from "../../components/brand-logo";
 import { CreateOrderForm } from "../../components/create-order-form";
 import { BookMockupBlock } from "../../components/proof-modules";
+import { TrackBuyerJourneyStage } from "../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../components/track-page-event";
 import { proofAssets } from "../../lib/consumer-content";
 
@@ -15,6 +16,14 @@ export default async function CreatePage({
   return (
     <main>
       <TrackPageEvent eventName="builder_viewed" eventProperties={{ initialOffer: offer ?? "pdf-30" }} />
+      <TrackBuyerJourneyStage
+        stage="builder_started"
+        onceKey="builder-started"
+        stageProperties={{
+          initialOffer: offer ?? "pdf-30",
+          surface: "builder_page",
+        }}
+      />
       <header className="topbar topbar-flow">
         <BrandLogo href="/" subtitle="build your book" />
         <Link className="topbar-link" href="/sample">

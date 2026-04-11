@@ -4,6 +4,7 @@ import { getOrderPortalSummary } from "@littlecolorbook/db";
 import { BrandLogo } from "../../../components/brand-logo";
 import { OfferCard } from "../../../components/offer-card";
 import { BookMockupBlock } from "../../../components/proof-modules";
+import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
 import { TrackedLink } from "../../../components/tracked-link";
 import { consumerOffers, funnelCtas, getConsumerOffer, guarantees, proofAssets } from "../../../lib/consumer-content";
@@ -44,6 +45,15 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
           orderId: summary.order.id,
           selectedOffer: summary.order.selectedOfferCode,
           uploadCount: summary.uploads.length,
+        }}
+      />
+      <TrackBuyerJourneyStage
+        stage="sample_ready_viewed"
+        onceKey={`sample-ready:${summary.order.id}`}
+        stageProperties={{
+          orderId: summary.order.id,
+          uploadCount: summary.uploads.length,
+          surface: "sample_ready_page",
         }}
       />
       <section className="sample-frame">

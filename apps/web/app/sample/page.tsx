@@ -4,6 +4,7 @@ import { FaqAccordion } from "../../components/faq-accordion";
 import { SampleStartForm } from "../../components/sample-start-form";
 import { BookMockupBlock, PhotoExampleGrid } from "../../components/proof-modules";
 import { Section } from "../../components/section";
+import { TrackVisibilityStage } from "../../components/track-visibility-stage";
 import { TrackPageEvent } from "../../components/track-page-event";
 import { faqs, photoExamples, proofAssets } from "../../lib/consumer-content";
 
@@ -73,13 +74,23 @@ export default function SamplePage() {
         title="If the sample clicks, choose the book that fits your photo stack."
         copy="30 is the light starter. 50 feels fuller. 100 is the best-value keepsake when the camera roll is packed."
       >
-        <BookMockupBlock
-          coverSrc={proofAssets.kidPhoto}
-          pageSrc={proofAssets.kidPage}
-          title="Print tonight or make it giftable."
-          copy="The same pages can become a quick PDF for tonight or a spiral-bound keepsake for birthdays, grandma gifts, and family shelf moments."
-        />
+        <div id="sample-page-proof-module">
+          <BookMockupBlock
+            coverSrc={proofAssets.kidPhoto}
+            pageSrc={proofAssets.kidPage}
+            title="Print tonight or make it giftable."
+            copy="The same pages can become a quick PDF for tonight or a spiral-bound keepsake for birthdays, grandma gifts, and family shelf moments."
+          />
+        </div>
       </Section>
+      <TrackVisibilityStage
+        targetId="sample-page-proof-module"
+        stage="proof_viewed"
+        onceKey="sample-page-proof-module"
+        stageProperties={{
+          surface: "sample_page_book_mockup",
+        }}
+      />
 
       <Section
         eyebrow="FAQ"

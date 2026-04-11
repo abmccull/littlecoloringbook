@@ -3,6 +3,7 @@ import { OfferCard } from "../components/offer-card";
 import { FaqAccordion } from "../components/faq-accordion";
 import { HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "../components/proof-modules";
 import { Section } from "../components/section";
+import { TrackVisibilityStage } from "../components/track-visibility-stage";
 import { TrackedLink } from "../components/tracked-link";
 import { consumerOffers, faqs, funnelCtas, guarantees, homepageContent, parentQuotes, useCaseCards } from "../lib/consumer-content";
 
@@ -24,6 +25,9 @@ export default function HomePage() {
           <h1>{homepageContent.hero.title}</h1>
           <p className="lede">{homepageContent.hero.description}</p>
           <p className="support-note">{homepageContent.hero.supporting}</p>
+          <div id="homepage-proof-module">
+            <HeroProofModule />
+          </div>
           <div className="hero-actions">
             <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName={funnelCtas.freeSample.eventName}>
               {funnelCtas.freeSample.label}
@@ -40,17 +44,24 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-
-        <HeroProofModule />
       </section>
+      <TrackVisibilityStage
+        targetId="homepage-proof-module"
+        stage="proof_viewed"
+        onceKey="homepage-proof-module"
+        stageProperties={{
+          surface: "homepage_hero_proof",
+        }}
+      />
 
-      <Section eyebrow="See it work" title={homepageContent.proofStripTitle} copy="One favorite photo becomes a coloring page, then a book worth keeping." >
+      <Section eyebrow="See it work" title={homepageContent.proofStripTitle} copy={homepageContent.proofStripCopy}>
         <ProofStrip />
       </Section>
 
       <Section
+        id="book-sizes"
         eyebrow="Choose your size"
-        title="Good: 30 pages. Better: 50 pages. Best: 100 pages."
+        title="Choose the book size that fits the memories you want to include."
         copy={homepageContent.featuredOfferIntro}
       >
         <div className="offer-grid">

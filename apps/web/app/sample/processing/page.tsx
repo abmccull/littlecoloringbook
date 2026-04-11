@@ -4,6 +4,7 @@ import { getOrderPortalSummary } from "@littlecolorbook/db";
 import { BrandLogo } from "../../../components/brand-logo";
 import { BookMockupBlock } from "../../../components/proof-modules";
 import { SampleProcessingPanel } from "../../../components/sample-processing-panel";
+import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
 import { UploadDropzone } from "../../../components/upload-dropzone";
 import { proofAssets } from "../../../lib/consumer-content";
@@ -96,6 +97,16 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
           orderId: summary.order.id,
           status: summary.order.status,
           uploadCount: uploadedCount,
+        }}
+      />
+      <TrackBuyerJourneyStage
+        stage="sample_photo_uploaded"
+        enabled={uploadedCount > 0}
+        onceKey={`sample-photo-uploaded:${summary.order.id}`}
+        stageProperties={{
+          orderId: summary.order.id,
+          uploadCount: uploadedCount,
+          surface: "sample_processing_page",
         }}
       />
       <section className="sample-frame">

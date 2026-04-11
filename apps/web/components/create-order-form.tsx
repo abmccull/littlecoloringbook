@@ -15,7 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { getConsumerOffer } from "../lib/consumer-content";
-import { trackEvent } from "./analytics-provider";
+import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
 type DeliveryMode = "pdf" | "print";
 type BuilderStep = "format" | "pages" | "pack" | "cover" | "details" | "review";
@@ -269,6 +269,18 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
       selectedOffer: nextOffer.code,
       designCount: nextOffer.designs,
     });
+    trackBuyerJourneyStage(
+      "offer_selected",
+      {
+        deliveryMode,
+        selectedOffer: nextOffer.code,
+        designCount: nextOffer.designs,
+        surface: "builder_pages_step",
+      },
+      {
+        onceKey: "offer-selected",
+      },
+    );
     goToStep(deliveryMode === "print" ? "pack" : "cover");
   }
 
@@ -282,6 +294,18 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
       bundleSelection: nextBundleCode,
       quantity: nextBundle.quantity,
     });
+    trackBuyerJourneyStage(
+      "bundle_selected",
+      {
+        selectedOffer: selectedOffer.code,
+        bundleSelection: nextBundleCode,
+        quantity: nextBundle.quantity,
+        surface: "builder_pack_step",
+      },
+      {
+        onceKey: "bundle-selected",
+      },
+    );
     goToStep("cover");
   }
 
@@ -348,6 +372,22 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
         designCount: selectedOffer.designs,
         coverStyle,
       });
+      trackBuyerJourneyStage(
+        "order_draft_created",
+        {
+          orderId: payload.id,
+          deliveryMode,
+          selectedOffer: selectedOffer.code,
+          designCount: selectedOffer.designs,
+          bundleSelection: deliveryMode === "print" ? printBundleCode : null,
+          quantity: deliveryMode === "print" ? selectedPrintBundle.quantity : 1,
+          coverStyle,
+          surface: "builder_review_step",
+        },
+        {
+          onceKey: `order-draft-created:${payload.id}`,
+        },
+      );
 
       const nextUrl = new URL("/create/uploads", window.location.origin);
       nextUrl.searchParams.set("orderId", payload.id);

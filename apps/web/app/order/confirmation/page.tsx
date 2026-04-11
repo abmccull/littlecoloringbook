@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createPortalAccessForOrder, getOrderPortalSummaryByOrderId } from "@littlecolorbook/db";
 import { getOfferByCode } from "@littlecolorbook/shared";
 import { BrandLogo } from "../../../components/brand-logo";
+import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
 
 function formatMoney(cents: number) {
@@ -37,6 +38,17 @@ export default async function OrderConfirmationPage({
           orderId: summary?.order.id ?? orderId ?? null,
           selectedOffer: offer.code,
           deliveryMode: summary?.order.deliveryMode ?? null,
+        }}
+      />
+      <TrackBuyerJourneyStage
+        stage="purchase_confirmed"
+        enabled={hasConfirmedOrder}
+        onceKey={summary?.order.id ? `purchase-confirmed:${summary.order.id}` : undefined}
+        stageProperties={{
+          orderId: summary?.order.id ?? orderId ?? null,
+          deliveryMode: summary?.order.deliveryMode ?? null,
+          selectedOffer: offer.code,
+          surface: "order_confirmation_page",
         }}
       />
       <section className="portal-card">

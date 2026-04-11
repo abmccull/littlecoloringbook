@@ -67,9 +67,9 @@ export const funnelCtas = {
     eventName: "home_sample_cta_clicked",
   },
   seeThirtyPages: {
-    label: "Build My Book",
-    href: "/create?offer=pdf-100",
-    eventName: "home_primary_offer_clicked",
+    label: "See Book Options",
+    href: "#book-sizes",
+    eventName: "home_book_sizes_clicked",
   },
   startThirtyPdf: {
     label: "Build The 100-Page Book",
@@ -144,14 +144,16 @@ export const homepageContent = {
     badge: "The easiest screen-free win hiding in your camera roll",
     title: "Turn the favorite photos already on your phone into a coloring book they will want to use tonight.",
     description:
-      "Start with one favorite photo for a free sample page. If it feels like a yes, turn the rest into a 30, 50, or 100-page book you can print at home or order as a spiral-bound keepsake.",
+      "Start with one favorite photo for a free sample page. If it feels right, turn the rest into a personalized book you can print tonight or order as a spiral-bound keepsake.",
     supporting:
-      "No design project. No perfect-photo hunt. Just familiar faces, pets, trips, and family moments turned into pages they can color now and you can save later.",
+      "No craft-project energy required. Just familiar faces, pets, birthdays, trips, and family moments turned into pages they will actually recognize and want to color.",
     trustPoints: ["Free sample first", "From your real family photos", "PDF tonight or spiral book shipped"],
   },
-  proofStripTitle: "From favorite photo to coloring page to spiral book.",
+  proofStripTitle: "See how a real photo turns into a coloring page worth keeping.",
+  proofStripCopy:
+    "Examples below use licensed demo photos, but the point is simple: the input feels familiar, the lines stay clean, and the finished book still feels giftable.",
   featuredOfferIntro:
-    "30 gets you in. 50 feels fuller. 100 gives you the best value when your camera roll is already packed with favorites.",
+    "Start with 30 when you want a lighter first keepsake. Choose 50 when you want it to feel more complete. Go 100 when you already know the camera roll is full and you want the best value per page.",
   sampleBlock: {
     title: "See one page before you commit to the whole book.",
     description: "See one real page made from your own photo first. Then decide if you want to turn the rest into the full book.",

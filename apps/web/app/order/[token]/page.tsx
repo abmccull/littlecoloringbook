@@ -4,6 +4,7 @@ import { getOrderPortalSummary, type PortalSummary } from "@littlecolorbook/db";
 import { getOfferByCode } from "@littlecolorbook/shared";
 import { BrandLogo } from "../../../components/brand-logo";
 import { TrackPageEvent } from "../../../components/track-page-event";
+import { TrackedAnchor } from "../../../components/tracked-anchor";
 
 function formatMoney(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -191,9 +192,26 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
 
         <div className="hero-actions">
           {downloadHref ? (
-            <Link className="button button-primary" href={downloadHref}>
+            <TrackedAnchor
+              className="button button-primary"
+              href={downloadHref}
+              eventName="order_pdf_download_clicked"
+              eventProperties={{
+                orderId: summary.order.id,
+                deliveryMode: summary.order.deliveryMode,
+                selectedOffer: summary.order.selectedOfferCode,
+              }}
+              journeyStage="pdf_accessed"
+              journeyOnceKey={`pdf-accessed:${summary.order.id}`}
+              journeyProperties={{
+                orderId: summary.order.id,
+                deliveryMode: summary.order.deliveryMode,
+                selectedOffer: summary.order.selectedOfferCode,
+                surface: "order_portal_download",
+              }}
+            >
               Download PDF
-            </Link>
+            </TrackedAnchor>
           ) : (
             <button className="button button-primary" disabled type="button">
               PDF not ready yet
@@ -265,9 +283,26 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
                 : "Use the button below if you want to turn this order into the giftable spiral version too."}
             </p>
           </div>
-          <a className="button button-primary" href={upsellHref}>
+          <TrackedAnchor
+            className="button button-primary"
+            href={upsellHref}
+            eventName={summary.order.deliveryMode === "print" ? "extra_copy_upsell_clicked" : "spiral_upgrade_clicked"}
+            eventProperties={{
+              orderId: summary.order.id,
+              deliveryMode: summary.order.deliveryMode,
+              selectedOffer: summary.order.selectedOfferCode,
+            }}
+            journeyStage="post_purchase_upsell_clicked"
+            journeyOnceKey={`post-purchase-upsell:${summary.order.id}`}
+            journeyProperties={{
+              orderId: summary.order.id,
+              deliveryMode: summary.order.deliveryMode,
+              selectedOffer: summary.order.selectedOfferCode,
+              surface: "order_portal_upsell",
+            }}
+          >
             {summary.order.deliveryMode === "print" ? "Ask About Extra Copies" : "Add the Spiral Book"}
-          </a>
+          </TrackedAnchor>
         </div>
       </section>
 
