@@ -121,9 +121,9 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
           </div>
           <div className="offer-grid">
             {coreOffers.map((offer) => (
-              <OfferCard key={offer.code} offer={offer} />
+              <OfferCard key={offer.code} offer={offer} href="/create?source=sample-ready-offer-grid&acquisitionPath=sample_first" />
             ))}
-            <OfferCard offer={downsellOffer} buttonLabel="Keep it smaller" />
+            <OfferCard offer={downsellOffer} buttonLabel="Keep it smaller" href="/create?source=sample-ready-offer-grid&acquisitionPath=sample_first" />
           </div>
         </div>
       </section>

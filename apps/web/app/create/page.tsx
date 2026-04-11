@@ -4,14 +4,17 @@ import { CreateOrderForm } from "../../components/create-order-form";
 import { BookMockupBlock } from "../../components/proof-modules";
 import { TrackBuyerJourneyStage } from "../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../components/track-page-event";
+import { getAcquisitionPayloadFromRecord } from "../../lib/acquisition";
 import { proofAssets } from "../../lib/consumer-content";
 
 export default async function CreatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ offer?: string; source?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { offer, source } = await searchParams;
+  const params = await searchParams;
+  const { offer, source } = params;
+  const acquisition = getAcquisitionPayloadFromRecord(params, "direct_buy", "builder-page");
 
   return (
     <main>
@@ -33,7 +36,7 @@ export default async function CreatePage({
       </header>
 
       <section className="builder-layout">
-        <CreateOrderForm initialOffer={offer} />
+        <CreateOrderForm acquisition={acquisition} initialOffer={offer} />
         <aside className="builder-support-grid">
           <div className="surface builder-support-copy">
             <span className="pill pill-coral">Built for fuller camera rolls</span>

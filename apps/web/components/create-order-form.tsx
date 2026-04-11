@@ -14,6 +14,7 @@ import {
 } from "@littlecolorbook/shared";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import type { AcquisitionPayload } from "../lib/acquisition";
 import { getConsumerOffer } from "../lib/consumer-content";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
@@ -27,6 +28,7 @@ type CreateOrderResponse = {
 };
 
 type CreateOrderFormProps = {
+  acquisition: AcquisitionPayload;
   initialOffer?: string;
 };
 
@@ -144,7 +146,7 @@ async function readApiPayload<T>(response: Response) {
   return JSON.parse(raw) as T;
 }
 
-export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
+export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormProps) {
   const router = useRouter();
   const formId = "create-order-form";
   const resolvedInitialOffer = getOfferByCode(initialOffer ?? "pdf-30");
@@ -349,6 +351,7 @@ export function CreateOrderForm({ initialOffer }: CreateOrderFormProps) {
           email,
           orderType: deliveryMode,
           deliveryMode,
+          ...acquisition,
           selectedOffer: selectedOffer.code,
           designCount: selectedOffer.designs,
           bundleSelection: deliveryMode === "print" ? printBundleCode : null,

@@ -7,6 +7,7 @@ import { Section } from "../../components/section";
 import { TrackVisibilityStage } from "../../components/track-visibility-stage";
 import { TrackPageEvent } from "../../components/track-page-event";
 import { TrackedLink } from "../../components/tracked-link";
+import { getAcquisitionPayloadFromRecord } from "../../lib/acquisition";
 import { faqs, photoExamples, proofAssets } from "../../lib/consumer-content";
 
 const sampleReasons = [
@@ -15,7 +16,13 @@ const sampleReasons = [
   "If the sample feels right, you can turn the rest of your favorite photos into the full book next.",
 ];
 
-export default function SamplePage() {
+export default async function SamplePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const acquisition = getAcquisitionPayloadFromRecord(await searchParams, "sample_first", "sample-page");
+
   return (
     <main>
       <TrackPageEvent eventName="sample_entry_viewed" />
@@ -43,10 +50,10 @@ export default function SamplePage() {
           <span className="pill pill-coral">Start here</span>
           <h3>Tell us where to send it.</h3>
           <p className="muted">You&apos;ll upload the photo on the next screen. This first step just keeps your free page connected to the right inbox.</p>
-          <SampleStartForm />
+          <SampleStartForm acquisition={acquisition} />
           <p className="mini-note">
             Already know you want the full book?{" "}
-            <TrackedLink href="/create?offer=pdf-100&source=sample-bypass" eventName="sample_page_direct_builder_clicked">
+            <TrackedLink href="/create?offer=pdf-100&source=sample-bypass&acquisitionPath=direct_buy" eventName="sample_page_direct_builder_clicked">
               Skip the sample and build it now.
             </TrackedLink>
           </p>

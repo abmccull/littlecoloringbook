@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { AcquisitionPayload } from "../lib/acquisition";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
 type SampleCreateResponse = {
@@ -10,7 +11,11 @@ type SampleCreateResponse = {
   processingUrl?: string;
 };
 
-export function SampleStartForm() {
+type SampleStartFormProps = {
+  acquisition: AcquisitionPayload;
+};
+
+export function SampleStartForm({ acquisition }: SampleStartFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [childFirstName, setChildFirstName] = useState("");
@@ -31,6 +36,7 @@ export function SampleStartForm() {
         body: JSON.stringify({
           email,
           childFirstName: childFirstName.trim() || undefined,
+          ...acquisition,
         }),
       });
 

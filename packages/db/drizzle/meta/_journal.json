@@ -22,6 +22,20 @@
       "when": 1775806289360,
       "tag": "0002_glamorous_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775871675785,
+      "tag": "0003_light_azazel",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775872231778,
+      "tag": "0004_wakeful_living_lightning",
+      "breakpoints": true
     }
   ]
 }

@@ -50,6 +50,18 @@ export type CreateOrderInput = {
   email: string;
   orderType: OrderType;
   deliveryMode: DeliveryMode;
+  visitorId?: string | null;
+  sessionId?: string | null;
+  acquisitionPath?: string | null;
+  entrySource?: string | null;
+  landingPath?: string | null;
+  firstTouch?: Record<string, unknown> | null;
+  lastTouch?: Record<string, unknown> | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmContent?: string | null;
+  utmTerm?: string | null;
   selectedOfferCode: string;
   designCount: number;
   quantity?: number;
@@ -108,6 +120,18 @@ export type PortalSummary = {
     orderType: OrderType;
     deliveryMode: DeliveryMode;
     status: OrderStatus;
+    visitorId: string | null;
+    sessionId: string | null;
+    acquisitionPath: string;
+    entrySource: string | null;
+    landingPath: string | null;
+    firstTouch: Record<string, unknown> | null;
+    lastTouch: Record<string, unknown> | null;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    utmContent: string | null;
+    utmTerm: string | null;
     selectedOfferCode: string;
     designCount: number;
     quantity: number;
@@ -239,6 +263,16 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function normalizeTrackingValue(value?: string | null) {
+  const normalized = value?.trim();
+  return normalized ? normalized.slice(0, 120) : null;
+}
+
+function normalizeAcquisitionPath(value?: string | null) {
+  const normalized = normalizeTrackingValue(value);
+  return normalized ?? "unknown";
+}
+
 function createPortalTokenValue() {
   return crypto.randomBytes(24).toString("hex");
 }
@@ -351,6 +385,18 @@ export async function createOrderDraft(input: CreateOrderInput) {
     orderType: input.orderType,
     deliveryMode: input.deliveryMode,
     status: "draft" as OrderStatus,
+    visitorId: normalizeTrackingValue(input.visitorId),
+    sessionId: normalizeTrackingValue(input.sessionId),
+    acquisitionPath: normalizeAcquisitionPath(input.acquisitionPath),
+    entrySource: normalizeTrackingValue(input.entrySource),
+    landingPath: normalizeTrackingValue(input.landingPath),
+    firstTouch: input.firstTouch ?? null,
+    lastTouch: input.lastTouch ?? null,
+    utmSource: normalizeTrackingValue(input.utmSource),
+    utmMedium: normalizeTrackingValue(input.utmMedium),
+    utmCampaign: normalizeTrackingValue(input.utmCampaign),
+    utmContent: normalizeTrackingValue(input.utmContent),
+    utmTerm: normalizeTrackingValue(input.utmTerm),
     selectedOfferCode: initialCommerce.selectedOfferCode,
     designCount: initialCommerce.designCount,
     quantity: initialCommerce.quantity,
@@ -401,6 +447,18 @@ export async function createOrderDraft(input: CreateOrderInput) {
     details: {
       orderType: input.orderType,
       deliveryMode: input.deliveryMode,
+      visitorId: order.visitorId,
+      sessionId: order.sessionId,
+      acquisitionPath: order.acquisitionPath,
+      entrySource: order.entrySource,
+      landingPath: order.landingPath,
+      firstTouch: order.firstTouch,
+      lastTouch: order.lastTouch,
+      utmSource: order.utmSource,
+      utmMedium: order.utmMedium,
+      utmCampaign: order.utmCampaign,
+      utmContent: order.utmContent,
+      utmTerm: order.utmTerm,
       selectedOfferCode: input.selectedOfferCode,
       quantity: order.quantity,
       bundleSelection: order.bundleSelection,
@@ -1506,6 +1564,26 @@ function buildDemoPortalSummary(portalKey: string): PortalSummary {
       orderType: "pdf",
       deliveryMode: "pdf",
       status: "pdf_ready",
+      visitorId: "visitor_demo_portal",
+      sessionId: "session_demo_portal",
+      acquisitionPath: "sample_first",
+      entrySource: "development-demo",
+      landingPath: "/sample",
+      firstTouch: {
+        landingPath: "/sample",
+        referrer: null,
+        capturedAt: new Date().toISOString(),
+      },
+      lastTouch: {
+        landingPath: "/sample",
+        referrer: null,
+        capturedAt: new Date().toISOString(),
+      },
+      utmSource: null,
+      utmMedium: null,
+      utmCampaign: null,
+      utmContent: null,
+      utmTerm: null,
       selectedOfferCode: "pdf-30",
       designCount: 30,
       quantity: 1,
@@ -1624,6 +1702,18 @@ async function buildPortalSummaryFromOrder(order: typeof orders.$inferSelect, po
       orderType: order.orderType,
       deliveryMode: order.deliveryMode,
       status: order.status,
+      visitorId: order.visitorId,
+      sessionId: order.sessionId,
+      acquisitionPath: order.acquisitionPath,
+      entrySource: order.entrySource,
+      landingPath: order.landingPath,
+      firstTouch: order.firstTouch,
+      lastTouch: order.lastTouch,
+      utmSource: order.utmSource,
+      utmMedium: order.utmMedium,
+      utmCampaign: order.utmCampaign,
+      utmContent: order.utmContent,
+      utmTerm: order.utmTerm,
       selectedOfferCode: order.selectedOfferCode,
       designCount: order.designCount,
       quantity: order.quantity,

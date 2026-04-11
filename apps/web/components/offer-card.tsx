@@ -8,6 +8,9 @@ type OfferCardProps = {
 };
 
 export function OfferCard({ offer, href = "/create", buttonLabel }: OfferCardProps) {
+  const separator = href.includes("?") ? "&" : "?";
+  const destinationHref = `${href}${separator}offer=${offer.code}`;
+
   return (
     <article className={`offer-card${offer.featured ? " is-featured" : ""}`}>
       <div className="offer-card-header">
@@ -23,7 +26,7 @@ export function OfferCard({ offer, href = "/create", buttonLabel }: OfferCardPro
       {offer.comparisonNote ? <p className="mini-note">{offer.comparisonNote}</p> : null}
       <TrackedLink
         className={`button ${offer.featured ? "button-primary" : "button-secondary"} offer-card-cta`}
-        href={`${href}?offer=${offer.code}`}
+        href={destinationHref}
         eventName="offer_card_clicked"
         eventProperties={{
           offerCode: offer.code,
