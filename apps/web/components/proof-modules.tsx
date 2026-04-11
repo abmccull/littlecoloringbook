@@ -1,3 +1,4 @@
+import { BrandLogo } from "./brand-logo";
 import { proofAssets, type ParentQuote, type PhotoExample, type UseCaseCard } from "../lib/consumer-content";
 
 type ProofStep = {
@@ -120,7 +121,9 @@ export function BookMockupBlock({
         <div className="book-spiral" aria-hidden="true" />
         <div className="book-cover">
           <img alt="Example personalized book cover" src={coverSrc} />
-          <span className="book-cover-badge">Little Color Book</span>
+          <div className="book-cover-badge">
+            <BrandLogo size="cover" />
+          </div>
           <div className="book-cover-footer">
             <strong>Personalized Coloring Book</strong>
           </div>

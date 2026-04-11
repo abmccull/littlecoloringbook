@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getOrderPortalSummaryByOrderId } from "@littlecolorbook/db";
+import { BrandLogo } from "../../../components/brand-logo";
 import { ShippingCheckoutForm } from "../../../components/shipping-checkout-form";
 
 export default async function CreateShippingPage({
@@ -14,10 +15,7 @@ export default async function CreateShippingPage({
   return (
     <main>
       <header className="topbar topbar-flow">
-        <div className="wordmark">
-          littlecolorbook.com
-          <span>delivery details</span>
-        </div>
+        <BrandLogo href="/" subtitle="delivery details" />
         <Link className="topbar-link" href={`/create/uploads${params.orderId ? `?orderId=${encodeURIComponent(params.orderId)}${selectedOffer ? `&selectedOffer=${encodeURIComponent(selectedOffer)}` : ""}&deliveryMode=print` : ""}`}>
           Uploads
         </Link>

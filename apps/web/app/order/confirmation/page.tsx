@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createPortalAccessForOrder, getOrderPortalSummaryByOrderId } from "@littlecolorbook/db";
 import { getOfferByCode } from "@littlecolorbook/shared";
+import { BrandLogo } from "../../../components/brand-logo";
 import { TrackPageEvent } from "../../../components/track-page-event";
 
 function formatMoney(cents: number) {
@@ -24,6 +25,12 @@ export default async function OrderConfirmationPage({
 
   return (
     <main>
+      <header className="topbar topbar-flow">
+        <BrandLogo href="/" subtitle="your order" />
+        <Link className="topbar-link" href="/">
+          Home
+        </Link>
+      </header>
       <TrackPageEvent
         eventName="order_confirmation_viewed"
         eventProperties={{

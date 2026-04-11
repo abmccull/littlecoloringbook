@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
+import { BrandLogo } from "../../../components/brand-logo";
 import { OfferCard } from "../../../components/offer-card";
 import { BookMockupBlock } from "../../../components/proof-modules";
 import { TrackPageEvent } from "../../../components/track-page-event";
@@ -30,6 +32,12 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
 
   return (
     <main>
+      <header className="topbar topbar-flow">
+        <BrandLogo href="/" subtitle="free sample page" />
+        <Link className="topbar-link" href="/sample">
+          Home
+        </Link>
+      </header>
       <TrackPageEvent
         eventName="sample_ready_viewed"
         eventProperties={{

@@ -199,20 +199,31 @@ textarea:focus-visible {
   letter-spacing: 0.01em;
 }
 
-.wordmark {
-  font-size: 1rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: lowercase;
+.brand-logo {
+  display: inline-grid;
+  gap: 4px;
+  justify-items: start;
 }
 
-.wordmark span {
+.brand-logo-image {
   display: block;
-  margin-top: 5px;
+  height: auto;
+}
+
+.brand-logo-image-header {
+  width: clamp(168px, 24vw, 232px);
+}
+
+.brand-logo-image-cover {
+  width: 108px;
+}
+
+.brand-logo-subtitle {
+  display: block;
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
-  text-transform: none;
+  line-height: 1.2;
 }
 
 .section,
@@ -790,18 +801,13 @@ textarea:focus-visible {
 .book-cover-badge {
   position: absolute;
   left: 16px;
-}
-
-.book-cover-badge {
   top: 14px;
   display: inline-flex;
   align-items: center;
-  padding: 6px 10px;
+  padding: 8px 10px;
   max-width: calc(100% - 32px);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.86);
-  font-size: 0.75rem;
-  font-weight: 800;
 }
 
 .book-cover-footer {
@@ -1664,13 +1670,12 @@ select.text-input {
     padding: 16px;
   }
 
-  .wordmark {
-    font-size: 0.96rem;
+  .brand-logo-image-header {
+    width: 170px;
   }
 
-  .wordmark span {
-    margin-top: 2px;
-    font-size: 0.78rem;
+  .brand-logo-subtitle {
+    font-size: 0.76rem;
   }
 
   .preview-image {

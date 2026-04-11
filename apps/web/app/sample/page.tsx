@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "../../components/brand-logo";
 import { FaqAccordion } from "../../components/faq-accordion";
 import { SampleStartForm } from "../../components/sample-start-form";
 import { BookMockupBlock, PhotoExampleGrid } from "../../components/proof-modules";
@@ -17,10 +18,7 @@ export default function SamplePage() {
     <main>
       <TrackPageEvent eventName="sample_entry_viewed" />
       <header className="topbar topbar-flow">
-        <div className="wordmark">
-          littlecolorbook.com
-          <span>free sample page</span>
-        </div>
+        <BrandLogo href="/" subtitle="free sample page" />
         <Link className="topbar-link" href="/">
           Home
         </Link>

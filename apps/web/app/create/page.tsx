@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "../../components/brand-logo";
 import { CreateOrderForm } from "../../components/create-order-form";
 import { BookMockupBlock } from "../../components/proof-modules";
 import { TrackPageEvent } from "../../components/track-page-event";
@@ -15,10 +16,7 @@ export default async function CreatePage({
     <main>
       <TrackPageEvent eventName="builder_viewed" eventProperties={{ initialOffer: offer ?? "pdf-30" }} />
       <header className="topbar topbar-flow">
-        <div className="wordmark">
-          littlecolorbook.com
-          <span>build your book</span>
-        </div>
+        <BrandLogo href="/" subtitle="build your book" />
         <Link className="topbar-link" href="/sample">
           Free sample
         </Link>

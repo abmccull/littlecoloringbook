@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderPortalSummary, type PortalSummary } from "@littlecolorbook/db";
 import { getOfferByCode } from "@littlecolorbook/shared";
+import { BrandLogo } from "../../../components/brand-logo";
 import { TrackPageEvent } from "../../../components/track-page-event";
 
 function formatMoney(cents: number) {
@@ -132,6 +133,12 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
 
   return (
     <main>
+      <header className="topbar topbar-flow">
+        <BrandLogo href="/" subtitle="your order" />
+        <Link className="topbar-link" href="/">
+          Home
+        </Link>
+      </header>
       <TrackPageEvent
         eventName="order_portal_viewed"
         eventProperties={{

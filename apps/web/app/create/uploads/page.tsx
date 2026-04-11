@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getOrderPortalSummaryByOrderId } from "@littlecolorbook/db";
+import { BrandLogo } from "../../../components/brand-logo";
 import { UploadsStep } from "../../../components/uploads-step";
 
 export default async function CreateUploadsPage({
@@ -25,10 +26,7 @@ export default async function CreateUploadsPage({
   return (
     <main>
       <header className="topbar topbar-flow">
-        <div className="wordmark">
-          littlecolorbook.com
-          <span>photo upload</span>
-        </div>
+        <BrandLogo href="/" subtitle="photo upload" />
         <Link className="topbar-link" href={`/create${params.selectedOffer ? `?offer=${encodeURIComponent(params.selectedOffer)}` : ""}`}>
           Builder
         </Link>

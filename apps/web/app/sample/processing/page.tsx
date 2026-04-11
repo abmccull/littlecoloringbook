@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
+import { BrandLogo } from "../../../components/brand-logo";
 import { BookMockupBlock } from "../../../components/proof-modules";
 import { SampleProcessingPanel } from "../../../components/sample-processing-panel";
 import { TrackPageEvent } from "../../../components/track-page-event";
@@ -29,6 +30,12 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
   if (!token) {
     return (
       <main>
+        <header className="topbar topbar-flow">
+          <BrandLogo href="/" subtitle="free sample page" />
+          <Link className="topbar-link" href="/sample">
+            Sample
+          </Link>
+        </header>
         <section className="sample-frame">
           <span className="pill pill-sun">Free sample</span>
           <h1>Start your free page first, then upload the photo here.</h1>
@@ -48,6 +55,12 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
   if (!summary) {
     return (
       <main>
+        <header className="topbar topbar-flow">
+          <BrandLogo href="/" subtitle="free sample page" />
+          <Link className="topbar-link" href="/sample">
+            Start again
+          </Link>
+        </header>
         <section className="sample-frame">
           <span className="pill pill-coral">Sample not found</span>
           <h1>We couldn't find that sample link.</h1>
@@ -71,6 +84,12 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
 
   return (
     <main>
+      <header className="topbar topbar-flow">
+        <BrandLogo href="/" subtitle="free sample page" />
+        <Link className="topbar-link" href="/sample">
+          Home
+        </Link>
+      </header>
       <TrackPageEvent
         eventName="sample_processing_viewed"
         eventProperties={{

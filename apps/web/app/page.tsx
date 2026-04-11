@@ -1,3 +1,4 @@
+import { BrandLogo } from "../components/brand-logo";
 import { OfferCard } from "../components/offer-card";
 import { FaqAccordion } from "../components/faq-accordion";
 import { HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "../components/proof-modules";
@@ -11,10 +12,7 @@ export default function HomePage() {
   return (
     <main>
       <header className="topbar">
-        <div className="wordmark">
-          littlecolorbook.com
-          <span>personalized coloring books from your photos</span>
-        </div>
+        <BrandLogo href="/" priority subtitle="personalized coloring books from your photos" />
         <TrackedLink className="button button-secondary" href={funnelCtas.freeSample.href} eventName="home_header_sample_clicked">
           {funnelCtas.freeSample.label}
         </TrackedLink>
