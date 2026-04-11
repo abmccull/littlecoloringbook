@@ -1,37 +1,41 @@
 import { BrandLogo } from "./brand-logo";
+import { BeforeAfterSlider } from "./before-after-slider";
 import { proofAssets, type ParentQuote, type PhotoExample, type UseCaseCard } from "../lib/consumer-content";
 
 type ProofStep = {
   label: string;
   caption: string;
-  src: string;
   alt: string;
   frame: "photo" | "page" | "book";
   note?: string;
+  src?: string;
+  coverSrc?: string;
+  pageSrc?: string;
 };
 
 const heroSteps: ProofStep[] = [
   {
-    label: "Start with one favorite photo",
-    caption: "A kid, a pet, a birthday, a vacation, or one family moment",
-    src: proofAssets.realFamilyPlayPhoto,
-    alt: "Real family photo used as the source image",
+    label: "Start with a real family moment",
+    caption: "This kind of everyday photo is exactly what makes the book feel personal",
+    src: proofAssets.realSwordPlayPhoto,
+    alt: "Real photo of two kids playing with toy swords",
     frame: "photo",
   },
   {
     label: "We turn it into clean, colorable lines",
-    caption: "Bold, open pages that still feel personal instead of generic",
-    src: proofAssets.realFamilyPlayPage,
-    alt: "Real coloring page generated from the family photo",
+    caption: "The scene stays recognizable, but the page becomes simple enough to color",
+    src: proofAssets.realSwordPlayPage,
+    alt: "Real coloring page generated from the photo of two kids playing",
     frame: "page",
   },
   {
-    label: "Choose the version you want to keep",
-    caption: "Print the PDF tonight or order the spiral book for later",
-    src: proofAssets.petPhoto,
-    alt: "Printed spiral book cover mockup",
+    label: "Keep it as a spiral book worth saving",
+    caption: "The same favorite photo becomes a coil-bound keepsake that feels giftable on the shelf",
+    alt: "Sample spiral bound book mockup using the real family photo and coloring page",
     frame: "book",
     note: "Every spiral book includes the PDF too",
+    coverSrc: proofAssets.realSwordPlayPhoto,
+    pageSrc: proofAssets.realSwordPlayPage,
   },
 ];
 
@@ -43,21 +47,7 @@ export function HeroProofModule() {
       </div>
 
       <div className="hero-showcase-stage">
-        <div className="book-mockup hero-book-mockup">
-          <div className="book-spiral" aria-hidden="true" />
-          <div className="book-cover">
-            <img alt="Real family photo used in the coloring book" className="hero-book-photo" src={proofAssets.realFamilyPlayPhoto} />
-            <div className="book-cover-badge">
-              <BrandLogo size="cover" />
-            </div>
-            <div className="book-cover-footer">
-              <strong>Personalized Coloring Book</strong>
-            </div>
-          </div>
-          <div className="book-page">
-            <img alt="Real coloring page generated from the family photo" className="hero-book-page" src={proofAssets.realFamilyPlayPage} />
-          </div>
-        </div>
+        <BeforeAfterSlider afterSrc={proofAssets.realFamilyPlayPage} beforeSrc={proofAssets.realFamilyPlayPhoto} />
       </div>
     </div>
   );
@@ -72,10 +62,29 @@ export function ProofStrip() {
             <span className="proof-step-index">0{index + 1}</span>
             <span className="mini-note">{step.frame === "book" ? "What you keep" : step.frame === "page" ? "What they color" : "What you start with"}</span>
           </div>
-          <img alt={step.alt} className="proof-strip-image" src={step.src} />
+          {step.frame === "book" ? (
+            <div aria-label={step.alt} className="proof-strip-book-preview" role="img">
+              <div className="proof-strip-book-spiral" aria-hidden="true" />
+              <div className="proof-strip-book-cover">
+                <img alt="" src={step.coverSrc} />
+                <div className="book-cover-badge">
+                  <BrandLogo size="cover" />
+                </div>
+                <div className="book-cover-footer">
+                  <strong>Personalized Coloring Book</strong>
+                </div>
+              </div>
+              <div className="proof-strip-book-page">
+                <img alt="" src={step.pageSrc} />
+              </div>
+            </div>
+          ) : (
+            <img alt={step.alt} className="proof-strip-image" src={step.src} />
+          )}
           <div className="stack-tight">
             <strong>{step.label}</strong>
             <p className="muted">{step.caption}</p>
+            {step.note ? <p className="mini-note">{step.note}</p> : null}
           </div>
         </article>
       ))}

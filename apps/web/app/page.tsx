@@ -30,9 +30,6 @@ export default function HomePage() {
           <h1>{homepageContent.hero.title}</h1>
           <p className="lede">{homepageContent.hero.description}</p>
           <p className="support-note">{homepageContent.hero.supporting}</p>
-          <div id="homepage-proof-module">
-            <HeroProofModule />
-          </div>
           <div className="hero-actions">
             <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName={funnelCtas.freeSample.eventName}>
               {funnelCtas.freeSample.label}
@@ -54,6 +51,9 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+        <div className="hero-proof-column" id="homepage-proof-module">
+          <HeroProofModule />
         </div>
       </section>
       <TrackVisibilityStage
@@ -77,7 +77,7 @@ export default function HomePage() {
       >
         <div className="offer-grid">
           {coreOffers.map((offer) => (
-            <OfferCard key={offer.code} offer={offer} />
+            <OfferCard key={offer.code} offer={offer} href="/create?source=homepage-offer-grid&acquisitionPath=direct_buy" />
           ))}
         </div>
       </Section>

@@ -59,17 +59,19 @@ export const proofAssets = {
   petPage: "/proof/pet-page-edges.png",
   realFamilyPlayPhoto: "/proof/real-family-play-photo.jpeg",
   realFamilyPlayPage: "/proof/real-family-play-coloring-page.jpeg",
+  realSwordPlayPhoto: "/proof/real-sword-play-photo.jpeg",
+  realSwordPlayPage: "/proof/real-sword-play-coloring-page.jpeg",
 } as const;
 
 export const funnelCtas = {
   freeSample: {
     label: "Get My Free Sample Page",
-    href: "/sample",
+    href: "/sample?source=homepage-sample&acquisitionPath=sample_first",
     eventName: "home_sample_cta_clicked",
   },
   directBuilder: {
     label: "Already Sold? Build My Book",
-    href: "/create?offer=pdf-100&source=direct-buy",
+    href: "/create?offer=pdf-100&source=home-direct-buy&acquisitionPath=direct_buy",
     eventName: "home_direct_builder_clicked",
   },
   seeBookSizes: {
@@ -79,17 +81,17 @@ export const funnelCtas = {
   },
   startThirtyPdf: {
     label: "Build The 100-Page Book",
-    href: "/create?offer=pdf-100",
+    href: "/create?offer=pdf-100&source=sample-ready-primary&acquisitionPath=sample_first",
     eventName: "sample_ready_primary_offer_clicked",
   },
   addThirtyPrint: {
     label: "Get The Spiral Book Version",
-    href: "/create?offer=print-100",
+    href: "/create?offer=print-100&source=sample-ready-print&acquisitionPath=sample_first",
     eventName: "sample_ready_print_upsell_clicked",
   },
   startMiniPdf: {
     label: "Keep It Light With 10 Pages",
-    href: "/create?offer=pdf-10",
+    href: "/create?offer=pdf-10&source=sample-ready-downsell&acquisitionPath=sample_first",
     eventName: "sample_ready_downsell_clicked",
   },
 } satisfies Record<string, FunnelCta>;
