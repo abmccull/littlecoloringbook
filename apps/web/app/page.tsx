@@ -18,7 +18,6 @@ export default function HomePage() {
       <section className="hero-home-shell" id="homepage-proof-module">
         <div className="hero-home-surface">
           <div className="hero-copy hero-home-heading">
-            <span className="pill pill-sun">{homepageContent.hero.badge}</span>
             <h1>{homepageContent.hero.title}</h1>
           </div>
           <div className="hero-proof-column">
