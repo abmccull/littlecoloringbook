@@ -45,13 +45,11 @@ export default async function SamplePage({
 
       <section className="sample-frame sample-entry">
         <div className="sample-entry-copy">
-          <div className="hero-home-heading">
-            <span className="pill pill-sun">Free sample</span>
-            <h1>Turn one photo they already love into a free coloring page.</h1>
-            <p className="lede">
-              Start with one favorite photo first. If the page feels like them, you can turn the rest of your camera roll into the full book right after that.
-            </p>
-          </div>
+          <span className="pill pill-sun">Free sample</span>
+          <h1>Turn one photo they already love into a free coloring page.</h1>
+          <p className="lede">
+            Start with one favorite photo first. If the page feels like them, you can turn the rest of your camera roll into the full book right after that.
+          </p>
           <ul className="feature-list">
             <li>One free sample page from one favorite photo</li>
             <li>Best for a child portrait, a sibling moment, or a favorite pet</li>

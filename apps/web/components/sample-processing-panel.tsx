@@ -141,22 +141,26 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
         </div>
       ) : null}
 
-      {!isReady && !isWorking ? (
+      {!isReady && !isWorking && !isStarting ? (
         <div className="hero-actions">
-          <button className="button button-primary" disabled={isStarting || uploadCount === 0} type="button" onClick={handleStart}>
-            {isStarting ? "Creating your page..." : "Create My Free Page"}
+          <button className="button button-primary" disabled={uploadCount === 0} type="button" onClick={handleStart}>
+            Create My Free Page
           </button>
         </div>
       ) : null}
 
-      {isWorking ? (
+      {isWorking || isStarting ? (
         <div aria-live="polite" className="processing-progress surface">
           <strong>Creating your free coloring page</strong>
           <div className="progress-bar" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
-            <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+            <div className="progress-bar-fill" style={{ width: `${Math.max(progress, 5)}%` }} />
           </div>
           <p className="progress-timer muted">
-            {elapsed > ESTIMATED_SECONDS ? "Taking a little longer than usual..." : formatTimeRemaining(remaining)}
+            {isStarting
+              ? "Getting started — about 90 seconds total"
+              : elapsed > ESTIMATED_SECONDS
+                ? "Taking a little longer than usual..."
+                : formatTimeRemaining(remaining)}
           </p>
           <p className="muted mini-note">This screen updates automatically. You can stay here or check your email.</p>
         </div>
