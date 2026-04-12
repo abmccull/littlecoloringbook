@@ -1,4 +1,4 @@
-import type { StockCover } from "../types.js";
+import type { StockCover } from "../types";
 
 export const stockCovers: StockCover[] = [
   // ----- Age 2-4: Girls-leaning -----

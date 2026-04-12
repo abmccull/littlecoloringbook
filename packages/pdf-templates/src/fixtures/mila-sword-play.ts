@@ -1,4 +1,4 @@
-import type { BookPayload } from "../types.js";
+import type { BookPayload } from "../types";
 
 export const milaSwordPlayFixture: BookPayload = {
   trim: { widthIn: 8.5, heightIn: 11, bleedIn: 0.125, safeIn: 0.25 },

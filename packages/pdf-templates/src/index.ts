@@ -15,17 +15,17 @@ export type {
   StyleId,
   StyleModule,
   TrimSpec,
-} from "./types.js";
+} from "./types";
 
-export { stockCovers, getStockCover, filterStockCovers } from "./covers/manifest.js";
-export { getTrim, getSpineWidth, getProduct, ensurePageCountParity, DEFAULT_SKU } from "./render/lulu-trim.js";
+export { stockCovers, getStockCover, filterStockCovers } from "./covers/manifest";
+export { getTrim, getSpineWidth, getProduct, ensurePageCountParity, DEFAULT_SKU } from "./render/lulu-trim";
 
-export { styles, getStyle } from "./themes/registry.js";
-export { occasions, getOccasion } from "./occasions/registry.js";
-export { interpolate } from "./occasions/interpolate.js";
-export { validateOccasionContext } from "./occasions/validate.js";
+export { styles, getStyle } from "./themes/registry";
+export { occasions, getOccasion } from "./occasions/registry";
+export { interpolate } from "./occasions/interpolate";
+export { validateOccasionContext } from "./occasions/validate";
 
-export { renderCoverPdf } from "./render/render-cover.js";
-export { renderInteriorPdf } from "./render/render-interior.js";
+export { renderCoverPdf } from "./render/render-cover";
+export { renderInteriorPdf } from "./render/render-interior";
 
-export { milaSwordPlayFixture } from "./fixtures/mila-sword-play.js";
+export { milaSwordPlayFixture } from "./fixtures/mila-sword-play";

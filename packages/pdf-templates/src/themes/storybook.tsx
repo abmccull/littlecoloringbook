@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 import React from "react";
 import { Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
-import type { TrimSpec } from "../types.js";
+import type { TrimSpec } from "../types";
 
 // ---------------------------------------------------------------------------
 // Constants

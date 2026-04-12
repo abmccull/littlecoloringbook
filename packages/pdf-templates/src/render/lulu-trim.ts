@@ -1,4 +1,4 @@
-import type { TrimSpec } from "../types.js";
+import type { TrimSpec } from "../types";
 
 type LuluProduct = {
   podPackageId: string;

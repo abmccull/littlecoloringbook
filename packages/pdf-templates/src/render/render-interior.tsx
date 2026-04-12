@@ -19,8 +19,8 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import type { BookPayload, ColoringPageEntry, TrimSpec } from "../types.js";
-import { registerFonts } from "../fonts/register.js";
+import type { BookPayload, ColoringPageEntry, TrimSpec } from "../types";
+import { registerFonts } from "../fonts/register";
 
 registerFonts();
 

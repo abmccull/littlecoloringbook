@@ -1,4 +1,4 @@
-import type { OccasionModule } from "../types.js";
+import type { OccasionModule } from "../types";
 
 export const grandparentsKeepsakeOccasion: OccasionModule = {
   id: "grandparents-keepsake",

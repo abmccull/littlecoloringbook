@@ -1,10 +1,10 @@
-import type { OccasionModule, OccasionId } from "../types.js";
-import { everydayOccasion } from "./everyday.js";
-import { birthdayOccasion } from "./birthday.js";
-import { vacationOccasion } from "./vacation.js";
-import { petKeepsakeOccasion } from "./pet-keepsake.js";
-import { christmasOccasion } from "./christmas.js";
-import { grandparentsKeepsakeOccasion } from "./grandparents-keepsake.js";
+import type { OccasionModule, OccasionId } from "../types";
+import { everydayOccasion } from "./everyday";
+import { birthdayOccasion } from "./birthday";
+import { vacationOccasion } from "./vacation";
+import { petKeepsakeOccasion } from "./pet-keepsake";
+import { christmasOccasion } from "./christmas";
+import { grandparentsKeepsakeOccasion } from "./grandparents-keepsake";
 
 // ---------------------------------------------------------------------------
 // Stub factory — produces a placeholder OccasionModule whose runtime methods

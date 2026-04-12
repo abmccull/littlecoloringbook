@@ -1,4 +1,4 @@
-import type { OccasionContext, OccasionModule } from "../types.js";
+import type { OccasionContext, OccasionModule } from "../types";
 
 /**
  * Validates that context contains all required fields declared by the occasion.

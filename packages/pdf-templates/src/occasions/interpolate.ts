@@ -1,4 +1,4 @@
-import type { OccasionContext } from "../types.js";
+import type { OccasionContext } from "../types";
 
 /**
  * Replaces {token} placeholders in a template string with values from context.

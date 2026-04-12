@@ -1,4 +1,4 @@
-import type { StyleId, StyleModule } from "../types.js";
+import type { StyleId, StyleModule } from "../types";
 
 // ---------------------------------------------------------------------------
 // Style registry — one entry per visual style axis value.

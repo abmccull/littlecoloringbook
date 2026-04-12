@@ -19,7 +19,7 @@ import { getConsumerOffer } from "../lib/consumer-content";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
 type DeliveryMode = "pdf" | "print";
-type BuilderStep = "format" | "pages" | "pack" | "cover" | "details" | "review";
+type BuilderStep = "format" | "pages" | "pack" | "occasion" | "cover" | "details" | "review";
 type CoverNameMode = "same" | "different";
 
 type CreateOrderResponse = {
@@ -90,36 +90,52 @@ const printBundleCards: Record<
 const coverStyleCards: Record<
   CoverStyleCode,
   {
+    color: string;
     description: string;
     label: string;
-    title: string;
     toneClass: string;
   }
 > = {
   storybook: {
-    label: "Warm + classic",
-    title: "Storybook cover",
-    description: "Soft paper tones and a keepsake feel that works for everyday family memories.",
+    label: "Storybook",
+    description: "Vintage and giftable. Ornamental corners, serif typography, warm tones.",
+    color: "#6B4226",
     toneClass: "cover-style-storybook",
   },
   sunshine: {
-    label: "Bright + playful",
-    title: "Sunshine cover",
-    description: "A cheerier, more activity-first cover direction for kids who love color and energy.",
+    label: "Sunshine",
+    description: "Bright and playful. Bold colors, cheerful sun motifs, rounded type.",
+    color: "#F4B400",
     toneClass: "cover-style-sunshine",
   },
-  adventure: {
-    label: "Bold + outdoorsy",
-    title: "Adventure cover",
-    description: "A more energetic look for vacations, pets, birthdays, and big-memory photo sets.",
-    toneClass: "cover-style-adventure",
+  crayon: {
+    label: "Crayon",
+    description: "Handmade feel. Thick dashed borders, hand-drawn doodles, kid-friendly.",
+    color: "#E74C3C",
+    toneClass: "cover-style-crayon",
   },
+  minimal: {
+    label: "Minimal",
+    description: "Modern and clean. No ornaments, generous whitespace, editorial type.",
+    color: "#111111",
+    toneClass: "cover-style-minimal",
+  },
+};
+
+const occasionCards: Record<string, { label: string; description: string; emoji: string }> = {
+  everyday: { label: "Everyday Keepsake", description: "For any day — just a beautiful book of family moments.", emoji: "📖" },
+  birthday: { label: "Birthday", description: "Celebrate their special day with a personalized birthday book.", emoji: "🎂" },
+  vacation: { label: "Our Vacation", description: "Turn trip photos into a colorable travel journal.", emoji: "✈️" },
+  "pet-keepsake": { label: "Pet Keepsake", description: "A coloring book starring their favorite furry friend.", emoji: "🐾" },
+  christmas: { label: "Christmas", description: "A holiday coloring book full of family Christmas moments.", emoji: "🎄" },
+  "grandparents-keepsake": { label: "For Grandparents", description: "A personalized gift grandparents will treasure.", emoji: "💝" },
 };
 
 const stepLabels: Record<BuilderStep, string> = {
   format: "Format",
   pages: "Pages",
   pack: "Copies",
+  occasion: "Occasion",
   cover: "Cover",
   details: "Details",
   review: "Review",
@@ -157,6 +173,10 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
   const [selectedOfferCode, setSelectedOfferCode] = useState<OfferCode>(initialOfferCode);
   const [printBundleCode, setPrintBundleCode] = useState<PrintBundleCode>(defaultPrintBundleCode);
   const [coverStyle, setCoverStyle] = useState<CoverStyleCode>(defaultCoverStyle);
+  const [occasion, setOccasion] = useState("everyday");
+  const [age, setAge] = useState<number | undefined>();
+  const [destination, setDestination] = useState("");
+  const [petName, setPetName] = useState("");
   const [email, setEmail] = useState("");
   const [childFirstName, setChildFirstName] = useState("");
   const [coverNameMode, setCoverNameMode] = useState<CoverNameMode>("same");
@@ -188,7 +208,10 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
       : selectedOffer.subtotalCents;
 
   const steps = useMemo<BuilderStep[]>(
-    () => (deliveryMode === "print" ? ["format", "pages", "pack", "cover", "details", "review"] : ["format", "pages", "cover", "details", "review"]),
+    () =>
+      deliveryMode === "print"
+        ? ["format", "pages", "pack", "occasion", "cover", "details", "review"]
+        : ["format", "pages", "occasion", "cover", "details", "review"],
     [deliveryMode],
   );
 
@@ -283,7 +306,7 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
         onceKey: "offer-selected",
       },
     );
-    goToStep(deliveryMode === "print" ? "pack" : "cover");
+    goToStep(deliveryMode === "print" ? "pack" : "occasion");
   }
 
   function handleBundleSelect(nextBundleCode: PrintBundleCode) {
@@ -308,6 +331,17 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
         onceKey: "bundle-selected",
       },
     );
+    goToStep("occasion");
+  }
+
+  function handleOccasionSelect(nextOccasion: string) {
+    setOccasion(nextOccasion);
+    setErrorMessage(null);
+    trackEvent("builder_occasion_selected", {
+      selectedOffer: selectedOffer.code,
+      deliveryMode,
+      occasion: nextOccasion,
+    });
     goToStep("cover");
   }
 
@@ -357,6 +391,14 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
           bundleSelection: deliveryMode === "print" ? printBundleCode : null,
           quantity: deliveryMode === "print" ? selectedPrintBundle.quantity : 1,
           coverStyle,
+          occasion,
+          occasionContext: {
+            childName: childFirstName,
+            ...(occasion === "birthday" && age ? { age } : {}),
+            ...(occasion === "vacation" && destination ? { location: destination } : {}),
+            ...(occasion === "pet-keepsake" && petName ? { petName } : {}),
+            ...(occasion === "christmas" ? { year: new Date().getFullYear() } : {}),
+          },
           copyNames: resolvedCopyNames,
           childFirstName,
           dedicationText,
@@ -428,8 +470,12 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
         ]
       : []),
     {
+      label: "Occasion",
+      value: occasionCards[occasion]?.label ?? occasion,
+    },
+    {
       label: "Cover",
-      value: coverStyleCard.title,
+      value: coverStyleCard.label,
     },
   ];
   const previousStep = steps[currentStepIndex - 1] ?? null;
@@ -454,6 +500,10 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
       title: "Do you want just one printed copy or a bigger pack?",
       description: "If you want sibling copies or grandparent gifts, lock them in now while the pages only need to be made once.",
     },
+    occasion: {
+      title: "What is this book for?",
+      description: "Pick the occasion that best fits the memories inside. This shapes the cover and dedication.",
+    },
     cover: {
       title: "Which cover mood fits this book best?",
       description: "Pick the cover mood that fits the memories inside.",
@@ -464,7 +514,7 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
     },
     review: {
       title: "Quick review before photo upload.",
-      description: "Make sure the format, size, pack, and cover direction all feel right before you move into the photo step.",
+      description: "Make sure the format, size, pack, occasion, and cover direction all feel right before you move into the photo step.",
     },
   };
 
@@ -585,6 +635,23 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
           </div>
         ) : null}
 
+        {currentStep === "occasion" ? (
+          <div className="builder-cards">
+            {Object.entries(occasionCards).map(([key, card]) => (
+              <button
+                className={`builder-card-option ${occasion === key ? "builder-card-selected" : ""}`}
+                key={key}
+                onClick={() => handleOccasionSelect(key)}
+                type="button"
+              >
+                <span className="builder-card-emoji">{card.emoji}</span>
+                <strong>{card.label}</strong>
+                <p className="muted">{card.description}</p>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {currentStep === "cover" ? (
           <div className="cover-style-grid">
             {(Object.entries(coverStyleCards) as Array<[CoverStyleCode, (typeof coverStyleCards)[CoverStyleCode]]>).map(([styleCode, style]) => {
@@ -598,7 +665,7 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
                   onClick={() => handleCoverStyleSelect(styleCode)}
                 >
                   <span className="pill pill-sun">{style.label}</span>
-                  <strong>{style.title}</strong>
+                  <strong>{style.label}</strong>
                   <p>{style.description}</p>
                 </button>
               );
@@ -609,7 +676,7 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
         {currentStep === "details" ? (
           <div className="upload-stack">
             <div className="surface selection-summary">
-              <span className="pill pill-coral">{coverStyleCard.title}</span>
+              <span className="pill pill-coral">{coverStyleCard.label}</span>
               <h3>{selectedMerchOffer.title}</h3>
               <p className="muted">
                 {deliveryMode === "print"
@@ -710,6 +777,55 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
               </div>
             ) : null}
 
+            {occasion === "birthday" ? (
+              <label>
+                <span className="muted">Age (optional)</span>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  min={1}
+                  max={18}
+                  name="age"
+                  placeholder="5"
+                  type="number"
+                  value={age ?? ""}
+                  onChange={(event) => {
+                    const parsed = parseInt(event.target.value, 10);
+                    setAge(isNaN(parsed) ? undefined : parsed);
+                  }}
+                />
+              </label>
+            ) : null}
+
+            {occasion === "vacation" ? (
+              <label>
+                <span className="muted">Destination (optional)</span>
+                <input
+                  className="input"
+                  name="destination"
+                  placeholder="Paris, France"
+                  type="text"
+                  value={destination}
+                  onChange={(event) => setDestination(event.target.value)}
+                />
+              </label>
+            ) : null}
+
+            {occasion === "pet-keepsake" ? (
+              <label>
+                <span className="muted">Pet name (optional)</span>
+                <input
+                  autoComplete="off"
+                  className="input"
+                  name="petName"
+                  placeholder="Biscuit"
+                  type="text"
+                  value={petName}
+                  onChange={(event) => setPetName(event.target.value)}
+                />
+              </label>
+            ) : null}
+
             <label>
               <span className="muted">Dedication (optional)</span>
               <textarea
@@ -731,7 +847,7 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
               <p className="muted">{selectedMerchOffer.description}</p>
               <ul className="feature-list">
                 <li>{deliveryMode === "print" ? `${selectedPrintBundle.quantity} printed ${selectedPrintBundle.quantity === 1 ? "copy" : "copies"} plus the PDF download` : "Printable PDF ready as soon as the pages are finished"}</li>
-                <li>{coverStyleCard.title} selected for the cover direction</li>
+                <li>{coverStyleCard.label} selected for the cover direction</li>
                 <li>
                   {deliveryMode === "print" && resolvedCopyNames?.some((value) => value)
                     ? `Cover names: ${resolvedCopyNames.map((value, index) => value ?? `Copy ${index + 1} left blank`).join(" • ")}`

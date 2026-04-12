@@ -1,13 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { milaSwordPlayFixture } from "../fixtures/mila-sword-play.js";
-import { getTrim, getSpineWidth, ensurePageCountParity } from "../render/lulu-trim.js";
-import { getStyle } from "../themes/registry.js";
-import { getOccasion } from "../occasions/registry.js";
-import { interpolate } from "../occasions/interpolate.js";
-import { validateOccasionContext } from "../occasions/validate.js";
-import { getStockCover, filterStockCovers } from "../covers/manifest.js";
+import { milaSwordPlayFixture } from "../fixtures/mila-sword-play";
+import { getTrim, getSpineWidth, ensurePageCountParity } from "../render/lulu-trim";
+import { getStyle } from "../themes/registry";
+import { getOccasion } from "../occasions/registry";
+import { interpolate } from "../occasions/interpolate";
+import { validateOccasionContext } from "../occasions/validate";
+import { getStockCover, filterStockCovers } from "../covers/manifest";
 
 describe("lulu-trim", () => {
   it("returns trim spec for default SKU", () => {

@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { estimateInteriorPageCount, normalizeCoverStyle, type CoverStyleCode, type DeliveryMode } from "@littlecolorbook/shared";
 import { downloadObject } from "@littlecolorbook/shared/storage";
 import { renderCoverPdf, renderInteriorPdf, getTrim, getSpineWidth, ensurePageCountParity } from "@littlecolorbook/pdf-templates";
-import type { BookPayload, StyleId, TrimSpec } from "@littlecolorbook/pdf-templates";
+import type { BookPayload, OccasionId, OccasionContext, StyleId, TrimSpec } from "@littlecolorbook/pdf-templates";
 
 export const cleanupSteps = [
   "normalize-grayscale",
@@ -855,11 +855,17 @@ async function createPrintCoverPdf(input: {
         title: [0.27, 0.15, 0.1],
         body: [0.36, 0.21, 0.12],
       },
-      adventure: {
-        back: [0.94, 0.98, 0.99],
-        front: [0.68, 0.86, 0.96],
-        title: [0.12, 0.18, 0.22],
-        body: [0.18, 0.27, 0.31],
+      crayon: {
+        back: [0.99, 0.96, 0.95],
+        front: [0.94, 0.62, 0.57],
+        title: [0.22, 0.1, 0.08],
+        body: [0.32, 0.16, 0.12],
+      },
+      minimal: {
+        back: [0.98, 0.98, 0.98],
+        front: [0.9, 0.9, 0.9],
+        title: [0.07, 0.07, 0.07],
+        body: [0.2, 0.2, 0.2],
       },
     };
   const colors = palette[coverStyle];
@@ -943,6 +949,8 @@ function buildBookPayload(input: {
   childFirstName?: string | null;
   coverStyle?: string | null;
   dedicationText?: string | null;
+  occasion?: OccasionId | null;
+  occasionContext?: OccasionContext | null;
   pageBuffers: Buffer[];
   titleName?: string | null;
   trim: TrimSpec;
@@ -951,14 +959,16 @@ function buildBookPayload(input: {
   const pageCount = ensurePageCountParity(contentPages);
   const style = mapCoverStyleToStyleId(input.coverStyle);
   const name = input.titleName?.trim() || input.childFirstName?.trim() || null;
+  const occasion: OccasionId = input.occasion ?? "everyday";
+  const occasionContext: OccasionContext = input.occasionContext ?? { childName: name || "My" };
 
   return {
     trim: input.trim,
     spineWidthIn: getSpineWidth(pageCount),
     pageCount,
     style,
-    occasion: "everyday",
-    occasionContext: { childName: name || "My" },
+    occasion,
+    occasionContext,
     meta: {
       title: name ? `${name}'s Coloring Book` : "My Coloring Book",
       subtitle: "A little coloring book",
@@ -1024,6 +1034,8 @@ export async function materializeGenerationPlan(input: {
   copyNames?: Array<string | null> | null;
   coverStyle?: string | null;
   dedicationText?: string | null;
+  occasion?: OccasionId | null;
+  occasionContext?: OccasionContext | null;
   plan: GenerationPlan;
   quantity?: number;
   selectedOfferCode?: string | null;
@@ -1071,6 +1083,8 @@ export async function materializeGenerationPlan(input: {
       childFirstName: input.childFirstName,
       coverStyle: input.coverStyle,
       dedicationText: input.dedicationText,
+      occasion: input.occasion,
+      occasionContext: input.occasionContext,
       pageBuffers,
       titleName: input.childFirstName,
       trim: printTrim,
@@ -1111,6 +1125,8 @@ export async function materializeGenerationPlan(input: {
           childFirstName: input.childFirstName,
           coverStyle: input.coverStyle,
           dedicationText: input.dedicationText,
+          occasion: input.occasion,
+          occasionContext: input.occasionContext,
           pageBuffers,
           titleName: coverNames[index],
           trim: printTrim,

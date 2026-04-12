@@ -22,6 +22,17 @@ const createOrderSchema = z.object({
   bundleSelection: z.string().trim().optional().nullable(),
   bundleOffer: z.string().trim().optional().nullable(),
   coverStyle: z.string().trim().optional().nullable(),
+  occasion: z.string().trim().optional().nullable(),
+  occasionContext: z
+    .object({
+      childName: z.string().trim().max(80).optional(),
+      age: z.number().int().min(1).max(120).optional(),
+      location: z.string().trim().max(120).optional(),
+      petName: z.string().trim().max(80).optional(),
+      year: z.number().int().optional(),
+    })
+    .optional()
+    .nullable(),
   copyNames: z.array(z.string().trim().max(80).nullable()).max(5).optional().nullable(),
   childFirstName: z.string().trim().min(1).max(80).optional(),
   dedicationText: z.string().trim().max(240).optional(),
@@ -98,6 +109,7 @@ export async function POST(request: NextRequest) {
     childFirstName: parsed.data.childFirstName ?? null,
     dedicationText: parsed.data.dedicationText ?? null,
     shippingCents: parsed.data.shippingCents ?? 0,
+    // TODO: persist occasion + occasionContext to DB once schema columns are added
   });
 
   return NextResponse.json({

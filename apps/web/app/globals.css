@@ -1742,7 +1742,7 @@ textarea:focus-visible {
 }
 
 .cover-style-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -1809,6 +1809,71 @@ textarea:focus-visible {
 
 .cover-style-adventure {
   background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(142, 216, 248, 0.16));
+}
+
+.cover-style-crayon {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(231, 76, 60, 0.12));
+}
+
+.cover-style-minimal {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(17, 17, 17, 0.06));
+}
+
+/* Occasion picker cards */
+.builder-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.builder-card-option {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  align-content: start;
+  min-height: 128px;
+  padding: 18px 18px 20px;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.86);
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.builder-card-option:hover {
+  transform: translateY(-1px);
+}
+
+.builder-card-option.builder-card-selected {
+  background:
+    linear-gradient(180deg, rgba(255, 248, 241, 1), rgba(255, 199, 165, 0.18)),
+    white;
+  border-color: rgba(255, 107, 87, 0.24);
+  box-shadow: 0 16px 34px rgba(255, 107, 87, 0.12);
+}
+
+.builder-card-option p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.builder-card-option strong {
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.builder-card-emoji {
+  font-size: 1.8rem;
+  line-height: 1;
 }
 
 .form-grid {
