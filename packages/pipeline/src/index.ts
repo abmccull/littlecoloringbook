@@ -2,6 +2,8 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import sharp from "sharp";
 import { estimateInteriorPageCount, normalizeCoverStyle, type CoverStyleCode, type DeliveryMode } from "@littlecolorbook/shared";
 import { downloadObject } from "@littlecolorbook/shared/storage";
+import { renderCoverPdf, renderInteriorPdf, getTrim, getSpineWidth, ensurePageCountParity } from "@littlecolorbook/pdf-templates";
+import type { BookPayload, StyleId, TrimSpec } from "@littlecolorbook/pdf-templates";
 
 export const cleanupSteps = [
   "normalize-grayscale",
@@ -919,6 +921,57 @@ async function createPrintCoverPdf(input: {
   return Buffer.from(await doc.save());
 }
 
+// ---------------------------------------------------------------------------
+// New pdf-templates pipeline helpers
+// ---------------------------------------------------------------------------
+
+const DIGITAL_TRIM: TrimSpec = { widthIn: 8.5, heightIn: 11, bleedIn: 0, safeIn: 0 };
+
+function bufferToDataUri(buf: Buffer): string {
+  return `data:image/png;base64,${buf.toString("base64")}`;
+}
+
+function mapCoverStyleToStyleId(coverStyle?: string | null): StyleId {
+  if (coverStyle === "adventure") return "crayon";
+  if (coverStyle === "storybook" || coverStyle === "sunshine" || coverStyle === "crayon" || coverStyle === "minimal") {
+    return coverStyle;
+  }
+  return "storybook";
+}
+
+function buildBookPayload(input: {
+  childFirstName?: string | null;
+  coverStyle?: string | null;
+  dedicationText?: string | null;
+  pageBuffers: Buffer[];
+  titleName?: string | null;
+  trim: TrimSpec;
+}): BookPayload {
+  const contentPages = 2 + input.pageBuffers.length + 1;
+  const pageCount = ensurePageCountParity(contentPages);
+  const style = mapCoverStyleToStyleId(input.coverStyle);
+  const name = input.titleName?.trim() || input.childFirstName?.trim() || null;
+
+  return {
+    trim: input.trim,
+    spineWidthIn: getSpineWidth(pageCount),
+    pageCount,
+    style,
+    occasion: "everyday",
+    occasionContext: { childName: name || "My" },
+    meta: {
+      title: name ? `${name}'s Coloring Book` : "My Coloring Book",
+      subtitle: "A little coloring book",
+      dedication: input.dedicationText || undefined,
+      createdOn: new Date().toISOString().slice(0, 10),
+    },
+    cover: { type: "stock-art", stockArtId: "rainbow-clouds" },
+    pages: input.pageBuffers.map((buf) => ({
+      lineArt: { url: bufferToDataUri(buf), widthPx: 0, heightPx: 0 },
+    })),
+  };
+}
+
 export function buildGenerationPlan(input: {
   coverCount?: number;
   deliveryMode: DeliveryMode;
@@ -1013,23 +1066,22 @@ export async function materializeGenerationPlan(input: {
   }
 
   if (input.plan.jobKind === "full_book") {
-    const downloadPdf = await createDownloadPdf({
+    const printTrim = getTrim();
+    const basePayload = buildBookPayload({
       childFirstName: input.childFirstName,
+      coverStyle: input.coverStyle,
       dedicationText: input.dedicationText,
-      designCount: input.plan.designCount,
-      orderId: input.plan.orderId,
       pageBuffers,
+      titleName: input.childFirstName,
+      trim: printTrim,
     });
+
+    const downloadPayload: BookPayload = { ...basePayload, trim: DIGITAL_TRIM };
+    const downloadPdf = await renderInteriorPdf(downloadPayload);
 
     const interiorPdf =
       input.plan.deliveryMode === "print"
-        ? await createPrintInteriorPdf({
-            childFirstName: input.childFirstName,
-            dedicationText: input.dedicationText,
-            designCount: input.plan.designCount,
-            orderId: input.plan.orderId,
-            pageBuffers,
-          })
+        ? await renderInteriorPdf(basePayload)
         : downloadPdf;
 
     assets.push({
@@ -1049,21 +1101,21 @@ export async function materializeGenerationPlan(input: {
       const requestedCoverCount = Math.max(1, input.quantity ?? input.plan.pdf.coverPdfPaths.length);
       const coverNames = Array.from({ length: requestedCoverCount }, (_, index) => {
         const specificName = input.copyNames?.[index];
-
-        if (specificName) {
-          return specificName;
-        }
-
+        if (specificName) return specificName;
         const fallbackName = input.childFirstName?.trim();
         return fallbackName ? fallbackName : null;
       });
 
       for (const [index, objectPath] of input.plan.pdf.coverPdfPaths.entries()) {
-        const coverPdf = await createPrintCoverPdf({
+        const coverPayload = buildBookPayload({
+          childFirstName: input.childFirstName,
           coverStyle: input.coverStyle,
-          designCount: input.plan.designCount,
-          titleName: coverNames[index] ?? null,
+          dedicationText: input.dedicationText,
+          pageBuffers,
+          titleName: coverNames[index],
+          trim: printTrim,
         });
+        const coverPdf = await renderCoverPdf(coverPayload);
 
         assets.push({
           body: coverPdf,

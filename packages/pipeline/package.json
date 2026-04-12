@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
+    "@littlecolorbook/pdf-templates": "file:../pdf-templates",
     "@littlecolorbook/shared": "file:../shared",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.5"
