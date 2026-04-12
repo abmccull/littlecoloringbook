@@ -1,4 +1,3 @@
-import { BrandLogo } from "./brand-logo";
 import { BeforeAfterSlider } from "./before-after-slider";
 import { proofAssets, type ParentQuote, type PhotoExample, type UseCaseCard } from "../lib/consumer-content";
 
@@ -103,35 +102,26 @@ export function BookMockupBlock({
   );
 }
 
+const DEFAULT_BOOK_MOCKUP_SRC = "/proof/spiral-book-closed-sword.png";
+
 function SpiralBookPreview({
   alt,
-  coverSrc,
   pageSrc,
   variant,
+  bookMockupSrc = DEFAULT_BOOK_MOCKUP_SRC,
 }: {
   alt: string;
   coverSrc?: string;
   pageSrc?: string;
   variant: "proof-strip" | "feature";
+  bookMockupSrc?: string;
 }) {
   return (
-    <div aria-label={alt} className={`spiral-book-preview spiral-book-preview-${variant}`} role="img">
-      <div className="spiral-book-coil" aria-hidden="true" />
-      <div className="spiral-book-stack" aria-hidden="true" />
-      <div className="spiral-book-cover">
-        <img alt="" className="spiral-book-cover-image" src={coverSrc} />
-        <div className="spiral-book-brand">
-          <BrandLogo size="cover" />
-        </div>
-        <div className="spiral-book-title-panel">
-          <span className="spiral-book-kicker">Personalized activity book</span>
-          <strong>Mila&apos;s Coloring Book</strong>
-          <span>Made from favorite family photos</span>
-        </div>
-      </div>
-      <div className="spiral-book-inner-page">
-        <img alt="" className="spiral-book-page-image" src={pageSrc} />
-      </div>
+    <div aria-label={alt} className={`spiral-book-scene spiral-book-scene-${variant}`} role="img">
+      {pageSrc ? (
+        <img alt="" aria-hidden="true" className="spiral-book-page-peek" src={pageSrc} />
+      ) : null}
+      <img alt="" className="spiral-book-mockup-image" src={bookMockupSrc} />
     </div>
   );
 }
