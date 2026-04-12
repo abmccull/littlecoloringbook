@@ -1,15 +1,14 @@
 /** @jsxImportSource react */
 // ---------------------------------------------------------------------------
-// Storybook visual style — React-PDF components
-// Palette: Playfair Display / #6B4226 accent / #FFF8F1 secondary
+// Crayon visual style — React-PDF components
+// Palette: Helvetica (Caveat fallback) / #E74C3C accent / #FFF3F0 secondary
 // ---------------------------------------------------------------------------
-// NOTE: The pragma above overrides the package-level jsxImportSource
-// (@react-pdf/renderer) because react-pdf v4 does not ship a jsx-runtime
-// module. React's own JSX transform is used instead; react-pdf components
-// are fully compatible with it since they extend React.Component internally.
+// TODO: Register Caveat web font with Font.register() once font assets are
+// bundled. Until then, Helvetica is used as a playful stand-in.
 // ---------------------------------------------------------------------------
+
 import React from "react";
-import { Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
+import { Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import type { TrimSpec } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -18,17 +17,14 @@ import type { TrimSpec } from "../types.js";
 
 const PT_PER_IN = 72;
 
-const ACCENT = "#6B4226";
-const SECONDARY = "#FFF8F1";
-const TEXT_DARK = "#2C1810";
-const TEXT_MID = "#7A5C4A";
-const SERIF = "Playfair Display";
-const SERIF_BOLD = "Playfair Display";
-const SERIF_ITALIC = "Playfair Display";
-
-// Corner ornament size in points
-const CORNER_SIZE = 18;
-const CORNER_THICKNESS = 2;
+const ACCENT = "#E74C3C";
+const ACCENT_BLUE = "#3498DB";
+const SECONDARY = "#FFF3F0";
+const TEXT_DARK = "#2C0A08";
+const TEXT_MID = "#8B3A35";
+const SANS = "Helvetica";
+const SANS_BOLD = "Helvetica-Bold";
+const SANS_OBLIQUE = "Helvetica-Oblique";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,7 +37,6 @@ function pt(inches: number): number {
 
 /**
  * Derive page dimensions and safe-area insets from a TrimSpec.
- * React-PDF Page `size` includes the bleed on each side.
  */
 function pageDims(trim: TrimSpec): {
   widthPt: number;
@@ -62,67 +57,116 @@ function pageDims(trim: TrimSpec): {
 // ---------------------------------------------------------------------------
 
 /**
- * Four L-shaped corner ornaments drawn with View borders.
- * Positioned at the corners of the safe area with absolute coordinates.
+ * Crayon-style border: thick dashed View border slightly imprecise via
+ * differing border-radius values per corner.
  */
-const CornerOrnaments: React.FC<{
-  insetPt: number;
-}> = ({ insetPt }) => {
-  const s = StyleSheet.create({
-    base: {
+const CrayonBorder: React.FC<{
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}> = ({ top, left, width, height }) => {
+  const THICKNESS = 6;
+
+  const styles = StyleSheet.create({
+    border: {
       position: "absolute",
-      width: CORNER_SIZE,
-      height: CORNER_SIZE,
-    },
-    topLeft: {
-      top: insetPt,
-      left: insetPt,
-      borderTopWidth: CORNER_THICKNESS,
-      borderLeftWidth: CORNER_THICKNESS,
-      borderTopColor: ACCENT,
-      borderLeftColor: ACCENT,
-    },
-    topRight: {
-      top: insetPt,
-      right: insetPt,
-      borderTopWidth: CORNER_THICKNESS,
-      borderRightWidth: CORNER_THICKNESS,
-      borderTopColor: ACCENT,
-      borderRightColor: ACCENT,
-    },
-    bottomLeft: {
-      bottom: insetPt,
-      left: insetPt,
-      borderBottomWidth: CORNER_THICKNESS,
-      borderLeftWidth: CORNER_THICKNESS,
-      borderBottomColor: ACCENT,
-      borderLeftColor: ACCENT,
-    },
-    bottomRight: {
-      bottom: insetPt,
-      right: insetPt,
-      borderBottomWidth: CORNER_THICKNESS,
-      borderRightWidth: CORNER_THICKNESS,
-      borderBottomColor: ACCENT,
-      borderRightColor: ACCENT,
+      top,
+      left,
+      width,
+      height,
+      borderWidth: THICKNESS,
+      borderColor: ACCENT,
+      // Slightly varied radius per corner gives the hand-drawn feel.
+      // react-pdf supports borderRadius as a single value or shorthand.
+      borderRadius: 4,
+      borderStyle: "dashed",
     },
   });
 
+  return <View style={styles.border} />;
+};
+
+/**
+ * Zigzag decoration along the top edge: series of small rotated squares
+ * that create a wavy/zigzag visual rhythm.
+ */
+const ZigzagTop: React.FC<{ widthPt: number; y: number }> = ({
+  widthPt,
+  y,
+}) => {
+  const TILE_SIZE = 8;
+  const SPACING = 14;
+  const count = Math.floor(widthPt / SPACING);
+
   return (
     <>
-      <View style={[s.base, s.topLeft]} />
-      <View style={[s.base, s.topRight]} />
-      <View style={[s.base, s.bottomLeft]} />
-      <View style={[s.base, s.bottomRight]} />
+      {Array.from({ length: count }, (_, i) => {
+        const x = i * SPACING + SPACING / 2;
+        // Alternate between 45° and -45° for zigzag feel
+        const angleDeg = i % 2 === 0 ? 45 : -45;
+        return (
+          <View
+            key={i}
+            style={{
+              position: "absolute",
+              top: y - TILE_SIZE / 2,
+              left: x - TILE_SIZE / 2,
+              width: TILE_SIZE,
+              height: TILE_SIZE,
+              backgroundColor: ACCENT,
+              opacity: 0.7,
+              transform: `rotate(${angleDeg}deg)`,
+            }}
+          />
+        );
+      })}
+    </>
+  );
+};
+
+/**
+ * Star doodles: rotated squares scattered as decoration.
+ */
+const StarDoodles: React.FC<{ widthPt: number; heightPt: number }> = ({
+  widthPt,
+  heightPt,
+}) => {
+  // Fixed positions relative to page dimensions for deterministic layout
+  const stars = [
+    { xRatio: 0.08, yRatio: 0.12, size: 10, color: ACCENT },
+    { xRatio: 0.92, yRatio: 0.1, size: 8, color: ACCENT_BLUE },
+    { xRatio: 0.06, yRatio: 0.82, size: 9, color: ACCENT_BLUE },
+    { xRatio: 0.9, yRatio: 0.8, size: 11, color: ACCENT },
+    { xRatio: 0.5, yRatio: 0.07, size: 7, color: ACCENT },
+  ];
+
+  return (
+    <>
+      {stars.map(({ xRatio, yRatio, size, color }, i) => (
+        <View
+          key={i}
+          style={{
+            position: "absolute",
+            top: heightPt * yRatio - size / 2,
+            left: widthPt * xRatio - size / 2,
+            width: size,
+            height: size,
+            backgroundColor: color,
+            opacity: 0.6,
+            transform: "rotate(45deg)",
+          }}
+        />
+      ))}
     </>
   );
 };
 
 // ---------------------------------------------------------------------------
-// StorybookCoverLayout
+// CrayonCoverLayout
 // ---------------------------------------------------------------------------
 
-export type StorybookCoverLayoutProps = {
+export type CrayonCoverLayoutProps = {
   trim: TrimSpec;
   title: string;
   subtitle?: string;
@@ -130,17 +174,21 @@ export type StorybookCoverLayoutProps = {
   coverImageSrc: string;
 };
 
-export const StorybookCoverLayout: React.FC<StorybookCoverLayoutProps> = ({
+export const CrayonCoverLayout: React.FC<CrayonCoverLayoutProps> = ({
   trim,
   title,
   subtitle,
   coverImageSrc,
 }) => {
   const { widthPt, heightPt, bleedPt, safePt } = pageDims(trim);
-
-  // Text area height at bottom of safe area
-  const textAreaHeight = subtitle ? 80 : 56;
   const inset = bleedPt + safePt;
+
+  const textAreaHeight = subtitle ? 80 : 56;
+  const borderPad = 6;
+  const imageTop = inset;
+  const imageLeft = inset;
+  const imageWidth = widthPt - inset * 2;
+  const imageHeight = heightPt - inset * 2 - textAreaHeight;
 
   const styles = StyleSheet.create({
     page: {
@@ -151,10 +199,10 @@ export const StorybookCoverLayout: React.FC<StorybookCoverLayoutProps> = ({
     },
     coverImage: {
       position: "absolute",
-      top: inset,
-      left: inset,
-      width: widthPt - inset * 2,
-      height: heightPt - inset * 2 - textAreaHeight,
+      top: imageTop,
+      left: imageLeft,
+      width: imageWidth,
+      height: imageHeight,
       objectFit: "cover",
     },
     textContainer: {
@@ -167,59 +215,63 @@ export const StorybookCoverLayout: React.FC<StorybookCoverLayoutProps> = ({
       justifyContent: "center",
     },
     title: {
-      fontFamily: SERIF_BOLD,
-      fontWeight: 700,
-      fontSize: 26,
+      fontFamily: SANS_BOLD,
+      fontSize: 27,
       color: ACCENT,
       textAlign: "center",
-      letterSpacing: 0.8,
+      letterSpacing: 0.3,
     },
     subtitle: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
+      fontFamily: SANS,
       fontSize: 13,
       color: TEXT_MID,
       textAlign: "center",
-      marginTop: 4,
+      marginTop: 5,
     },
   });
 
   return (
     <Page size={{ width: widthPt, height: heightPt }} style={styles.page}>
       <Image src={coverImageSrc} style={styles.coverImage} />
+      {/* Thick crayon-style border around the image area */}
+      <CrayonBorder
+        top={imageTop - borderPad}
+        left={imageLeft - borderPad}
+        width={imageWidth + borderPad * 2}
+        height={imageHeight + borderPad * 2}
+      />
       <View style={styles.textContainer}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
-      <CornerOrnaments insetPt={inset} />
     </Page>
   );
 };
 
 // ---------------------------------------------------------------------------
-// StorybookPageLayout
+// CrayonPageLayout
 // ---------------------------------------------------------------------------
 
-export type StorybookPageLayoutProps = {
+export type CrayonPageLayoutProps = {
   trim: TrimSpec;
   lineArtSrc: string;
   caption?: string;
   pageNumber: number;
 };
 
-export const StorybookPageLayout: React.FC<StorybookPageLayoutProps> = ({
+export const CrayonPageLayout: React.FC<CrayonPageLayoutProps> = ({
   trim,
   lineArtSrc,
   caption,
   pageNumber,
 }) => {
   const { widthPt, heightPt, bleedPt, safePt } = pageDims(trim);
-
   const inset = bleedPt + safePt;
+  const zigzagHeight = 14;
   const pageNumAreaHeight = 24;
   const captionAreaHeight = caption ? 28 : 0;
   const artAreaHeight =
-    heightPt - inset * 2 - pageNumAreaHeight - captionAreaHeight;
+    heightPt - inset * 2 - pageNumAreaHeight - captionAreaHeight - zigzagHeight;
 
   const styles = StyleSheet.create({
     page: {
@@ -230,7 +282,7 @@ export const StorybookPageLayout: React.FC<StorybookPageLayoutProps> = ({
     },
     artContainer: {
       position: "absolute",
-      top: inset,
+      top: inset + zigzagHeight,
       left: inset,
       width: widthPt - inset * 2,
       height: artAreaHeight,
@@ -248,8 +300,7 @@ export const StorybookPageLayout: React.FC<StorybookPageLayoutProps> = ({
       right: inset,
       bottom: inset + pageNumAreaHeight,
       textAlign: "center",
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
+      fontFamily: SANS_OBLIQUE,
       fontSize: 11,
       color: ACCENT,
     },
@@ -259,7 +310,7 @@ export const StorybookPageLayout: React.FC<StorybookPageLayoutProps> = ({
       left: inset,
       right: inset,
       textAlign: "center",
-      fontFamily: SERIF,
+      fontFamily: SANS,
       fontSize: 9,
       color: TEXT_MID,
     },
@@ -267,21 +318,21 @@ export const StorybookPageLayout: React.FC<StorybookPageLayoutProps> = ({
 
   return (
     <Page size={{ width: widthPt, height: heightPt }} style={styles.page}>
+      <ZigzagTop widthPt={widthPt} y={inset + 7} />
       <View style={styles.artContainer}>
         <Image src={lineArtSrc} style={styles.lineArt} />
       </View>
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
       <Text style={styles.pageNumber}>{pageNumber}</Text>
-      <CornerOrnaments insetPt={inset} />
     </Page>
   );
 };
 
 // ---------------------------------------------------------------------------
-// StorybookTitlePage
+// CrayonTitlePage
 // ---------------------------------------------------------------------------
 
-export type StorybookTitlePageProps = {
+export type CrayonTitlePageProps = {
   trim: TrimSpec;
   title: string;
   subtitle?: string;
@@ -289,7 +340,7 @@ export type StorybookTitlePageProps = {
   authorLine?: string;
 };
 
-export const StorybookTitlePage: React.FC<StorybookTitlePageProps> = ({
+export const CrayonTitlePage: React.FC<CrayonTitlePageProps> = ({
   trim,
   title,
   subtitle,
@@ -313,31 +364,29 @@ export const StorybookTitlePage: React.FC<StorybookTitlePageProps> = ({
       alignItems: "center",
     },
     title: {
-      fontFamily: SERIF_BOLD,
-      fontWeight: 700,
-      fontSize: 30,
+      fontFamily: SANS_BOLD,
+      fontSize: 32,
       color: ACCENT,
       textAlign: "center",
-      letterSpacing: 0.6,
+      letterSpacing: 0.3,
     },
     subtitle: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
-      fontSize: 15,
-      color: TEXT_MID,
+      fontFamily: SANS_BOLD,
+      fontSize: 16,
+      color: ACCENT_BLUE,
       textAlign: "center",
       marginTop: 10,
     },
     divider: {
-      width: 80,
-      borderBottomWidth: 1,
+      width: 90,
+      borderBottomWidth: 2,
       borderBottomColor: ACCENT,
+      borderStyle: "dashed",
       marginTop: 24,
       marginBottom: 24,
     },
     dedication: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
+      fontFamily: SANS_OBLIQUE,
       fontSize: 13,
       color: TEXT_DARK,
       textAlign: "center",
@@ -349,7 +398,7 @@ export const StorybookTitlePage: React.FC<StorybookTitlePageProps> = ({
       left: inset,
       right: inset,
       textAlign: "center",
-      fontFamily: SERIF,
+      fontFamily: SANS,
       fontSize: 10,
       color: TEXT_MID,
     },
@@ -359,6 +408,7 @@ export const StorybookTitlePage: React.FC<StorybookTitlePageProps> = ({
 
   return (
     <Page size={{ width: widthPt, height: heightPt }} style={styles.page}>
+      <StarDoodles widthPt={widthPt} heightPt={heightPt} />
       <View style={styles.inner}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -374,22 +424,21 @@ export const StorybookTitlePage: React.FC<StorybookTitlePageProps> = ({
       {authorLine ? (
         <Text style={styles.authorLine}>{authorLine}</Text>
       ) : null}
-      <CornerOrnaments insetPt={inset} />
     </Page>
   );
 };
 
 // ---------------------------------------------------------------------------
-// StorybookBackPage
+// CrayonBackPage
 // ---------------------------------------------------------------------------
 
-export type StorybookBackPageProps = {
+export type CrayonBackPageProps = {
   trim: TrimSpec;
   authorLine?: string;
   createdOn: string;
 };
 
-export const StorybookBackPage: React.FC<StorybookBackPageProps> = ({
+export const CrayonBackPage: React.FC<CrayonBackPageProps> = ({
   trim,
   authorLine,
   createdOn,
@@ -411,29 +460,36 @@ export const StorybookBackPage: React.FC<StorybookBackPageProps> = ({
       alignItems: "center",
     },
     madeWith: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
+      fontFamily: SANS_OBLIQUE,
       fontSize: 18,
       color: ACCENT,
       textAlign: "center",
     },
+    // Crayon-scribble divider: dashed line in accent color
+    scribbleDivider: {
+      width: 100,
+      borderBottomWidth: 3,
+      borderBottomColor: ACCENT,
+      borderStyle: "dashed",
+      marginTop: 16,
+      marginBottom: 16,
+    },
     authorLine: {
-      fontFamily: SERIF,
+      fontFamily: SANS,
       fontSize: 12,
       color: TEXT_DARK,
       textAlign: "center",
-      marginTop: 14,
+      marginTop: 8,
     },
     createdOn: {
-      fontFamily: SERIF,
+      fontFamily: SANS,
       fontSize: 10,
       color: TEXT_MID,
       textAlign: "center",
       marginTop: 8,
     },
     site: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
+      fontFamily: SANS_OBLIQUE,
       fontSize: 10,
       color: TEXT_MID,
       textAlign: "center",
@@ -444,14 +500,14 @@ export const StorybookBackPage: React.FC<StorybookBackPageProps> = ({
   return (
     <Page size={{ width: widthPt, height: heightPt }} style={styles.page}>
       <View style={styles.inner}>
-        <Text style={styles.madeWith}>Made with love</Text>
+        <Text style={styles.madeWith}>Colored with love</Text>
+        <View style={styles.scribbleDivider} />
         {authorLine ? (
           <Text style={styles.authorLine}>{authorLine}</Text>
         ) : null}
         <Text style={styles.createdOn}>{createdOn}</Text>
         <Text style={styles.site}>littlecolorbook.com</Text>
       </View>
-      <CornerOrnaments insetPt={inset} />
     </Page>
   );
 };

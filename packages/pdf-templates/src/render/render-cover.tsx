@@ -15,6 +15,9 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { BookPayload } from "../types.js";
+import { registerFonts } from "../fonts/register.js";
+
+registerFonts();
 
 const PT_PER_IN = 72;
 

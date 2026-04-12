@@ -1,15 +1,14 @@
 /** @jsxImportSource react */
 // ---------------------------------------------------------------------------
-// Storybook visual style — React-PDF components
-// Palette: Playfair Display / #6B4226 accent / #FFF8F1 secondary
+// Minimal visual style — React-PDF components
+// Palette: Helvetica (Inter fallback) / #111111 accent / #F5F5F5 secondary
 // ---------------------------------------------------------------------------
-// NOTE: The pragma above overrides the package-level jsxImportSource
-// (@react-pdf/renderer) because react-pdf v4 does not ship a jsx-runtime
-// module. React's own JSX transform is used instead; react-pdf components
-// are fully compatible with it since they extend React.Component internally.
+// TODO: Register Inter web font with Font.register() once font assets are
+// bundled. Until then, Helvetica is used as a clean sans-serif stand-in.
 // ---------------------------------------------------------------------------
+
 import React from "react";
-import { Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
+import { Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import type { TrimSpec } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -18,17 +17,15 @@ import type { TrimSpec } from "../types.js";
 
 const PT_PER_IN = 72;
 
-const ACCENT = "#6B4226";
-const SECONDARY = "#FFF8F1";
-const TEXT_DARK = "#2C1810";
-const TEXT_MID = "#7A5C4A";
-const SERIF = "Playfair Display";
-const SERIF_BOLD = "Playfair Display";
-const SERIF_ITALIC = "Playfair Display";
+const ACCENT = "#111111";
+const SECONDARY = "#F5F5F5";
+const TEXT_MUTED = "#666666";
+const SANS = "Helvetica";
+const SANS_BOLD = "Helvetica-Bold";
+const SANS_OBLIQUE = "Helvetica-Oblique";
 
-// Corner ornament size in points
-const CORNER_SIZE = 18;
-const CORNER_THICKNESS = 2;
+// Thin geometric frame width
+const FRAME_WIDTH = 1;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,7 +38,6 @@ function pt(inches: number): number {
 
 /**
  * Derive page dimensions and safe-area insets from a TrimSpec.
- * React-PDF Page `size` includes the bleed on each side.
  */
 function pageDims(trim: TrimSpec): {
   widthPt: number;
@@ -62,67 +58,34 @@ function pageDims(trim: TrimSpec): {
 // ---------------------------------------------------------------------------
 
 /**
- * Four L-shaped corner ornaments drawn with View borders.
- * Positioned at the corners of the safe area with absolute coordinates.
+ * Thin 1pt geometric frame inset from the bleed edge.
+ * Clean and editorial — no decorative flourishes.
  */
-const CornerOrnaments: React.FC<{
+const GeometricFrame: React.FC<{
+  widthPt: number;
+  heightPt: number;
   insetPt: number;
-}> = ({ insetPt }) => {
-  const s = StyleSheet.create({
-    base: {
+}> = ({ widthPt, heightPt, insetPt }) => {
+  const styles = StyleSheet.create({
+    frame: {
       position: "absolute",
-      width: CORNER_SIZE,
-      height: CORNER_SIZE,
-    },
-    topLeft: {
       top: insetPt,
       left: insetPt,
-      borderTopWidth: CORNER_THICKNESS,
-      borderLeftWidth: CORNER_THICKNESS,
-      borderTopColor: ACCENT,
-      borderLeftColor: ACCENT,
-    },
-    topRight: {
-      top: insetPt,
-      right: insetPt,
-      borderTopWidth: CORNER_THICKNESS,
-      borderRightWidth: CORNER_THICKNESS,
-      borderTopColor: ACCENT,
-      borderRightColor: ACCENT,
-    },
-    bottomLeft: {
-      bottom: insetPt,
-      left: insetPt,
-      borderBottomWidth: CORNER_THICKNESS,
-      borderLeftWidth: CORNER_THICKNESS,
-      borderBottomColor: ACCENT,
-      borderLeftColor: ACCENT,
-    },
-    bottomRight: {
-      bottom: insetPt,
-      right: insetPt,
-      borderBottomWidth: CORNER_THICKNESS,
-      borderRightWidth: CORNER_THICKNESS,
-      borderBottomColor: ACCENT,
-      borderRightColor: ACCENT,
+      width: widthPt - insetPt * 2,
+      height: heightPt - insetPt * 2,
+      borderWidth: FRAME_WIDTH,
+      borderColor: ACCENT,
     },
   });
 
-  return (
-    <>
-      <View style={[s.base, s.topLeft]} />
-      <View style={[s.base, s.topRight]} />
-      <View style={[s.base, s.bottomLeft]} />
-      <View style={[s.base, s.bottomRight]} />
-    </>
-  );
+  return <View style={styles.frame} />;
 };
 
 // ---------------------------------------------------------------------------
-// StorybookCoverLayout
+// MinimalCoverLayout
 // ---------------------------------------------------------------------------
 
-export type StorybookCoverLayoutProps = {
+export type MinimalCoverLayoutProps = {
   trim: TrimSpec;
   title: string;
   subtitle?: string;
@@ -130,94 +93,97 @@ export type StorybookCoverLayoutProps = {
   coverImageSrc: string;
 };
 
-export const StorybookCoverLayout: React.FC<StorybookCoverLayoutProps> = ({
+export const MinimalCoverLayout: React.FC<MinimalCoverLayoutProps> = ({
   trim,
   title,
   subtitle,
   coverImageSrc,
 }) => {
   const { widthPt, heightPt, bleedPt, safePt } = pageDims(trim);
-
-  // Text area height at bottom of safe area
-  const textAreaHeight = subtitle ? 80 : 56;
   const inset = bleedPt + safePt;
+
+  // Title anchored bottom-left with generous whitespace
+  const titleBlockHeight = subtitle ? 72 : 52;
 
   const styles = StyleSheet.create({
     page: {
       width: widthPt,
       height: heightPt,
-      backgroundColor: SECONDARY,
+      backgroundColor: "#FFFFFF",
       position: "relative",
     },
+    // Edge-to-edge image
     coverImage: {
       position: "absolute",
-      top: inset,
-      left: inset,
-      width: widthPt - inset * 2,
-      height: heightPt - inset * 2 - textAreaHeight,
+      top: 0,
+      left: 0,
+      width: widthPt,
+      height: heightPt,
       objectFit: "cover",
     },
-    textContainer: {
+    // Clean white title block anchored bottom-left
+    titleBlock: {
       position: "absolute",
       bottom: inset,
       left: inset,
-      right: inset,
-      height: textAreaHeight,
-      alignItems: "center",
+      width: widthPt * 0.65,
+      height: titleBlockHeight,
+      backgroundColor: "rgba(255,255,255,0.92)",
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       justifyContent: "center",
     },
     title: {
-      fontFamily: SERIF_BOLD,
-      fontWeight: 700,
-      fontSize: 26,
+      fontFamily: SANS_BOLD,
+      fontSize: 18,
       color: ACCENT,
-      textAlign: "center",
-      letterSpacing: 0.8,
+      // Small caps approximated via uppercase + letter spacing
+      textTransform: "uppercase",
+      letterSpacing: 2.5,
     },
     subtitle: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
-      fontSize: 13,
-      color: TEXT_MID,
-      textAlign: "center",
+      fontFamily: SANS_OBLIQUE,
+      fontSize: 11,
+      color: TEXT_MUTED,
       marginTop: 4,
+      letterSpacing: 0.5,
     },
   });
 
   return (
     <Page size={{ width: widthPt, height: heightPt }} style={styles.page}>
       <Image src={coverImageSrc} style={styles.coverImage} />
-      <View style={styles.textContainer}>
+      {/* 1pt geometric frame inset from bleed */}
+      <GeometricFrame widthPt={widthPt} heightPt={heightPt} insetPt={bleedPt + 4} />
+      <View style={styles.titleBlock}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
-      <CornerOrnaments insetPt={inset} />
     </Page>
   );
 };
 
 // ---------------------------------------------------------------------------
-// StorybookPageLayout
+// MinimalPageLayout
 // ---------------------------------------------------------------------------
 
-export type StorybookPageLayoutProps = {
+export type MinimalPageLayoutProps = {
   trim: TrimSpec;
   lineArtSrc: string;
   caption?: string;
   pageNumber: number;
 };
 
-export const StorybookPageLayout: React.FC<StorybookPageLayoutProps> = ({
+export const MinimalPageLayout: React.FC<MinimalPageLayoutProps> = ({
   trim,
   lineArtSrc,
   caption,
   pageNumber,
 }) => {
   const { widthPt, heightPt, bleedPt, safePt } = pageDims(trim);
-
   const inset = bleedPt + safePt;
-  const pageNumAreaHeight = 24;
-  const captionAreaHeight = caption ? 28 : 0;
+  const pageNumAreaHeight = 20;
+  const captionAreaHeight = caption ? 24 : 0;
   const artAreaHeight =
     heightPt - inset * 2 - pageNumAreaHeight - captionAreaHeight;
 
@@ -242,26 +208,27 @@ export const StorybookPageLayout: React.FC<StorybookPageLayoutProps> = ({
       maxHeight: artAreaHeight,
       objectFit: "contain",
     },
+    // Small muted caption — no decoration
     caption: {
       position: "absolute",
       left: inset,
       right: inset,
       bottom: inset + pageNumAreaHeight,
       textAlign: "center",
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
-      fontSize: 11,
-      color: ACCENT,
+      fontFamily: SANS_OBLIQUE,
+      fontSize: 9,
+      color: TEXT_MUTED,
+      letterSpacing: 0.3,
     },
+    // Page number bottom-right, small
     pageNumber: {
       position: "absolute",
       bottom: inset,
-      left: inset,
       right: inset,
-      textAlign: "center",
-      fontFamily: SERIF,
-      fontSize: 9,
-      color: TEXT_MID,
+      textAlign: "right",
+      fontFamily: SANS,
+      fontSize: 8,
+      color: TEXT_MUTED,
     },
   });
 
@@ -272,16 +239,15 @@ export const StorybookPageLayout: React.FC<StorybookPageLayoutProps> = ({
       </View>
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
       <Text style={styles.pageNumber}>{pageNumber}</Text>
-      <CornerOrnaments insetPt={inset} />
     </Page>
   );
 };
 
 // ---------------------------------------------------------------------------
-// StorybookTitlePage
+// MinimalTitlePage
 // ---------------------------------------------------------------------------
 
-export type StorybookTitlePageProps = {
+export type MinimalTitlePageProps = {
   trim: TrimSpec;
   title: string;
   subtitle?: string;
@@ -289,7 +255,7 @@ export type StorybookTitlePageProps = {
   authorLine?: string;
 };
 
-export const StorybookTitlePage: React.FC<StorybookTitlePageProps> = ({
+export const MinimalTitlePage: React.FC<MinimalTitlePageProps> = ({
   trim,
   title,
   subtitle,
@@ -299,97 +265,95 @@ export const StorybookTitlePage: React.FC<StorybookTitlePageProps> = ({
   const { widthPt, heightPt, bleedPt, safePt } = pageDims(trim);
   const inset = bleedPt + safePt;
 
+  // Asymmetric editorial layout: title left-aligned at 1/3 from top
+  const titleTopOffset = heightPt / 3;
+
   const styles = StyleSheet.create({
     page: {
       width: widthPt,
       height: heightPt,
       backgroundColor: SECONDARY,
       position: "relative",
-      alignItems: "center",
-      justifyContent: "center",
     },
-    inner: {
+    // Title block anchored at 1/3 from top, left-aligned
+    titleBlock: {
+      position: "absolute",
+      top: titleTopOffset,
+      left: inset,
       width: widthPt - inset * 2,
-      alignItems: "center",
     },
     title: {
-      fontFamily: SERIF_BOLD,
-      fontWeight: 700,
-      fontSize: 30,
+      fontFamily: SANS_BOLD,
+      fontSize: 28,
       color: ACCENT,
-      textAlign: "center",
-      letterSpacing: 0.6,
+      textTransform: "uppercase",
+      letterSpacing: 2,
     },
     subtitle: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
-      fontSize: 15,
-      color: TEXT_MID,
-      textAlign: "center",
-      marginTop: 10,
-    },
-    divider: {
-      width: 80,
-      borderBottomWidth: 1,
-      borderBottomColor: ACCENT,
-      marginTop: 24,
-      marginBottom: 24,
-    },
-    dedication: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
+      fontFamily: SANS_OBLIQUE,
       fontSize: 13,
-      color: TEXT_DARK,
-      textAlign: "center",
-      lineHeight: 1.5,
+      color: TEXT_MUTED,
+      marginTop: 8,
+      letterSpacing: 0.5,
+    },
+    // Thin horizontal rule below title
+    rule: {
+      width: widthPt - inset * 2,
+      borderBottomWidth: FRAME_WIDTH,
+      borderBottomColor: ACCENT,
+      marginTop: 20,
+      marginBottom: 20,
+    },
+    // Dedication right-aligned below the rule — editorial contrast
+    dedication: {
+      fontFamily: SANS_OBLIQUE,
+      fontSize: 12,
+      color: TEXT_MUTED,
+      textAlign: "right",
+      lineHeight: 1.6,
     },
     authorLine: {
       position: "absolute",
       bottom: inset,
       left: inset,
       right: inset,
-      textAlign: "center",
-      fontFamily: SERIF,
-      fontSize: 10,
-      color: TEXT_MID,
+      textAlign: "left",
+      fontFamily: SANS,
+      fontSize: 9,
+      color: TEXT_MUTED,
+      letterSpacing: 0.8,
+      textTransform: "uppercase",
     },
   });
 
-  const hasDedicationSection = dedication || authorLine;
-
   return (
     <Page size={{ width: widthPt, height: heightPt }} style={styles.page}>
-      <View style={styles.inner}>
+      <View style={styles.titleBlock}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        {hasDedicationSection ? (
-          <>
-            <View style={styles.divider} />
-            {dedication ? (
-              <Text style={styles.dedication}>{dedication}</Text>
-            ) : null}
-          </>
+        <View style={styles.rule} />
+        {dedication ? (
+          <Text style={styles.dedication}>{dedication}</Text>
         ) : null}
       </View>
       {authorLine ? (
         <Text style={styles.authorLine}>{authorLine}</Text>
       ) : null}
-      <CornerOrnaments insetPt={inset} />
     </Page>
   );
 };
 
 // ---------------------------------------------------------------------------
-// StorybookBackPage
+// MinimalBackPage
 // ---------------------------------------------------------------------------
 
-export type StorybookBackPageProps = {
+export type MinimalBackPageProps = {
   trim: TrimSpec;
   authorLine?: string;
   createdOn: string;
 };
 
-export const StorybookBackPage: React.FC<StorybookBackPageProps> = ({
+export const MinimalBackPage: React.FC<MinimalBackPageProps> = ({
   trim,
   authorLine,
   createdOn,
@@ -410,34 +374,35 @@ export const StorybookBackPage: React.FC<StorybookBackPageProps> = ({
       width: widthPt - inset * 2,
       alignItems: "center",
     },
+    // Single centered line — no decoration
     madeWith: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
-      fontSize: 18,
-      color: ACCENT,
+      fontFamily: SANS,
+      fontSize: 11,
+      color: TEXT_MUTED,
       textAlign: "center",
+      letterSpacing: 1.2,
+      textTransform: "uppercase",
     },
     authorLine: {
-      fontFamily: SERIF,
-      fontSize: 12,
-      color: TEXT_DARK,
+      fontFamily: SANS,
+      fontSize: 10,
+      color: TEXT_MUTED,
       textAlign: "center",
-      marginTop: 14,
+      marginTop: 12,
     },
     createdOn: {
-      fontFamily: SERIF,
-      fontSize: 10,
-      color: TEXT_MID,
+      fontFamily: SANS,
+      fontSize: 9,
+      color: TEXT_MUTED,
       textAlign: "center",
-      marginTop: 8,
+      marginTop: 6,
     },
     site: {
-      fontFamily: SERIF_ITALIC,
-      fontStyle: "italic",
-      fontSize: 10,
-      color: TEXT_MID,
+      fontFamily: SANS_OBLIQUE,
+      fontSize: 9,
+      color: TEXT_MUTED,
       textAlign: "center",
-      marginTop: 20,
+      marginTop: 18,
     },
   });
 
@@ -451,7 +416,6 @@ export const StorybookBackPage: React.FC<StorybookBackPageProps> = ({
         <Text style={styles.createdOn}>{createdOn}</Text>
         <Text style={styles.site}>littlecolorbook.com</Text>
       </View>
-      <CornerOrnaments insetPt={inset} />
     </Page>
   );
 };

@@ -1,6 +1,10 @@
 import type { OccasionModule, OccasionId } from "../types.js";
 import { everydayOccasion } from "./everyday.js";
 import { birthdayOccasion } from "./birthday.js";
+import { vacationOccasion } from "./vacation.js";
+import { petKeepsakeOccasion } from "./pet-keepsake.js";
+import { christmasOccasion } from "./christmas.js";
+import { grandparentsKeepsakeOccasion } from "./grandparents-keepsake.js";
 
 // ---------------------------------------------------------------------------
 // Stub factory — produces a placeholder OccasionModule whose runtime methods
@@ -46,7 +50,14 @@ function stub(id: OccasionId): OccasionModule {
 // Fully implemented occasions
 // ---------------------------------------------------------------------------
 
-const implemented: OccasionModule[] = [everydayOccasion, birthdayOccasion];
+const implemented: OccasionModule[] = [
+  everydayOccasion,
+  birthdayOccasion,
+  vacationOccasion,
+  petKeepsakeOccasion,
+  christmasOccasion,
+  grandparentsKeepsakeOccasion,
+];
 
 // ---------------------------------------------------------------------------
 // Stub occasions — all OccasionId values not yet implemented
@@ -58,16 +69,13 @@ const stubIds: OccasionId[] = [
   "graduation",
   "wedding-day",
   "quinceañera-bar-bat-mitzvah",
-  "pet-keepsake",
   "gotcha-day",
   "new-pet",
   "pet-memorial",
-  "vacation",
   "road-trip",
   "national-park",
   "disney-parks",
   "beach-trip",
-  "christmas",
   "hanukkah",
   "halloween",
   "thanksgiving",
@@ -75,7 +83,6 @@ const stubIds: OccasionId[] = [
   "valentines",
   "lunar-new-year",
   "diwali",
-  "grandparents-keepsake",
   "new-baby",
   "big-sibling",
   "family-reunion",
