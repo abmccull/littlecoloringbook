@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import sharp from "sharp";
 import { estimateInteriorPageCount, normalizeCoverStyle, type CoverStyleCode, type DeliveryMode } from "@littlecolorbook/shared";
 import { downloadObject } from "@littlecolorbook/shared/storage";
-import { renderCoverPdf, renderInteriorPdf, getTrim, getSpineWidth, ensurePageCountParity } from "@littlecolorbook/pdf-templates";
+import { getTrim, getSpineWidth, ensurePageCountParity } from "@littlecolorbook/pdf-templates";
 import type { BookPayload, OccasionId, OccasionContext, StyleId, TrimSpec } from "@littlecolorbook/pdf-templates";
 
 export const cleanupSteps = [
@@ -1078,6 +1078,7 @@ export async function materializeGenerationPlan(input: {
   }
 
   if (input.plan.jobKind === "full_book") {
+    const { renderCoverPdf, renderInteriorPdf } = await import("@littlecolorbook/pdf-templates/render");
     const printTrim = getTrim();
     const basePayload = buildBookPayload({
       childFirstName: input.childFirstName,
