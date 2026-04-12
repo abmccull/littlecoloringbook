@@ -19,13 +19,13 @@ export default function HomePage() {
         <div className="hero-home-surface">
           <div className="hero-copy hero-home-heading">
             <h1>{homepageContent.hero.title}</h1>
+            <p className="lede">{homepageContent.hero.description}</p>
           </div>
           <div className="hero-proof-column">
             <HeroProofModule embedded />
           </div>
           <div className="hero-home-details">
             <div className="hero-home-story">
-              <p className="lede">{homepageContent.hero.description}</p>
               <p className="support-note">{homepageContent.hero.supporting}</p>
             </div>
             <div className="hero-home-cta">

@@ -2282,8 +2282,8 @@ select.text-input {
   .hero-home-surface {
     grid-template-areas:
       "heading"
-      "details"
-      "media";
+      "media"
+      "details";
     gap: 14px;
     padding: 14px;
   }
