@@ -13,6 +13,7 @@ import {
 import { buildGenerationPlan, getPipelineRenderSettings, materializeGenerationPlan } from "@littlecolorbook/pipeline";
 import { getIntegrationStatus } from "@littlecolorbook/shared/env";
 import { uploadObject } from "@littlecolorbook/shared/storage";
+import { deliverLifecycleEmail } from "../../../../../lib/lifecycle-email";
 import { z } from "zod";
 import { authorizeInternalJobRequest } from "../../../../../lib/internal-jobs";
 
@@ -185,6 +186,15 @@ export async function POST(request: NextRequest) {
       model: materialized.model,
       previewCount: plan.targetPages,
     });
+
+    try {
+      await deliverLifecycleEmail({
+        orderId: parsed.data.orderId,
+        template: "pdf-ready",
+      });
+    } catch {
+      // Email failure should not block sample delivery
+    }
 
     return NextResponse.json({
       accepted: true,

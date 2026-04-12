@@ -71,8 +71,21 @@ Portal: ${input.portalUrl}
 ${signoff(supportEmail)}`;
       break;
     case "pdf-ready":
-      subject = `${APP_NAME}: your PDF is ready`;
-      body = `${intro}
+      if (input.deliveryMode === "sample") {
+        subject = `${APP_NAME}: your free coloring page is ready`;
+        body = `${intro}
+
+Your free coloring page is ready to download${childLine}.
+
+Download your page: ${input.downloadUrl ?? input.portalUrl}
+
+Love how it turned out? Turn the rest of your camera roll into a full coloring book:
+${input.portalUrl}
+
+${signoff(supportEmail)}`;
+      } else {
+        subject = `${APP_NAME}: your PDF is ready`;
+        body = `${intro}
 
 Your personalized coloring book PDF is ready.
 
@@ -80,6 +93,7 @@ Download: ${input.downloadUrl ?? input.portalUrl}
 Portal: ${input.portalUrl}
 
 ${signoff(supportEmail)}`;
+      }
       break;
     case "print-submitted":
       subject = `${APP_NAME}: your print order is in production`;

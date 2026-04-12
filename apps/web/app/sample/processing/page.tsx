@@ -2,12 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
 import { BrandLogo } from "../../../components/brand-logo";
-import { BookMockupBlock } from "../../../components/proof-modules";
-import { SampleProcessingPanel } from "../../../components/sample-processing-panel";
+import { SampleUploadFlow } from "../../../components/sample-upload-flow";
 import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
-import { UploadDropzone } from "../../../components/upload-dropzone";
-import { proofAssets } from "../../../lib/consumer-content";
 
 const activeStatuses = new Set(["preprocessing", "generating", "qa_review"]);
 const statusLabels: Record<string, string> = {
@@ -120,56 +117,18 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
         </h1>
         <p className="lede">
           {uploadedCount === 0
-            ? "Pick one clear favorite. One child portrait, sibling moment, or pet photo is plenty for the free sample."
+            ? "Pick one clear favorite. One child portrait, sibling moment, or pet photo is plenty."
             : isProcessing
-              ? "This is your quick waiting room. We are turning that photo into bold coloring lines now."
-              : "Your photo is attached. When you hit the button, we will build the sample page from it."}
+              ? "We are turning that photo into bold coloring lines now."
+              : "Your photo is attached. Hit the button to build your free page."}
         </p>
 
-        <div className="status-banner status-banner-progress">
-          <strong>{statusLabels[summary.order.status] ?? summary.order.status.replaceAll("_", " ")}</strong>
-          <span>
-            {uploadedCount === 0
-              ? "Choose one favorite photo to start your free page."
-              : isProcessing
-                ? "We will keep checking this screen automatically and move you forward when the page is ready."
-                : "Your photo is attached. Start the free page whenever you are ready."}
-          </span>
-        </div>
-
-        {uploadedCount === 0 ? (
-          <UploadDropzone
-            title="Upload one favorite photo"
-            hint="Action shots, siblings together, vacation favorites, close-up portraits, and pet photos all work well. Pick one photo with a clear main subject."
-            entityType="sample"
-            entityId={summary.order.id}
-            buttonLabel="Choose My Photo"
-          />
-        ) : (
-          <div className="surface upload-results">
-            <span className="pill pill-mint">Photo ready</span>
-            <div className="upload-results-list">
-              {summary.uploads.map((upload) => (
-                <div className="upload-result" key={upload.id}>
-                  <div>
-                    <strong>{upload.fileName}</strong>
-                    <p className="muted">Attached to your free sample</p>
-                  </div>
-                  <span className={`upload-state upload-state-${upload.status}`}>{upload.status}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <SampleProcessingPanel orderId={summary.order.id} readyHref={`/sample/${token}`} status={summary.order.status} uploadCount={uploadedCount} />
-
-        <BookMockupBlock
-          badge="Real photo to real keepsake"
-          coverSrc={proofAssets.realSwordPlayPhoto}
-          pageSrc={proofAssets.realSwordPlayPage}
-          title="If this sample feels like them, the full book is the easy next yes."
-          copy="That is the whole job of the free page. See your own photo in the style first, then turn the rest of your camera roll into the 30, 50, or 100-page book you can print tonight or order as a spiral keepsake."
+        <SampleUploadFlow
+          orderId={summary.order.id}
+          readyHref={`/sample/${token}`}
+          status={summary.order.status}
+          serverUploadCount={uploadedCount}
+          initialUploads={summary.uploads.map((u) => ({ id: u.id, fileName: u.fileName, status: u.status as "uploaded" | "failed" }))}
         />
       </section>
     </main>

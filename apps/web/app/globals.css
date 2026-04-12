@@ -1509,6 +1509,64 @@ textarea:focus-visible {
   gap: 12px;
 }
 
+.processing-progress {
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: var(--line, #e8e0d8);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f4b400, #e8a000);
+  border-radius: 999px;
+  transition: width 1s ease;
+}
+
+.progress-timer {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.sample-ready-actions {
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.sample-upload-flow {
+  display: grid;
+  gap: 18px;
+}
+
+.upload-results-compact {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line, #e8e0d8);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.upload-results-compact .upload-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pill-sm {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+}
+
 .builder-card,
 .portal-card,
 .sample-frame {
