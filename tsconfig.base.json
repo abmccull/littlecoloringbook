@@ -44,6 +44,12 @@
       ],
       "@littlecolorbook/email/*": [
         "packages/email/src/*"
+      ],
+      "@littlecolorbook/pdf-templates": [
+        "packages/pdf-templates/src/index.ts"
+      ],
+      "@littlecolorbook/pdf-templates/*": [
+        "packages/pdf-templates/src/*"
       ]
     }
   }
