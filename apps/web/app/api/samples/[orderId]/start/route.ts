@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrderById, listUploadsForOrder, setOrderStatus } from "@littlecolorbook/db";
 import { z } from "zod";
-import { dispatchInternalJob } from "../../../../../lib/internal-jobs";
+import { enqueueInternalJob } from "../../../../../lib/internal-jobs";
 
 const startSampleSchema = z.object({
   uploadIds: z.array(z.string().trim().min(1)).optional(),
@@ -51,14 +51,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
   let jobQueued = false;
 
   try {
-    await dispatchInternalJob({
-      path: "/api/internal/jobs/process-sample",
-      body: {
+    const queued = await enqueueInternalJob({
+      job: "process-sample",
+      payload: {
         orderId,
         uploadIds: selectedUploads.map((upload) => upload.id),
       },
     });
-    jobQueued = true;
+    jobQueued = queued.accepted;
   } catch (error) {
     console.error("Failed to queue sample processing", error);
   }

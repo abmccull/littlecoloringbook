@@ -146,6 +146,7 @@ export function AdminConsole({
                         <p className="muted">
                           target {job.targetPages} · approved {job.approvedPages} · failed {job.failedPages}
                         </p>
+                        {job.model ? <p className="muted">model {job.model}</p> : null}
                       </div>
                     ))
                   ) : (
