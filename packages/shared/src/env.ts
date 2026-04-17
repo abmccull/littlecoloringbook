@@ -54,6 +54,11 @@ export type MarketingVideoEnv = {
   apiUrl: string;
 };
 
+export type ColoringEngineEnv = {
+  apiUrl: string;
+  timeoutMs: number;
+};
+
 export type EnvValidationIssue = {
   path: string;
   message: string;
@@ -106,6 +111,11 @@ const rawGammaEnvSchema = z.object({
 const rawMarketingVideoEnvSchema = z.object({
   MARKETING_VIDEO_API_KEY: z.string().optional(),
   MARKETING_VIDEO_API_URL: z.string().url("MARKETING_VIDEO_API_URL must be a valid URL"),
+});
+
+const rawColoringEngineEnvSchema = z.object({
+  COLORING_ENGINE_URL: z.string().url("COLORING_ENGINE_URL must be a valid URL"),
+  COLORING_ENGINE_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
 });
 
 function getDefaultLuluAuthTokenUrl(apiBaseUrl: string) {
@@ -317,6 +327,22 @@ export function getMarketingVideoEnv(): MarketingVideoEnv {
   };
 }
 
+export function getColoringEngineEnv(): ColoringEngineEnv {
+  const parsed = rawColoringEngineEnvSchema.parse({
+    COLORING_ENGINE_URL: process.env.COLORING_ENGINE_URL,
+    COLORING_ENGINE_TIMEOUT_MS: process.env.COLORING_ENGINE_TIMEOUT_MS ?? "90000",
+  });
+
+  return {
+    apiUrl: parsed.COLORING_ENGINE_URL.replace(/\/$/, ""),
+    timeoutMs: parsed.COLORING_ENGINE_TIMEOUT_MS,
+  };
+}
+
+export function isColoringEngineConfigured() {
+  return Boolean(process.env.COLORING_ENGINE_URL);
+}
+
 export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 }
@@ -350,13 +376,17 @@ export function getIntegrationStatus() {
   const luluApiBaseUrl = getResolvedLuluApiBaseUrl();
   const luluAuthTokenUrl = getNonEmptyEnvValue(process.env.LULU_AUTH_TOKEN_URL) ?? getDefaultLuluAuthTokenUrl(luluApiBaseUrl);
   const geminiConfigured = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  const coloringEngineConfigured = isColoringEngineConfigured();
   const gcsConfigured = isStorageConfigured();
+  const rendererConfigured = geminiConfigured || coloringEngineConfigured;
 
   return {
     luluConfigured: Boolean(process.env.LULU_CLIENT_KEY && process.env.LULU_CLIENT_SECRET),
     luluPodPackageConfigured: Boolean(process.env.LULU_POD_PACKAGE_ID),
     geminiConfigured,
-    marketingRendererConfigured: geminiConfigured && gcsConfigured,
+    coloringEngineConfigured,
+    rendererConfigured,
+    marketingRendererConfigured: rendererConfigured && gcsConfigured,
     elevenLabsConfigured: Boolean(process.env.ELEVENLABS_API_KEY),
     arcadsConfigured: Boolean(process.env.ARCADS_API_KEY && process.env.ARCADS_API_URL),
     gammaConfigured: Boolean(process.env.GAMMA_API_KEY),
