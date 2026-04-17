@@ -40,8 +40,12 @@ export default async function proxy(request: NextRequest) {
 
   // /admin and /account are guarded server-side by requireAdminSession /
   // requireCustomerSession respectively. The proxy only provides an extra
-  // defensive 503 when Stack Auth is not configured in production.
-  const authMissing = !process.env.BETTER_AUTH_URL || !process.env.BETTER_AUTH_SECRET;
+  // defensive 503 when Neon Auth is not configured in production.
+  const cookieSecret = process.env.NEON_AUTH_COOKIE_SECRET;
+  const authMissing =
+    !process.env.NEON_AUTH_BASE_URL ||
+    !cookieSecret ||
+    cookieSecret.length < 32;
 
   if (
     process.env.NODE_ENV === "production" &&

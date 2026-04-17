@@ -14,3 +14,5 @@ npm-debug.log*
 *.tsbuildinfo
 .vercel
 .env*.local
+apps/web/apps/
+*.vercel-prod*
