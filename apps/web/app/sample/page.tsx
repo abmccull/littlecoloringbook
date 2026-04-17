@@ -76,6 +76,20 @@ export default async function SamplePage({
               Skip the sample and build it now.
             </TrackedLink>
           </p>
+
+          <div className="sample-before-after">
+            <div className="sample-before-after-pair">
+              <div className="sample-before-after-item">
+                <img src={proofAssets.realFamilyPlayPhoto} alt="Original family photo" />
+                <span className="sample-before-after-label">Your photo</span>
+              </div>
+              <span className="sample-before-after-arrow" aria-hidden="true">&rarr;</span>
+              <div className="sample-before-after-item">
+                <img src={proofAssets.realFamilyPlayPage} alt="Coloring page result" />
+                <span className="sample-before-after-label">Coloring page</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

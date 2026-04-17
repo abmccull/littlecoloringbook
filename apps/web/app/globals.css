@@ -1133,6 +1133,46 @@ textarea:focus-visible {
   gap: 10px;
 }
 
+.sample-before-after {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.sample-before-after-pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.sample-before-after-item {
+  flex: 1;
+  max-width: 160px;
+  text-align: center;
+}
+
+.sample-before-after-item img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.sample-before-after-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.sample-before-after-arrow {
+  font-size: 1.5rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
 .spiral-book-scene {
   position: relative;
   display: block;
@@ -1152,23 +1192,25 @@ textarea:focus-visible {
 
 .spiral-book-page-peek {
   position: absolute;
-  top: 6%;
+  top: 4%;
   right: 4%;
-  width: 54%;
-  max-height: 88%;
+  width: auto;
+  height: 84%;
+  max-width: 48%;
   object-fit: contain;
   background: #fff;
   border-radius: 10px;
   border: 1px solid var(--line);
   box-shadow: 0 18px 36px rgba(56, 34, 22, 0.14);
-  transform: rotate(5deg);
+  transform: rotate(3deg);
   z-index: 1;
 }
 
 .spiral-book-scene-feature .spiral-book-page-peek {
-  top: 10%;
+  top: 6%;
   right: 2%;
-  width: 50%;
+  height: 82%;
+  max-width: 44%;
 }
 
 .spiral-book-mockup-image {
@@ -2593,8 +2635,10 @@ select.text-input {
 
   .spiral-book-page-peek,
   .spiral-book-scene-feature .spiral-book-page-peek {
-    width: 52%;
-    top: 8%;
+    width: auto;
+    height: 80%;
+    max-width: 46%;
+    top: 6%;
     right: 2%;
   }
 
