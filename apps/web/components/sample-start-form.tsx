@@ -120,9 +120,9 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
 
       <div className="surface sample-start-benefit">
         <span className="pill pill-sky">What you get</span>
-        <h3>One printable page from one favorite photo.</h3>
+        <h3>See your photo become a coloring page in 90 seconds.</h3>
         <p className="muted">
-          We'll save your sample first, then take you to the photo-upload step so your preview stays connected to the right inbox.
+          We'll email you the finished page so you never lose it.
         </p>
       </div>
 

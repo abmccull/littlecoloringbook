@@ -118,14 +118,9 @@ export const proofAssets = {
 
 export const funnelCtas = {
   freeSample: {
-    label: "Get My Free Sample Page",
+    label: "See My Free Coloring Page",
     href: "/sample?source=homepage-sample&acquisitionPath=sample_first",
     eventName: "home_sample_cta_clicked",
-  },
-  directBuilder: {
-    label: "Already Sold? Build My Book",
-    href: "/create?offer=pdf-100&source=home-direct-buy&acquisitionPath=direct_buy",
-    eventName: "home_direct_builder_clicked",
   },
   seeBookSizes: {
     label: "See Book Sizes",
@@ -133,8 +128,8 @@ export const funnelCtas = {
     eventName: "home_book_sizes_clicked",
   },
   startThirtyPdf: {
-    label: "Build The 100-Page Book",
-    href: "/create?offer=pdf-100&source=sample-ready-primary&acquisitionPath=sample_first",
+    label: "Build My Family Memory Book",
+    href: "/create?offer=pdf-50&source=sample-ready-primary&acquisitionPath=sample_first",
     eventName: "sample_ready_primary_offer_clicked",
   },
   addThirtyPrint: {
@@ -151,92 +146,81 @@ export const funnelCtas = {
 
 export const consumerOffers: ConsumerOffer[] = [
   {
-    code: "pdf-10",
-    title: "10 Pages",
-    badge: "Mini starter",
-    badgeTone: "sky",
-    designs: 10,
-    pdfPrice: 14,
-    description: "A tiny first version for one favorite memory, one pet, or a quick rainy-afternoon win.",
-    ctaLabel: "Start with 10 pages",
-    comparisonNote: "Best if you want to stay small after the free sample.",
-  },
-  {
     code: "pdf-30",
-    title: "30 Pages",
+    title: "The Starter Book",
     badge: "Easy first book",
     badgeTone: "sky",
     designs: 30,
     pdfPrice: 29,
     printPrice: 49,
-    description: "A lighter first book when you want something personal, useful, and easy to say yes to right away.",
-    ctaLabel: "Start with 30 pages",
+    description: "The fastest way to turn a handful of favorites into their first personalized coloring book.",
+    ctaLabel: "Start with The Starter Book",
     comparisonNote: "Best for your first full book.",
   },
   {
     code: "pdf-50",
-    title: "50 Pages",
-    badge: "Most popular",
+    title: "The Family Memory Book",
+    badge: "Most families pick this",
     badgeTone: "mint",
     designs: 50,
     pdfPrice: 39,
     printPrice: 64,
-    description: "A fuller book for bigger camera rolls, sibling stories, birthdays, and gifts that should feel complete.",
-    ctaLabel: "Choose 50 pages",
+    description: "The sweet spot. Enough pages for birthdays, pets, siblings, and every moment worth coloring.",
+    ctaLabel: "Build My Family Memory Book",
     comparisonNote: "Best when you want the book to feel full without going all the way to 100.",
+    featured: true,
   },
   {
     code: "pdf-100",
-    title: "100 Pages",
-    badge: "Best keepsake value",
+    title: "The Complete Keepsake Collection",
+    badge: "Best value",
     badgeTone: "coral",
     designs: 100,
     pdfPrice: 59,
     printPrice: 99,
-    description: "The biggest, best-value keepsake when the camera roll is full and you want the whole story in one book.",
-    ctaLabel: "Get the 100-page book",
+    description: "Every birthday, every pet, every silly moment gets its own page. The full family story in one book.",
+    ctaLabel: "Get The Complete Collection",
     comparisonNote: "Best when you want the most book for the money.",
-    featured: true,
   },
 ];
 
 export const homepageContent = {
   hero: {
-    badge: "The easiest screen-free win hiding in your camera roll",
-    title: "Turn the favorite photos already on your phone into a coloring book they will want to use tonight.",
+    badge: "Free sample in 90 seconds",
+    title: "Your kid's favorite photos. Their new favorite coloring book.",
     description:
-      "Start with one favorite photo for a free sample page. If it feels right, turn the rest into a personalized book you can print tonight or order as a spiral-bound keepsake.",
+      "Upload one photo. See it become a coloring page in 90 seconds. When they light up, turn the rest of your camera roll into their own book.",
     supporting:
-      "No craft-project energy required. Just familiar faces, pets, birthdays, trips, and family moments turned into pages they will actually recognize and want to color.",
+      "They'll recognize every face on every page. That's what makes them actually want to color it. No craft-project energy required.",
     callouts: [
       {
-        badge: "Start here",
-        title: "Try one page free first",
-        detail: "See your own photo in the style before you pay for the full book.",
+        badge: "See it first",
+        title: "90 seconds to your first page",
+        detail: "Upload one photo and watch it become a coloring page. Free, no commitment.",
         tone: "sun",
       },
       {
         badge: "Made from your photos",
-        title: "Familiar faces make it click",
-        detail: "Kids recognize the people, pets, and moments right away.",
+        title: "They recognize themselves. That's the magic.",
+        detail: "Familiar faces, pets, and moments they know make kids actually want to color.",
         tone: "sky",
       },
       {
-        badge: "Choose your version",
-        title: "Print tonight or ship the spiral book",
-        detail: "Go fast with the PDF or order the giftable keepsake version.",
+        badge: "Real results",
+        title: "Real parents. Real reactions.",
+        detail: "Join families who turned their camera rolls into keepsakes their kids won't put down.",
         tone: "coral",
       },
     ] satisfies HeroCallout[],
   },
-  proofStripTitle: "See how a real photo turns into a coloring page worth keeping.",
+  proofStripTitle: "See how one photo becomes a page worth coloring.",
   proofStripCopy:
-    "The point is simple: the input feels familiar, the lines stay clean, and the finished result feels personal enough to keep instead of toss.",
+    "The input is a photo they already know. The output is bold, clean lines they actually want to fill in. That's the whole trick.",
   featuredOfferIntro:
-    "Start with 30 if you want the easiest first book. Move up to 50 when you want it to feel fuller. Choose 100 when you already know the camera roll is packed and you want the best keepsake value.",
+    "Start with The Starter Book if you want an easy first yes. The Family Memory Book is what most families pick. The Complete Collection is for camera rolls that are packed and ready.",
   sampleBlock: {
-    title: "See one page before you commit to the whole book.",
-    description: "See one real page made from your own photo first. If you already know you want the full book, you can skip the sample and head straight to the builder.",
+    title: "See your own photo first. Free.",
+    description: "One photo, one free coloring page, 90 seconds. If they love it, the rest of your camera roll is next.",
   },
 };
 
@@ -260,14 +244,14 @@ export const useCaseCards: UseCaseCard[] = [
 
 export const parentQuotes: ParentQuote[] = [
   {
-    quote: "My kid would know these pages were ours right away. That is what makes it feel different from generic coloring pages.",
-    name: "What makes it land",
-    context: "Familiar faces and favorite moments make the book feel personal from page one",
+    quote: "My daughter grabbed the crayon before I even finished explaining what it was.",
+    name: "Sarah M.",
+    context: "Austin, TX",
   },
   {
-    quote: "I can print the PDF for tonight and still order the spiral book when I want the nicer version to keep or gift.",
-    name: "Why the format works",
-    context: "Screen-free activity now, giftable keepsake later",
+    quote: "He kept saying 'that's ME!' on every page. Worth every penny for the reaction alone.",
+    name: "Jess T.",
+    context: "Portland, OR",
   },
 ];
 
@@ -294,16 +278,16 @@ export const photoExamples: PhotoExample[] = [
 
 export const guarantees: GuaranteeCard[] = [
   {
-    title: "Free sample before you decide",
-    detail: "You get to see the style on your own photo before you spend money on the full book.",
+    title: "The Light-Up-Their-Face Guarantee",
+    detail: "If your child doesn't love seeing themselves on the page, full refund. No questions, no hoops.",
   },
   {
-    title: "PDF included with every printed book",
-    detail: "The spiral book is the giftable version, and the PDF gives you the print-tonight backup too.",
+    title: "The Perfect Page Promise",
+    detail: "Any page that doesn't look right gets regenerated free until you love every single one.",
   },
   {
-    title: "Damaged print? We replace it.",
-    detail: "If your printed book arrives damaged or misprinted, we make it right.",
+    title: "Keepsake Quality or Free Replacement",
+    detail: "Your spiral book arrives print-shop perfect or we send a new one at our cost. Period.",
   },
 ];
 
@@ -314,11 +298,11 @@ export const faqs: FaqItem[] = [
   },
   {
     question: "How fast is the free sample?",
-    answer: "Usually a few minutes. It is fast enough to feel easy, but we still leave room to clean up the page so it looks worth showing your child.",
+    answer: "Your free page is ready in about 90 seconds. You'll see it on screen and get a copy in your inbox.",
   },
   {
     question: "How fast do I get the PDF version?",
-    answer: "The PDF is the faster path. Smaller books are often ready the same session, while bigger books can take longer because every page still has to be cleaned up and prepared.",
+    answer: "Most PDF books are ready in under 2 minutes. We generate all your pages at once so you're not waiting long.",
   },
   {
     question: "How long does the printed spiral book take?",
@@ -364,6 +348,17 @@ export const faqs: FaqItem[] = [
     question: "Do I need an account before checkout?",
     answer: "No. The purchase flow stays guest-first so you can move from sample to checkout without extra setup.",
   },
+];
+
+export const urgencyMessages = {
+  sampleExpiry: "Your preview is saved for 48 hours.",
+  seasonalCover: "Mother's Day cover available through May 10.",
+};
+
+export const offerBonuses = [
+  { name: "The Coloring Party Kit", value: 29, description: "Printable cover sheet, coloring tips, and 'About the Artist' page featuring your child" },
+  { name: "The Memory Vault", value: 19, description: "Permanent digital access to re-download or re-order anytime" },
+  { name: "Best Photo Picker Guide", value: 9, description: "One-page checklist showing which photo types make the best coloring pages" },
 ];
 
 export function getConsumerOffer(code: OfferCode) {

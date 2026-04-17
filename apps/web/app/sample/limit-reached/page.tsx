@@ -21,42 +21,23 @@ export default async function SampleLimitReachedPage({ searchParams }: LimitReac
 
       <section className="sample-frame">
         <span className="pill pill-sun">Free sample</span>
-        <h1>You have already created your free coloring page.</h1>
+        <h1>Your free page is already on its way!</h1>
         <p className="lede">
-          Each email address gets one free sample page. Yours is already on its way.
+          Ready to turn the rest of your photos into the full book?
         </p>
-
-        <div className="detail-grid">
-          {orderId ? (
-            <article className="surface detail-card">
-              <span className="pill pill-sky">Already have it?</span>
-              <p className="muted">
-                Check the inbox you used when you started your free sample. Your page link was sent there.
-              </p>
-            </article>
-          ) : null}
-
-          <article className="surface detail-card">
-            <span className="pill pill-coral">Ready for more?</span>
-            <strong>Turn the rest of your camera roll into the full book.</strong>
-            <p className="muted">
-              Your free page is proof. If the style felt right, the full book takes the same photos and turns every one into a personalized coloring page your child will actually use.
-            </p>
-          </article>
-        </div>
 
         <div className="hero-actions">
           <Link
             className="button button-primary"
-            href="/create?offer=pdf-100&source=sample-limit-reached&acquisitionPath=sample_limit_upsell"
+            href="/create?offer=pdf-50&source=sample-limit-reached&acquisitionPath=sample_limit_upsell"
           >
-            Ready for the full book? Get your personalized coloring book
+            Build My Family Memory Book
           </Link>
         </div>
 
         <p className="mini-note">
-          Questions or issues? Email us at{" "}
-          <a href="mailto:support@littlecolorbook.com">support@littlecolorbook.com</a> and we will sort it out.
+          Need help?{" "}
+          <a href="mailto:support@littlecolorbook.com">support@littlecolorbook.com</a>
         </p>
       </section>
     </main>

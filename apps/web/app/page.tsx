@@ -33,16 +33,7 @@ export default function HomePage() {
                 <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName={funnelCtas.freeSample.eventName}>
                   {funnelCtas.freeSample.label}
                 </TrackedLink>
-                <TrackedLink className="button button-secondary" href={funnelCtas.directBuilder.href} eventName={funnelCtas.directBuilder.eventName}>
-                  {funnelCtas.directBuilder.label}
-                </TrackedLink>
               </div>
-              <p className="mini-note">
-                Want to compare sizes first?{" "}
-                <TrackedLink href={funnelCtas.seeBookSizes.href} eventName={funnelCtas.seeBookSizes.eventName}>
-                  {funnelCtas.seeBookSizes.label}
-                </TrackedLink>
-              </p>
             </div>
             <div className="hero-home-trust">
               <div className="hero-callout-row">
@@ -110,14 +101,10 @@ export default function HomePage() {
             <span className="pill pill-sky">One photo is enough to start</span>
             <h3>Get the free page first. Decide after you see it.</h3>
             <p className="muted">No full album required up front. Just one favorite photo, one quick preview, and a clear next move if your child lights up.</p>
-            <p className="mini-note">Already a returning customer or already convinced? Skip the sample and go straight to the builder.</p>
           </div>
           <div className="hero-actions">
             <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName="home_midpage_sample_clicked">
               {funnelCtas.freeSample.label}
-            </TrackedLink>
-            <TrackedLink className="button button-secondary" href={funnelCtas.directBuilder.href} eventName="home_midpage_builder_clicked">
-              Build My Book Now
             </TrackedLink>
           </div>
         </div>

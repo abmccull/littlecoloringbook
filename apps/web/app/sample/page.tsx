@@ -46,7 +46,7 @@ export default async function SamplePage({
       <section className="sample-frame sample-entry">
         <div className="sample-entry-copy">
           <span className="pill pill-sun">Free sample</span>
-          <h1>Turn one photo they already love into a free coloring page.</h1>
+          <h1>One photo of your kid. One free coloring page they'll actually want to color.</h1>
           <p className="lede">
             Start with one favorite photo first. If the page feels like them, you can turn the rest of your camera roll into the full book right after that.
           </p>
@@ -67,8 +67,8 @@ export default async function SamplePage({
         </div>
         <div className="surface sample-form-card">
           <span className="pill pill-coral">Start here</span>
-          <h3>Tell us where to send it.</h3>
-          <p className="muted">You&apos;ll upload the photo on the next screen. This first step just keeps your free page connected to the right inbox.</p>
+          <h3>See your photo become a coloring page in 90 seconds.</h3>
+          <p className="muted">We&apos;ll email you the finished page so you never lose it. You&apos;ll upload the photo on the next screen.</p>
           <SampleStartForm acquisition={acquisition} />
           <p className="mini-note">
             Already know you want the full book?{" "}
