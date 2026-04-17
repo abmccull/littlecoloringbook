@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isJobRunnerError, runProcessPaidOrderJob } from "@littlecolorbook/jobs";
 import { z } from "zod";
 import { authorizeInternalJobRequest } from "../../../../../lib/internal-jobs";
+import { deliverLifecycleEmail } from "../../../../../lib/lifecycle-email";
 
 const processPaidOrderSchema = z.object({
   orderId: z.string().trim().min(1),
@@ -38,8 +39,12 @@ export async function POST(request: NextRequest) {
         uploadIds: parsed.data.uploadIds,
       },
       // Print orders are batched daily via the batch-submit-lulu cron job.
-      // Do not pass submitPrintOrder here so print orders land in awaiting_print_submission.
-      {},
+      // Do not pass submitPrintOrder here so print orders land in
+      // awaiting_print_submission. PDF-only orders trigger pdf-ready
+      // email as soon as the interior PDF is assembled.
+      {
+        sendLifecycleEmail: deliverLifecycleEmail,
+      },
     );
 
     return NextResponse.json(result);

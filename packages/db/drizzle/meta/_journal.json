@@ -57,6 +57,13 @@
       "when": 1776672000000,
       "tag": "0007_customer_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776758400000,
+      "tag": "0008_email_marketing",
+      "breakpoints": true
     }
   ]
 }

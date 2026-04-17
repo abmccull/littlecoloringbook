@@ -2351,6 +2351,32 @@ export async function recordSupportAction(input: {
 }
 
 /* ------------------------------------------------------------------
+ * Marketing consent management
+ * ------------------------------------------------------------------ */
+
+export type MarketingConsentUpdate = {
+  customerId: string;
+  marketingOptIn?: boolean;
+  featureConsent?: boolean;
+};
+
+export async function updateMarketingConsent(input: MarketingConsentUpdate) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const patch: Record<string, unknown> = { updatedAt: now() };
+  if (typeof input.marketingOptIn === "boolean") {
+    patch.marketingOptIn = input.marketingOptIn;
+  }
+  if (typeof input.featureConsent === "boolean") {
+    patch.featureConsent = input.featureConsent;
+    patch.featureConsentAt = now();
+  }
+  await db.update(customers).set(patch).where(eq(customers.id, input.customerId));
+  const updated = await db.query.customers.findFirst({ where: eq(customers.id, input.customerId) });
+  return updated ?? null;
+}
+
+/* ------------------------------------------------------------------
  * Customer <-> Stack user linking (Phase 1 of accounts/tickets/refunds)
  * ------------------------------------------------------------------ */
 

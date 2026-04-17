@@ -16,6 +16,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
           <Link className="topbar-link" href="/account/orders">
             Orders
           </Link>
+          <Link className="topbar-link" href="/account/settings">
+            Settings
+          </Link>
           <Link className="topbar-link" href="/handler/sign-out">
             Sign out
           </Link>

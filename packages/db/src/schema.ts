@@ -59,6 +59,10 @@ export const customers = pgTable(
     phone: text("phone"),
     firstName: text("first_name"),
     marketingOptIn: boolean("marketing_opt_in").default(false).notNull(),
+    featureConsent: boolean("feature_consent"),
+    featureConsentAt: timestamp("feature_consent_at", { withTimezone: true }),
+    marketingSyncedAt: timestamp("marketing_synced_at", { withTimezone: true }),
+    resendContactId: text("resend_contact_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -364,6 +368,102 @@ export const stripeWebhookEvents = pgTable(
   }),
 );
 
+export const broadcastArchetypeValues = ["sunday_show_off", "thursday_gallery", "ad_hoc"] as const;
+export const broadcastStatusValues = ["drafted", "scheduled", "sending", "sent", "failed", "cancelled"] as const;
+
+export const broadcastSends = pgTable(
+  "broadcast_sends",
+  {
+    id: text("id").primaryKey(),
+    archetype: text("archetype").notNull().$type<(typeof broadcastArchetypeValues)[number]>(),
+    status: text("status").default("drafted").notNull().$type<(typeof broadcastStatusValues)[number]>(),
+    resendBroadcastId: text("resend_broadcast_id"),
+    resendAudienceId: text("resend_audience_id"),
+    subject: text("subject"),
+    preheader: text("preheader"),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    contactsCount: integer("contacts_count"),
+    selection: jsonb("selection").$type<Record<string, unknown> | null>(),
+    payload: jsonb("payload").$type<Record<string, unknown> | null>(),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    resendIdUnique: uniqueIndex("broadcast_sends_resend_id_unique").on(table.resendBroadcastId),
+    archetypeScheduledIdx: index("broadcast_sends_archetype_scheduled_idx").on(
+      table.archetype,
+      table.scheduledFor,
+    ),
+  }),
+);
+
+export const emailSendSequenceValues = ["welcome", "post_purchase", "re_engagement", "abandonment"] as const;
+export const emailSendStatusValues = [
+  "queued",
+  "scheduled",
+  "sent",
+  "failed",
+  "skipped",
+  "bounced",
+  "complained",
+] as const;
+
+export const emailSends = pgTable(
+  "email_sends",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id").references(() => customers.id, { onDelete: "set null" }),
+    orderId: text("order_id").references(() => orders.id, { onDelete: "set null" }),
+    sequence: text("sequence").$type<(typeof emailSendSequenceValues)[number] | null>(),
+    step: integer("step"),
+    template: text("template").notNull(),
+    toEmail: text("to_email").notNull(),
+    subject: text("subject"),
+    provider: text("provider").default("resend").notNull(),
+    providerMessageId: text("provider_message_id"),
+    status: text("status").default("queued").notNull().$type<(typeof emailSendStatusValues)[number]>(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    customerSequenceIdx: index("email_sends_customer_sequence_idx").on(
+      table.customerId,
+      table.sequence,
+      table.step,
+    ),
+  }),
+);
+
+export const sequenceStateStatusValues = ["active", "paused", "completed", "stopped", "purchased"] as const;
+
+export const emailSequenceStates = pgTable(
+  "email_sequence_states",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    sequence: text("sequence").notNull().$type<(typeof emailSendSequenceValues)[number]>(),
+    status: text("status").default("active").notNull().$type<(typeof sequenceStateStatusValues)[number]>(),
+    currentStep: integer("current_step").default(0).notNull(),
+    nextSendAt: timestamp("next_send_at", { withTimezone: true }),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    lastSendAt: timestamp("last_send_at", { withTimezone: true }),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+  },
+  (table) => ({
+    customerSequenceUnique: uniqueIndex("email_sequence_states_customer_sequence_unique").on(
+      table.customerId,
+      table.sequence,
+    ),
+  }),
+);
+
 export const tableNames = {
   customers: "customers",
   orders: "orders",
@@ -380,4 +480,7 @@ export const tableNames = {
   portalTokens: "portal_tokens",
   customerUserLinks: "customer_user_links",
   stripeWebhookEvents: "stripe_webhook_events",
+  broadcastSends: "broadcast_sends",
+  emailSends: "email_sends",
+  emailSequenceStates: "email_sequence_states",
 } as const;

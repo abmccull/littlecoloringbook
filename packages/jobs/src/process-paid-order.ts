@@ -37,8 +37,11 @@ type ProcessPaidOrderJobInput = {
   uploadIds?: string[];
 };
 
+type PaidLifecycleTemplate = "pdf-ready";
+
 type ProcessPaidOrderJobOptions = {
   submitPrintOrder?: (input: { lineItems: SubmitPrintLineItem[]; orderId: string }) => Promise<SubmitPrintOrderResult | null | undefined>;
+  sendLifecycleEmail?: (input: { orderId: string; template: PaidLifecycleTemplate }) => Promise<unknown>;
 };
 
 export async function runProcessPaidOrderJob(input: ProcessPaidOrderJobInput, options: ProcessPaidOrderJobOptions = {}) {
@@ -255,6 +258,17 @@ export async function runProcessPaidOrderJob(input: ProcessPaidOrderJobInput, op
       model: materialized.model,
       previewCount: plan.targetPages,
     });
+
+    if (deliveryMode !== "print" && options.sendLifecycleEmail) {
+      try {
+        await options.sendLifecycleEmail({
+          orderId: input.orderId,
+          template: "pdf-ready",
+        });
+      } catch (error) {
+        console.error("process-paid-order: pdf-ready email failed (non-fatal)", error);
+      }
+    }
 
     if (deliveryMode === "print" && plan.pdf.coverPdfPaths.length > 0 && options.submitPrintOrder) {
       const [interiorSigned, ...coverSignedUrls] = await Promise.all([
