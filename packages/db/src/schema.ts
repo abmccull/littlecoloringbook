@@ -1,4 +1,4 @@
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const orderTypeValues = ["sample", "pdf", "print"] as const;
 export const deliveryModeValues = ["sample", "pdf", "print"] as const;
@@ -101,6 +101,7 @@ export const orders = pgTable(
     stripeCheckoutSessionId: text("stripe_checkout_session_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     luluPrintJobId: text("lulu_print_job_id"),
+    clientIp: text("client_ip"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -189,7 +190,16 @@ export const generationJobs = pgTable(
     kind: generationJobKindEnum("kind").notNull(),
     status: generationJobStatusEnum("status").default("queued").notNull(),
     targetPages: integer("target_pages").default(1).notNull(),
+    provider: text("provider"),
     model: text("model"),
+    fallbackProvider: text("fallback_provider"),
+    fallbackModel: text("fallback_model"),
+    promptVersion: text("prompt_version"),
+    cleanupVersion: text("cleanup_version"),
+    acceptedPageCount: integer("accepted_page_count").default(0).notNull(),
+    failedPageCount: integer("failed_page_count").default(0).notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -206,6 +216,14 @@ export const generationPages = pgTable(
     uploadId: text("upload_id").references(() => uploads.id, { onDelete: "set null" }),
     pageNumber: integer("page_number").notNull(),
     status: generationPageStatusEnum("status").default("queued").notNull(),
+    provider: text("provider"),
+    model: text("model"),
+    promptVersion: text("prompt_version"),
+    cleanupVersion: text("cleanup_version"),
+    qaScore: doublePrecision("qa_score"),
+    qaFlags: jsonb("qa_flags").$type<string[] | null>(),
+    qaMetrics: jsonb("qa_metrics").$type<Record<string, unknown> | null>(),
+    renderAttempts: integer("render_attempts").default(1).notNull(),
     assetId: text("asset_id").references(() => assets.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

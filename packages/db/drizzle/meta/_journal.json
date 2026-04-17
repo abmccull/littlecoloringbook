@@ -36,6 +36,20 @@
       "when": 1775872231778,
       "tag": "0004_wakeful_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776027114389,
+      "tag": "0005_yellow_anthem",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1744790400000,
+      "tag": "0006_add_client_ip_to_orders",
+      "breakpoints": true
     }
   ]
 }

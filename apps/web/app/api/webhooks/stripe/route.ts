@@ -8,7 +8,6 @@ import {
 } from "@littlecolorbook/db";
 import { getStripe, getStripeWebhookSecret, getVerifiedStripeAccountId, isStripeConfigured } from "../../../../lib/stripe";
 import { deliverLifecycleEmail } from "../../../../lib/lifecycle-email";
-import { dispatchInternalJob } from "../../../../lib/internal-jobs";
 
 function getPaymentIntentId(session: Stripe.Checkout.Session) {
   if (!session.payment_intent) {
@@ -85,17 +84,12 @@ export async function POST(request: NextRequest) {
           console.error("Failed to send order-paid email", error);
         }
 
-        try {
-          await dispatchInternalJob({
-            path: "/api/internal/jobs/process-paid-order",
-            body: {
-              orderId,
-            },
-          });
-          jobQueued = true;
-        } catch (error) {
-          console.error("Failed to queue paid order processing", error);
-        }
+        // NOTE: process-paid-order is NOT enqueued here intentionally.
+        // The new purchase flow requires the customer to upload photos and
+        // complete customization before generation can begin. Generation is
+        // triggered from POST /api/orders/[orderId]/start-generation once
+        // the customer completes the post-purchase setup page.
+        jobQueued = false;
       }
 
       return NextResponse.json({ received: true, mode: "verified", eventType: event.type, eventId: event.id, orderId, jobQueued });

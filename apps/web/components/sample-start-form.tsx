@@ -9,6 +9,9 @@ type SampleCreateResponse = {
   error?: string;
   id?: string;
   processingUrl?: string;
+  blocked?: boolean;
+  reason?: string;
+  existingOrderId?: string | null;
 };
 
 type SampleStartFormProps = {
@@ -41,6 +44,15 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
       });
 
       const payload = (await response.json()) as SampleCreateResponse;
+
+      if (response.status === 429 && payload.blocked) {
+        const limitUrl = new URL("/sample/limit-reached", window.location.origin);
+        if (payload.existingOrderId) {
+          limitUrl.searchParams.set("orderId", payload.existingOrderId);
+        }
+        router.push(limitUrl.pathname + (limitUrl.search ? limitUrl.search : ""));
+        return;
+      }
 
       if (!response.ok || !payload.id || !payload.processingUrl) {
         throw new Error(payload.error ?? "Could not start the free sample.");

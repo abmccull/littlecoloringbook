@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, gt, inArray, isNotNull } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNotNull, ne } from "drizzle-orm";
 import {
   getNormalizedOrderQuantity,
   getOfferByCode,
@@ -73,6 +73,7 @@ export type CreateOrderInput = {
   subtotalCents?: number;
   shippingCents?: number;
   totalCents?: number;
+  clientIp?: string | null;
 };
 
 export type UpsertCustomerInput = {
@@ -419,6 +420,7 @@ export async function createOrderDraft(input: CreateOrderInput) {
     stripeCheckoutSessionId: null,
     stripePaymentIntentId: null,
     luluPrintJobId: null,
+    clientIp: input.clientIp ?? null,
     createdAt: now(),
     updatedAt: now(),
   };
@@ -1157,6 +1159,58 @@ export async function setGenerationPageStatus(
 
   return {
     ...page,
+    ...updated,
+    databaseConfigured: true,
+  };
+}
+
+export async function updateOrderCustomization(input: {
+  orderId: string;
+  childFirstName?: string | null;
+  coverStyle?: string | null;
+  dedicationText?: string | null;
+}) {
+  if (!isDatabaseConfigured()) {
+    return {
+      orderId: input.orderId,
+      databaseConfigured: false,
+    };
+  }
+
+  const db = getDatabase();
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, input.orderId),
+  });
+
+  if (!order) {
+    throw new Error("Order not found for customization update.");
+  }
+
+  const updated: Partial<typeof order> & { updatedAt: Date } = {
+    updatedAt: now(),
+  };
+
+  if (input.childFirstName !== undefined) {
+    updated.childFirstName = input.childFirstName;
+  }
+
+  if (input.coverStyle !== undefined) {
+    updated.coverStyle = normalizeCoverStyle(input.coverStyle);
+  }
+
+  if (input.dedicationText !== undefined) {
+    updated.dedicationText = input.dedicationText;
+  }
+
+  await db.update(orders).set(updated).where(eq(orders.id, input.orderId));
+  await appendOrderEvent(input.orderId, "order.customization_updated", {
+    childFirstName: updated.childFirstName ?? null,
+    coverStyle: updated.coverStyle ?? null,
+    dedicationText: updated.dedicationText ?? null,
+  });
+
+  return {
+    ...order,
     ...updated,
     databaseConfigured: true,
   };
@@ -2150,6 +2204,109 @@ export async function recordLifecycleEmailEvent(input: {
     ...record,
     databaseConfigured: true,
   };
+}
+
+export async function countSamplesByEmail(email: string): Promise<number> {
+  if (!isDatabaseConfigured()) {
+    return 0;
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  const db = getDatabase();
+
+  const customer = await db.query.customers.findFirst({
+    where: eq(customers.email, normalizedEmail),
+  });
+
+  if (!customer) {
+    return 0;
+  }
+
+  const result = await db
+    .select({ total: count() })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.customerId, customer.id),
+        eq(orders.orderType, "sample"),
+        ne(orders.status, "draft"),
+      ),
+    );
+
+  return result[0]?.total ?? 0;
+}
+
+export async function countSamplesByIp(ip: string): Promise<number> {
+  if (!isDatabaseConfigured()) {
+    return 0;
+  }
+
+  const db = getDatabase();
+  const result = await db
+    .select({ total: count() })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.clientIp, ip),
+        eq(orders.orderType, "sample"),
+        ne(orders.status, "draft"),
+      ),
+    );
+
+  return result[0]?.total ?? 0;
+}
+
+export async function countSamplesByVisitor(visitorId: string): Promise<number> {
+  if (!isDatabaseConfigured()) {
+    return 0;
+  }
+
+  const db = getDatabase();
+  const result = await db
+    .select({ total: count() })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.visitorId, visitorId),
+        eq(orders.orderType, "sample"),
+        ne(orders.status, "draft"),
+      ),
+    );
+
+  return result[0]?.total ?? 0;
+}
+
+/**
+ * Returns the order ID of an existing completed sample order for the given email,
+ * or null if none exists. The raw portal token cannot be recovered (only the SHA-256
+ * hash is stored), so we return the order ID to allow building a support link.
+ */
+export async function findExistingSampleOrderId(email: string): Promise<string | null> {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  const db = getDatabase();
+
+  const customer = await db.query.customers.findFirst({
+    where: eq(customers.email, normalizedEmail),
+  });
+
+  if (!customer) {
+    return null;
+  }
+
+  const order = await db.query.orders.findFirst({
+    where: and(
+      eq(orders.customerId, customer.id),
+      eq(orders.orderType, "sample"),
+      ne(orders.status, "draft"),
+    ),
+    orderBy: [desc(orders.createdAt)],
+  });
+
+  return order?.id ?? null;
 }
 
 export async function recordSupportAction(input: {

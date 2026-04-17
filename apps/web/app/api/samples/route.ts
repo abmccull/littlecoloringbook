@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createOrderDraft, isDatabaseConfigured } from "@littlecolorbook/db";
+import {
+  countSamplesByEmail,
+  countSamplesByIp,
+  countSamplesByVisitor,
+  createOrderDraft,
+  findExistingSampleOrderId,
+  isDatabaseConfigured,
+} from "@littlecolorbook/db";
 import { readAttributionSnapshot } from "../../../lib/attribution-cookies";
 
 const createSampleSchema = z.object({
@@ -14,6 +21,14 @@ const createSampleSchema = z.object({
   utmContent: z.string().trim().optional(),
   utmTerm: z.string().trim().optional(),
 });
+
+function extractClientIp(request: NextRequest): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    request.headers.get("x-real-ip") ??
+    "unknown"
+  );
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -34,6 +49,29 @@ export async function POST(request: NextRequest) {
   }
 
   const attribution = readAttributionSnapshot(request);
+  const clientIp = extractClientIp(request);
+
+  // Rate limit checks — run in parallel for performance
+  const [emailCount, visitorCount, ipCount] = await Promise.all([
+    countSamplesByEmail(parsed.data.email),
+    attribution.visitorId ? countSamplesByVisitor(attribution.visitorId) : Promise.resolve(0),
+    clientIp !== "unknown" ? countSamplesByIp(clientIp) : Promise.resolve(0),
+  ]);
+
+  const isBlocked = emailCount >= 1 || visitorCount >= 1 || ipCount >= 2;
+
+  if (isBlocked) {
+    const existingOrderId = await findExistingSampleOrderId(parsed.data.email);
+    return NextResponse.json(
+      {
+        blocked: true,
+        reason: "sample_limit_reached",
+        existingOrderId: existingOrderId ?? null,
+      },
+      { status: 429 },
+    );
+  }
+
   const lastTouch = attribution.lastTouch ?? attribution.firstTouch;
   const result = await createOrderDraft({
     email: parsed.data.email,
@@ -58,6 +96,7 @@ export async function POST(request: NextRequest) {
     subtotalCents: 0,
     shippingCents: 0,
     totalCents: 0,
+    clientIp,
   });
 
   return NextResponse.json({

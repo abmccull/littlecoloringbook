@@ -131,11 +131,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     });
   }
 
+  const portalAccess = isDatabaseConfigured()
+    ? await (await import("@littlecolorbook/db")).createPortalAccessForOrder(orderId)
+    : null;
+  const successUrl = portalAccess?.portalHref
+    ? `${appUrl}${portalAccess.portalHref}/setup`
+    : `${appUrl}/order/confirmation?orderId=${orderId}`;
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     client_reference_id: orderId,
     customer_email: customerEmail,
-    success_url: `${appUrl}/order/confirmation?orderId=${orderId}`,
+    success_url: successUrl,
     cancel_url: `${appUrl}/create/uploads?orderId=${orderId}&deliveryMode=${deliveryMode}&selectedOffer=${selectedOffer.code}`,
     line_items: lineItems,
     metadata: {

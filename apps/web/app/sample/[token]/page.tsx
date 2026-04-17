@@ -4,12 +4,11 @@ import { getOrderPortalSummary } from "@littlecolorbook/db";
 import { BrandLogo } from "../../../components/brand-logo";
 import { BundleSaveCards } from "../../../components/bundle-save-cards";
 import { GiftCopiesUpsell } from "../../../components/gift-copies-upsell";
-import { OfferCard } from "../../../components/offer-card";
 import { BookMockupBlock } from "../../../components/proof-modules";
+import { SampleOfferCheckoutButton } from "../../../components/sample-offer-checkout-button";
 import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
-import { TrackedLink } from "../../../components/tracked-link";
-import { consumerOffers, funnelCtas, getConsumerOffer, guarantees, proofAssets } from "../../../lib/consumer-content";
+import { consumerOffers, getConsumerOffer, guarantees, proofAssets } from "../../../lib/consumer-content";
 
 type SampleReadyPageProps = {
   params: Promise<{ token: string }>;
@@ -77,12 +76,28 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
             <h3>{featuredOffer.title} is the fullest version and the best value if your photo stack is ready.</h3>
             <p className="muted">It is the strongest fit for bigger camera rolls, sibling stories, trips, birthday memories, and gift copies.</p>
             <div className="hero-actions">
-              <TrackedLink className="button button-primary" href={funnelCtas.startThirtyPdf.href} eventName={funnelCtas.startThirtyPdf.eventName}>
-                {funnelCtas.startThirtyPdf.label}
-              </TrackedLink>
-              <TrackedLink className="button button-secondary" href={funnelCtas.addThirtyPrint.href} eventName={funnelCtas.addThirtyPrint.eventName}>
-                {funnelCtas.addThirtyPrint.label}
-              </TrackedLink>
+              <SampleOfferCheckoutButton
+                offerCode="pdf-100"
+                deliveryMode="pdf"
+                sampleOrderId={summary.order.id}
+                customerEmail={summary.customer?.email ?? null}
+                acquisitionPath="sample_first"
+                entrySource="sample-ready-primary"
+                className="button button-primary"
+              >
+                Build The 100-Page Book
+              </SampleOfferCheckoutButton>
+              <SampleOfferCheckoutButton
+                offerCode="print-100"
+                deliveryMode="print"
+                sampleOrderId={summary.order.id}
+                customerEmail={summary.customer?.email ?? null}
+                acquisitionPath="sample_first"
+                entrySource="sample-ready-print"
+                className="button button-secondary"
+              >
+                Get The Spiral Book Version
+              </SampleOfferCheckoutButton>
             </div>
             <p className="muted">
               Want to sit with the sample a little longer?{" "}
@@ -92,9 +107,17 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
             </p>
             <p className="muted">
               Want the lighter first version instead?{" "}
-              <TrackedLink href={funnelCtas.startMiniPdf.href} eventName={funnelCtas.startMiniPdf.eventName}>
-                {funnelCtas.startMiniPdf.label}
-              </TrackedLink>
+              <SampleOfferCheckoutButton
+                offerCode="pdf-10"
+                deliveryMode="pdf"
+                sampleOrderId={summary.order.id}
+                customerEmail={summary.customer?.email ?? null}
+                acquisitionPath="sample_first"
+                entrySource="sample-ready-downsell"
+                className="button-link"
+              >
+                Keep It Light With 10 Pages
+              </SampleOfferCheckoutButton>
             </p>
           </div>
         </div>
@@ -123,14 +146,54 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
           </div>
           <div className="offer-grid">
             {coreOffers.map((offer) => (
-              <OfferCard
-                key={offer.code}
-                offer={offer}
-                featured={offer.code === "pdf-50"}
-                href="/create?source=sample-ready-offer-grid&acquisitionPath=sample_first"
-              />
+              <article className={`offer-card${offer.code === "pdf-50" ? " is-featured" : ""}`} key={offer.code}>
+                <div className="offer-card-header">
+                  {offer.badge ? <span className={`pill pill-${offer.badgeTone ?? "sun"}`}>{offer.badge}</span> : null}
+                  <h3>{offer.title}</h3>
+                </div>
+                <p className="offer-meta">{offer.designs} personalized coloring pages</p>
+                <div className="price-stack">
+                  {offer.pdfPrice ? <p>Print Tonight PDF ${offer.pdfPrice}</p> : null}
+                  {offer.printPrice ? <p>Giftable Spiral Book ${offer.printPrice}</p> : null}
+                </div>
+                <p className="offer-description">{offer.description}</p>
+                {offer.comparisonNote ? <p className="mini-note">{offer.comparisonNote}</p> : null}
+                <SampleOfferCheckoutButton
+                  offerCode={offer.code}
+                  deliveryMode="pdf"
+                  sampleOrderId={summary.order.id}
+                  customerEmail={summary.customer?.email ?? null}
+                  acquisitionPath="sample_first"
+                  entrySource="sample-ready-offer-grid"
+                  className={`button ${offer.code === "pdf-50" ? "button-primary" : "button-secondary"} offer-card-cta`}
+                >
+                  {offer.ctaLabel}
+                </SampleOfferCheckoutButton>
+              </article>
             ))}
-            <OfferCard offer={downsellOffer} buttonLabel="Keep it smaller" href="/create?source=sample-ready-offer-grid&acquisitionPath=sample_first" />
+            <article className="offer-card">
+              <div className="offer-card-header">
+                {downsellOffer.badge ? <span className={`pill pill-${downsellOffer.badgeTone ?? "sun"}`}>{downsellOffer.badge}</span> : null}
+                <h3>{downsellOffer.title}</h3>
+              </div>
+              <p className="offer-meta">{downsellOffer.designs} personalized coloring pages</p>
+              <div className="price-stack">
+                {downsellOffer.pdfPrice ? <p>Print Tonight PDF ${downsellOffer.pdfPrice}</p> : null}
+              </div>
+              <p className="offer-description">{downsellOffer.description}</p>
+              {downsellOffer.comparisonNote ? <p className="mini-note">{downsellOffer.comparisonNote}</p> : null}
+              <SampleOfferCheckoutButton
+                offerCode={downsellOffer.code}
+                deliveryMode="pdf"
+                sampleOrderId={summary.order.id}
+                customerEmail={summary.customer?.email ?? null}
+                acquisitionPath="sample_first"
+                entrySource="sample-ready-offer-grid"
+                className="button button-secondary offer-card-cta"
+              >
+                Keep it smaller
+              </SampleOfferCheckoutButton>
+            </article>
           </div>
         </div>
 
