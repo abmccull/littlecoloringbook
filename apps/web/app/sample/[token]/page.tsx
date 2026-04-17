@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
 import { BrandLogo } from "../../../components/brand-logo";
+import { BundleSaveCards } from "../../../components/bundle-save-cards";
+import { GiftCopiesUpsell } from "../../../components/gift-copies-upsell";
 import { OfferCard } from "../../../components/offer-card";
 import { BookMockupBlock } from "../../../components/proof-modules";
 import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
@@ -121,11 +123,20 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
           </div>
           <div className="offer-grid">
             {coreOffers.map((offer) => (
-              <OfferCard key={offer.code} offer={offer} href="/create?source=sample-ready-offer-grid&acquisitionPath=sample_first" />
+              <OfferCard
+                key={offer.code}
+                offer={offer}
+                featured={offer.code === "pdf-50"}
+                href="/create?source=sample-ready-offer-grid&acquisitionPath=sample_first"
+              />
             ))}
             <OfferCard offer={downsellOffer} buttonLabel="Keep it smaller" href="/create?source=sample-ready-offer-grid&acquisitionPath=sample_first" />
           </div>
         </div>
+
+        <GiftCopiesUpsell baseHref="/create?source=sample-ready-gift-upsell&acquisitionPath=sample_first" />
+
+        <BundleSaveCards baseHref="/create?source=sample-ready-bundle-upsell&acquisitionPath=sample_first" />
       </section>
     </main>
   );

@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
+import { galleryExamples } from "../lib/consumer-content";
 import { trackEvent } from "./analytics-provider";
+import { GalleryCarousel } from "./gallery-carousel";
 
 type SampleProcessingPanelProps = {
   orderId: string;
@@ -27,27 +29,6 @@ const STATUS_PROGRESS: Record<string, number> = {
   pdf_ready: 100,
 };
 
-const COLORING_FACTS = [
-  "Coloring helps kids develop fine motor skills and hand-eye coordination.",
-  "Children who color regularly show improved focus and concentration.",
-  "Personalized coloring pages keep kids engaged 3x longer than generic ones.",
-  "Coloring familiar faces helps children process and express emotions.",
-  "The repetitive motion of coloring has a calming, meditative effect on kids.",
-  "Kids remember coloring their own photos months after making the book.",
-  "Coloring activates both hemispheres of the brain at the same time.",
-  "Bold, simple outlines work best for ages 2 to 6. We optimize for that.",
-  "Screen-free activities like coloring improve sleep quality in children.",
-  "A 20-minute coloring session reduces anxiety in kids by up to 30%.",
-  "Children develop color theory and spatial awareness through coloring.",
-  "Personalized books become keepsakes that families revisit for years.",
-  "Coloring pets and siblings helps kids strengthen emotional bonds.",
-  "The best coloring pages have big shapes, clear subjects, and lots of white space.",
-  "Kids as young as 18 months can start coloring with chunky crayons.",
-  "Grandparents rank personalized coloring books as a top-3 gift to receive.",
-  "Coloring builds the same hand muscles kids need for writing later.",
-  "Family photos make the best coloring pages because kids recognize every detail.",
-];
-
 function formatTimeRemaining(seconds: number): string {
   if (seconds <= 5) return "Almost done...";
   if (seconds <= 15) return "About 15 seconds left";
@@ -63,7 +44,6 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
   const [isAwaitingGeneration, setIsAwaitingGeneration] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [factIndex, setFactIndex] = useState(0);
   const startTimeRef = useRef<number | null>(null);
 
   const isProcessing = status === "preprocessing" || status === "generating" || status === "qa_review";
@@ -101,7 +81,6 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
     if (!showProgress) {
       startTimeRef.current = null;
       setElapsed(0);
-      setFactIndex(0);
       return;
     }
 
@@ -113,7 +92,6 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
       if (startTimeRef.current) {
         const newElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
         setElapsed(newElapsed);
-        setFactIndex(Math.floor(newElapsed / 5) % COLORING_FACTS.length);
       }
     }, 1000);
 
@@ -187,9 +165,7 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
               ? "Taking a little longer than usual..."
               : formatTimeRemaining(remaining)}
           </p>
-          <div className="coloring-fact" key={factIndex}>
-            <p className="coloring-fact-text">{COLORING_FACTS[factIndex]}</p>
-          </div>
+          <GalleryCarousel examples={galleryExamples} />
         </div>
       ) : null}
     </div>

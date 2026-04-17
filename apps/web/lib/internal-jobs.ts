@@ -1,6 +1,7 @@
 import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
+import { enqueueInternalJob as enqueueQueuedInternalJob, isQueueConfigured, type InternalJobName, type InternalJobPayloadMap } from "@littlecolorbook/queue";
 
 export function getInternalJobSecret() {
   return process.env.CRON_SECRET ?? process.env.INTERNAL_JOB_SECRET ?? null;
@@ -45,6 +46,14 @@ function getInternalJobBaseUrl() {
   return "http://127.0.0.1:3000";
 }
 
+const internalJobPathByName: Record<InternalJobName, string> = {
+  "process-sample": "/api/internal/jobs/process-sample",
+  "process-paid-order": "/api/internal/jobs/process-paid-order",
+  "submit-lulu": "/api/internal/jobs/submit-lulu",
+  "sync-lulu-status": "/api/internal/jobs/sync-lulu-status",
+  "batch-submit-lulu": "/api/internal/jobs/batch-submit-lulu",
+};
+
 export async function dispatchInternalJob<TResponse>(input: {
   path: string;
   method?: "GET" | "POST";
@@ -77,4 +86,36 @@ export async function dispatchInternalJob<TResponse>(input: {
   }
 
   return payload as TResponse;
+}
+
+export async function enqueueInternalJob<TName extends InternalJobName>(input: {
+  job: TName;
+  payload: InternalJobPayloadMap[TName];
+}) {
+  if (isQueueConfigured()) {
+    const queuedJob = await enqueueQueuedInternalJob(input.job, input.payload);
+
+    return {
+      accepted: true,
+      jobId: queuedJob.id ?? null,
+      mode: "queue" as const,
+      queueName: queuedJob.queueName,
+    };
+  }
+
+  const payload = await dispatchInternalJob<{
+    accepted?: boolean;
+    status?: string;
+  }>({
+    path: internalJobPathByName[input.job],
+    body: input.payload as Record<string, unknown>,
+  });
+
+  return {
+    accepted: payload?.accepted ?? true,
+    jobId: null,
+    mode: "direct" as const,
+    queueName: null,
+    status: payload?.status ?? null,
+  };
 }

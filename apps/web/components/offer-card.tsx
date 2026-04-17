@@ -5,14 +5,20 @@ type OfferCardProps = {
   offer: ConsumerOffer;
   href?: string;
   buttonLabel?: string;
+  /**
+   * Override whether this card renders with the featured (highlighted) treatment.
+   * When not provided, falls back to `offer.featured`.
+   */
+  featured?: boolean;
 };
 
-export function OfferCard({ offer, href = "/create", buttonLabel }: OfferCardProps) {
+export function OfferCard({ offer, href = "/create", buttonLabel, featured }: OfferCardProps) {
   const separator = href.includes("?") ? "&" : "?";
   const destinationHref = `${href}${separator}offer=${offer.code}`;
+  const isFeatured = featured !== undefined ? featured : offer.featured;
 
   return (
-    <article className={`offer-card${offer.featured ? " is-featured" : ""}`}>
+    <article className={`offer-card${isFeatured ? " is-featured" : ""}`}>
       <div className="offer-card-header">
         {offer.badge ? <span className={`pill pill-${offer.badgeTone ?? "sun"}`}>{offer.badge}</span> : null}
         <h3>{offer.title}</h3>
@@ -25,7 +31,7 @@ export function OfferCard({ offer, href = "/create", buttonLabel }: OfferCardPro
       <p className="offer-description">{offer.description}</p>
       {offer.comparisonNote ? <p className="mini-note">{offer.comparisonNote}</p> : null}
       <TrackedLink
-        className={`button ${offer.featured ? "button-primary" : "button-secondary"} offer-card-cta`}
+        className={`button ${isFeatured ? "button-primary" : "button-secondary"} offer-card-cta`}
         href={destinationHref}
         eventName="offer_card_clicked"
         eventProperties={{

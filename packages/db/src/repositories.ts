@@ -236,11 +236,18 @@ export type AdminOrderDetail = PortalSummary & {
     kind: GenerationJobKind;
     status: "queued" | "running" | "completed" | "failed";
     targetPages: number;
+    provider: string | null;
     model: string | null;
+    promptVersion: string | null;
+    cleanupVersion: string | null;
+    acceptedPageCount: number;
+    failedPageCount: number;
     queuedPages: number;
     approvedPages: number;
     failedPages: number;
     createdAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
     updatedAt: Date;
   }>;
 };
@@ -1051,7 +1058,29 @@ export async function setGenerationJobStatus(
     throw new Error("Generation job not found for status update.");
   }
 
+  const nextModel = typeof details?.model === "string" && details.model.trim() ? details.model : null;
+  const nextProvider = typeof details?.provider === "string" && details.provider.trim() ? details.provider : null;
+  const nextFallbackModel =
+    typeof details?.fallbackModel === "string" && details.fallbackModel.trim() ? details.fallbackModel : null;
+  const nextFallbackProvider =
+    typeof details?.fallbackProvider === "string" && details.fallbackProvider.trim() ? details.fallbackProvider : null;
+  const nextPromptVersion =
+    typeof details?.promptVersion === "string" && details.promptVersion.trim() ? details.promptVersion : null;
+  const nextCleanupVersion =
+    typeof details?.cleanupVersion === "string" && details.cleanupVersion.trim() ? details.cleanupVersion : null;
+  const nextAcceptedPageCount = typeof details?.acceptedPageCount === "number" ? Math.max(0, Math.trunc(details.acceptedPageCount)) : null;
+  const nextFailedPageCount = typeof details?.failedPageCount === "number" ? Math.max(0, Math.trunc(details.failedPageCount)) : null;
   const updated = {
+    ...(nextAcceptedPageCount !== null ? { acceptedPageCount: nextAcceptedPageCount } : {}),
+    ...(nextCleanupVersion ? { cleanupVersion: nextCleanupVersion } : {}),
+    ...(status === "completed" || status === "failed" ? { completedAt: now() } : {}),
+    ...(nextFailedPageCount !== null ? { failedPageCount: nextFailedPageCount } : {}),
+    ...(nextFallbackModel ? { fallbackModel: nextFallbackModel } : {}),
+    ...(nextFallbackProvider ? { fallbackProvider: nextFallbackProvider } : {}),
+    ...(nextModel ? { model: nextModel } : {}),
+    ...(nextPromptVersion ? { promptVersion: nextPromptVersion } : {}),
+    ...(nextProvider ? { provider: nextProvider } : {}),
+    ...(status === "running" && !job.startedAt ? { startedAt: now() } : {}),
     status,
     updatedAt: now(),
   };
@@ -1094,6 +1123,18 @@ export async function setGenerationPageStatus(
   }
 
   const updated = {
+    ...(details && typeof details.cleanupVersion === "string" && details.cleanupVersion.trim()
+      ? { cleanupVersion: details.cleanupVersion }
+      : {}),
+    ...(details && typeof details.model === "string" && details.model.trim() ? { model: details.model } : {}),
+    ...(details && typeof details.promptVersion === "string" && details.promptVersion.trim()
+      ? { promptVersion: details.promptVersion }
+      : {}),
+    ...(details && typeof details.provider === "string" && details.provider.trim() ? { provider: details.provider } : {}),
+    ...(details && typeof details.qaScore === "number" ? { qaScore: details.qaScore } : {}),
+    ...(details && Array.isArray(details.qaFlags) ? { qaFlags: details.qaFlags.filter((flag): flag is string => typeof flag === "string") } : {}),
+    ...(details && details.qaMetrics && typeof details.qaMetrics === "object" ? { qaMetrics: details.qaMetrics as Record<string, unknown> } : {}),
+    ...(details && typeof details.renderAttempts === "number" ? { renderAttempts: Math.max(1, Math.trunc(details.renderAttempts)) } : {}),
     status,
     updatedAt: now(),
   };
@@ -1207,7 +1248,12 @@ export async function createGenerationJobRecord(input: {
   orderId: string;
   kind: GenerationJobKind;
   targetPages: number;
+  provider?: string | null;
   model?: string | null;
+  fallbackProvider?: string | null;
+  fallbackModel?: string | null;
+  promptVersion?: string | null;
+  cleanupVersion?: string | null;
 }) {
   const record = {
     id: createId("gen"),
@@ -1215,7 +1261,16 @@ export async function createGenerationJobRecord(input: {
     kind: input.kind,
     status: "queued" as const,
     targetPages: input.targetPages,
+    provider: input.provider ?? null,
     model: input.model ?? null,
+    fallbackProvider: input.fallbackProvider ?? null,
+    fallbackModel: input.fallbackModel ?? null,
+    promptVersion: input.promptVersion ?? null,
+    cleanupVersion: input.cleanupVersion ?? null,
+    acceptedPageCount: 0,
+    failedPageCount: 0,
+    startedAt: null,
+    completedAt: null,
     createdAt: now(),
     updatedAt: now(),
   };
@@ -1313,6 +1368,69 @@ function mapLuluStatus(status: string | null | undefined): {
         orderStatus: "submitted_to_lulu",
       };
   }
+}
+
+export type PrintSubmissionCandidate = {
+  orderId: string;
+  interiorPdfPath: string | null;
+  coverPdfPaths: string[];
+  copyNames: Array<string | null> | null;
+  childFirstName: string | null;
+};
+
+export async function listPrintSubmissionCandidates(limit = 50): Promise<PrintSubmissionCandidate[]> {
+  if (!isDatabaseConfigured()) {
+    return [];
+  }
+
+  const db = getDatabase();
+  const pendingOrders = await db
+    .select({ id: orders.id, copyNames: orders.copyNames, childFirstName: orders.childFirstName })
+    .from(orders)
+    .where(eq(orders.status, "awaiting_print_submission"))
+    .orderBy(desc(orders.updatedAt))
+    .limit(limit);
+
+  if (pendingOrders.length === 0) {
+    return [];
+  }
+
+  const orderIds = pendingOrders.map((o) => o.id);
+  const relatedAssets = await db.query.assets.findMany({
+    where: and(
+      inArray(assets.orderId, orderIds),
+      inArray(assets.kind, ["interior_pdf", "cover_pdf"]),
+    ),
+  });
+
+  return pendingOrders.map((order) => {
+    const orderAssets = relatedAssets.filter((a) => a.orderId === order.id);
+    const interiorPdfPath = orderAssets.find((a) => a.kind === "interior_pdf")?.objectPath ?? null;
+    const coverPdfPaths = orderAssets
+      .filter((a) => a.kind === "cover_pdf")
+      .map((a) => a.objectPath);
+
+    return {
+      orderId: order.id,
+      interiorPdfPath,
+      coverPdfPaths,
+      copyNames: order.copyNames,
+      childFirstName: order.childFirstName,
+    };
+  });
+}
+
+export async function getDownloadAssetForOrder(orderId: string): Promise<{ objectPath: string } | null> {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const db = getDatabase();
+  const asset = await db.query.assets.findFirst({
+    where: and(eq(assets.orderId, orderId), eq(assets.kind, "download_pdf")),
+  });
+
+  return asset ? { objectPath: asset.objectPath } : null;
 }
 
 export async function listLuluSyncCandidates(limit = 25): Promise<LuluSyncCandidate[]> {
@@ -1818,11 +1936,18 @@ async function getGenerationJobSummaries(orderId: string): Promise<AdminOrderDet
         kind: "full_book",
         status: "completed",
         targetPages: 30,
+        provider: "gemini",
         model: "gemini-2.5-flash-image",
+        promptVersion: "demo",
+        cleanupVersion: "demo",
+        acceptedPageCount: 30,
+        failedPageCount: 0,
         queuedPages: 0,
         approvedPages: 30,
         failedPages: 0,
         createdAt: now(),
+        startedAt: now(),
+        completedAt: now(),
         updatedAt: now(),
       },
     ];
@@ -1845,11 +1970,18 @@ async function getGenerationJobSummaries(orderId: string): Promise<AdminOrderDet
         kind: job.kind,
         status: job.status,
         targetPages: job.targetPages,
+        provider: job.provider,
         model: job.model,
+        promptVersion: job.promptVersion,
+        cleanupVersion: job.cleanupVersion,
+        acceptedPageCount: job.acceptedPageCount,
+        failedPageCount: job.failedPageCount,
         queuedPages: pages.filter((page) => page.status === "queued" || page.status === "generated").length,
         approvedPages: pages.filter((page) => page.status === "approved").length,
         failedPages: pages.filter((page) => page.status === "failed").length,
         createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
         updatedAt: job.updatedAt,
       };
     }),

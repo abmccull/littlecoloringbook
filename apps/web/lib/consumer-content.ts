@@ -58,6 +58,52 @@ export type FaqItem = {
   answer: string;
 };
 
+export type GalleryExample = {
+  photoSrc: string;
+  pageSrc: string;
+  photoAlt: string;
+  pageAlt: string;
+  caption: string;
+};
+
+export const galleryExamples: GalleryExample[] = [
+  {
+    photoSrc: "/proof/real-family-play-photo.jpeg",
+    pageSrc: "/proof/real-family-play-coloring-page.jpeg",
+    photoAlt: "Family playing together outdoors",
+    pageAlt: "Coloring page version of family playing outdoors",
+    caption: "A real family moment turned into bold, colorable lines",
+  },
+  {
+    photoSrc: "/proof/real-sword-play-photo.jpeg",
+    pageSrc: "/proof/real-sword-play-coloring-page.jpeg",
+    photoAlt: "Child playing with a toy sword",
+    pageAlt: "Coloring page version of child with toy sword",
+    caption: "An everyday adventure ready for crayons",
+  },
+  {
+    photoSrc: "/proof/kid-photo.jpg",
+    pageSrc: "/proof/kid-page-edges.png",
+    photoAlt: "Close-up portrait of a child",
+    pageAlt: "Coloring page version of child portrait",
+    caption: "Familiar faces make kids want to color every page",
+  },
+  {
+    photoSrc: "/proof/family-photo.jpg",
+    pageSrc: "/proof/family-page.png",
+    photoAlt: "Family photo with parents and child",
+    pageAlt: "Coloring page version of family photo",
+    caption: "One strong family moment, ready to color tonight",
+  },
+  {
+    photoSrc: "/proof/pet-photo.jpg",
+    pageSrc: "/proof/pet-page-edges.png",
+    photoAlt: "Golden retriever portrait",
+    pageAlt: "Coloring page version of golden retriever",
+    caption: "Pets become instant favorites in any coloring book",
+  },
+];
+
 export const proofAssets = {
   familyPhoto: "/proof/family-photo.jpg",
   kidPhoto: "/proof/kid-photo.jpg",

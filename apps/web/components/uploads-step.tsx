@@ -4,6 +4,7 @@ import Link from "next/link";
 import { defaultOffer, getOfferByCode, type OfferCode } from "@littlecolorbook/shared";
 import { getConsumerOffer } from "../lib/consumer-content";
 import { useEffect, useState } from "react";
+import { AddOnsCheckoutPanel } from "./add-ons-checkout-panel";
 import { UploadDropzone } from "./upload-dropzone";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 
@@ -19,16 +20,11 @@ type UploadsStepProps = {
   }>;
 };
 
-type CheckoutResponse = {
-  checkoutUrl?: string;
-  error?: string;
-};
-
 export function UploadsStep({ deliveryMode, orderId, selectedOffer, initialUploadedCount = 0, initialUploads = [] }: UploadsStepProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadedCount, setUploadedCount] = useState(initialUploadedCount);
   const [isUploading, setIsUploading] = useState(false);
+  const [showAddOns, setShowAddOns] = useState(false);
 
   if (!orderId) {
     return (
@@ -73,56 +69,20 @@ export function UploadsStep({ deliveryMode, orderId, selectedOffer, initialUploa
     );
   }, [offer.code, orderId, requiredUploads, resolvedMode, uploadedCount, uploadsReady]);
 
-  async function handleCheckout() {
+  function handleCheckout() {
     if (!uploadsReady) {
       setErrorMessage(`Add all ${requiredUploads} photos before you head to checkout.`);
       return;
     }
 
-    setIsSubmitting(true);
     setErrorMessage(null);
-
-    try {
-      const response = await fetch(`/api/orders/${orderId}/checkout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          selectedOffer: offer.code,
-        }),
-      });
-
-      const payload = (await response.json()) as CheckoutResponse;
-
-      if (!response.ok || !payload.checkoutUrl) {
-        throw new Error(payload.error ?? "We couldn't open checkout. Please try again.");
-      }
-
-      trackEvent("checkout_started", {
-        deliveryMode: resolvedMode,
-        orderId,
-        selectedOffer: offer.code,
-      });
-      trackBuyerJourneyStage(
-        "checkout_started",
-        {
-          orderId,
-          deliveryMode: resolvedMode,
-          selectedOffer: offer.code,
-          surface: "uploads_step_checkout",
-        },
-        {
-          onceKey: `checkout-started:${orderId}`,
-        },
-      );
-
-      window.location.assign(payload.checkoutUrl);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "We couldn't open checkout. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    trackEvent("add_ons_panel_opened", {
+      deliveryMode: resolvedMode,
+      orderId,
+      selectedOffer: offer.code,
+      surface: "uploads_step",
+    });
+    setShowAddOns(true);
   }
 
   const printHref = `/create/shipping?orderId=${encodeURIComponent(orderId)}&selectedOffer=${encodeURIComponent(offer.code)}`;
@@ -179,34 +139,50 @@ export function UploadsStep({ deliveryMode, orderId, selectedOffer, initialUploa
 
       {errorMessage ? <div className="status-banner status-banner-warning">{errorMessage}</div> : null}
 
-      <div className="hero-actions hero-actions-mobile-bar">
-        {resolvedMode === "print" ? (
-          <Link
-            className="button button-primary"
-            href={printHref}
-            aria-disabled={!uploadsReady || isUploading}
-            onClick={(event) => {
-              if (!uploadsReady || isUploading) {
-                event.preventDefault();
-                return;
-              }
-              trackEvent("shipping_step_started", {
-                orderId,
-                selectedOffer: offer.code,
-              });
-            }}
-          >
-            Continue to Delivery
+      {showAddOns && resolvedMode === "pdf" ? (
+        <div className="upload-stack">
+          <div className="status-banner">
+            <span className="pill pill-mint">One more step</span>
+            <p className="muted">
+              Review these options before we take you to checkout. Skip them by scrolling to the checkout button below.
+            </p>
+          </div>
+          <AddOnsCheckoutPanel
+            orderId={orderId}
+            selectedOffer={offer.code}
+            uploadedCount={uploadedCount}
+          />
+        </div>
+      ) : (
+        <div className="hero-actions hero-actions-mobile-bar">
+          {resolvedMode === "print" ? (
+            <Link
+              className="button button-primary"
+              href={printHref}
+              aria-disabled={!uploadsReady || isUploading}
+              onClick={(event) => {
+                if (!uploadsReady || isUploading) {
+                  event.preventDefault();
+                  return;
+                }
+                trackEvent("shipping_step_started", {
+                  orderId,
+                  selectedOffer: offer.code,
+                });
+              }}
+            >
+              Continue to Delivery
+            </Link>
+          ) : (
+            <button className="button button-primary" disabled={isUploading || !uploadsReady} type="button" onClick={handleCheckout}>
+              Go to Secure Checkout
+            </button>
+          )}
+          <Link className="button button-secondary" href={`/create?offer=${encodeURIComponent(offer.code)}`}>
+            Back to sizes
           </Link>
-        ) : (
-          <button className="button button-primary" disabled={isSubmitting || isUploading || !uploadsReady} type="button" onClick={handleCheckout}>
-            {isSubmitting ? "Starting checkout..." : "Go to Secure Checkout"}
-          </button>
-        )}
-        <Link className="button button-secondary" href={`/create?offer=${encodeURIComponent(offer.code)}`}>
-          Back to sizes
-        </Link>
-      </div>
+        </div>
+      )}
     </section>
   );
 }
