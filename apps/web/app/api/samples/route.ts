@@ -51,23 +51,17 @@ export async function POST(request: NextRequest) {
   const attribution = readAttributionSnapshot(request);
   const clientIp = extractClientIp(request);
 
-  // Rate limit checks — run in parallel, gracefully degrade if columns not migrated yet
-  let isBlocked = false;
-  try {
-    const [emailCount, visitorCount, ipCount] = await Promise.all([
-      countSamplesByEmail(parsed.data.email),
-      attribution.visitorId ? countSamplesByVisitor(attribution.visitorId) : Promise.resolve(0),
-      clientIp !== "unknown" ? countSamplesByIp(clientIp) : Promise.resolve(0),
-    ]);
-    isBlocked = emailCount >= 1 || visitorCount >= 1 || ipCount >= 2;
-  } catch {
-    // Rate limit queries may fail if client_ip column migration hasn't run yet.
-    // Degrade gracefully — allow the sample through rather than blocking everyone.
-    console.warn("Rate limit check failed (migration pending?), allowing request through");
-  }
+  // Rate limit checks — one free sample per person, ever
+  const [emailCount, visitorCount, ipCount] = await Promise.all([
+    countSamplesByEmail(parsed.data.email),
+    attribution.visitorId ? countSamplesByVisitor(attribution.visitorId) : Promise.resolve(0),
+    clientIp !== "unknown" ? countSamplesByIp(clientIp) : Promise.resolve(0),
+  ]);
+
+  const isBlocked = emailCount >= 1 || visitorCount >= 1 || ipCount >= 2;
 
   if (isBlocked) {
-    const existingOrderId = await findExistingSampleOrderId(parsed.data.email).catch(() => null);
+    const existingOrderId = await findExistingSampleOrderId(parsed.data.email);
     return NextResponse.json(
       {
         blocked: true,
