@@ -18,6 +18,10 @@ import {
 } from "../../../../lib/stripe";
 import { deliverLifecycleEmail } from "../../../../lib/lifecycle-email";
 import { ensureCustomerAccount } from "../../../../lib/customer-account";
+import {
+  enrollInAbandonment,
+  enrollInPostPurchase,
+} from "../../../../lib/sequence-enrollment";
 
 function getPaymentIntentId(session: Stripe.Checkout.Session) {
   if (!session.payment_intent) {
@@ -88,6 +92,18 @@ async function handleCheckoutCompleted(event: Stripe.Event, session: Stripe.Chec
   // triggers sendSignInOtp. We no longer send a separate account-welcome
   // email from Resend here — Neon's email + the existing order-paid email
   // cover the ground without duplicating an inbox hit.
+
+  // Post-purchase sequence enrollment — fires the first "thank you" email
+  // 1 day after checkout. For PDF orders this runs before delivery is
+  // confirmed, which is the intended behavior (the thank-you email is
+  // generic and relevant to both PDF and print).
+  if (customerId) {
+    try {
+      await enrollInPostPurchase({ customerId, orderId });
+    } catch (error) {
+      console.error("stripe webhook: enrollInPostPurchase failed", error);
+    }
+  }
 
   return { orderId, accountStatus };
 }
@@ -181,6 +197,24 @@ export async function POST(request: NextRequest) {
           stripeCheckoutSessionId: session.id,
           rawEventId: event.id,
         });
+
+        // Abandonment sequence enrollment — only if we can reach the
+        // customer and the session had a real email attached.
+        const customerEmail = session.customer_details?.email ?? null;
+        if (customerEmail) {
+          try {
+            const row = await getOrderById(orderId);
+            if (row?.customerId) {
+              await enrollInAbandonment({
+                customerId: row.customerId,
+                orderId,
+                checkoutResumeUrl: null,
+              });
+            }
+          } catch (error) {
+            console.error("stripe webhook: enrollInAbandonment failed", error);
+          }
+        }
       }
 
       await markStripeWebhookProcessed({

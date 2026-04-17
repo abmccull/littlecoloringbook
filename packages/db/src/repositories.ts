@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, count, desc, eq, gt, inArray, isNotNull, ne } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import {
   getNormalizedOrderQuantity,
   getOfferByCode,
@@ -12,6 +12,8 @@ import { getDatabase, isDatabaseConfigured } from "./client";
 import {
   customers,
   customerUserLinks,
+  emailSends,
+  emailSequenceStates,
   orderAddresses,
   orderEvents,
   orders,
@@ -28,6 +30,8 @@ import {
   assetKindValues,
   deliveryModeValues,
   emailEventStatusValues,
+  emailSendSequenceValues,
+  emailSendStatusValues,
   fulfillmentStatusValues,
   generationJobKindValues,
   generationJobStatusValues,
@@ -2353,6 +2357,245 @@ export async function recordSupportAction(input: {
 /* ------------------------------------------------------------------
  * Marketing consent management
  * ------------------------------------------------------------------ */
+
+export type EmailSequenceKey = (typeof emailSendSequenceValues)[number];
+export type EmailSendStatus = (typeof emailSendStatusValues)[number];
+
+export type EnrollSequenceInput = {
+  customerId: string;
+  sequence: EmailSequenceKey;
+  nextSendAt: Date;
+  metadata?: Record<string, unknown> | null;
+  resetIfExists?: boolean;
+};
+
+/**
+ * Enroll a customer in a sequence. Idempotent on (customer, sequence):
+ * if already enrolled, no-op unless `resetIfExists` is true.
+ */
+export async function enrollCustomerInSequence(input: EnrollSequenceInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+
+  const existing = await db.query.emailSequenceStates.findFirst({
+    where: and(
+      eq(emailSequenceStates.customerId, input.customerId),
+      eq(emailSequenceStates.sequence, input.sequence),
+    ),
+  });
+
+  if (existing && !input.resetIfExists) {
+    return existing;
+  }
+
+  if (existing && input.resetIfExists) {
+    await db
+      .update(emailSequenceStates)
+      .set({
+        status: "active",
+        currentStep: 0,
+        nextSendAt: input.nextSendAt,
+        enrolledAt: now(),
+        completedAt: null,
+        lastSendAt: null,
+        metadata: input.metadata ?? null,
+      })
+      .where(eq(emailSequenceStates.id, existing.id));
+    return { ...existing, status: "active" as const, currentStep: 0, nextSendAt: input.nextSendAt, metadata: input.metadata ?? null };
+  }
+
+  const record = {
+    id: createId("seq"),
+    customerId: input.customerId,
+    sequence: input.sequence,
+    status: "active" as const,
+    currentStep: 0,
+    nextSendAt: input.nextSendAt,
+    enrolledAt: now(),
+    completedAt: null as Date | null,
+    lastSendAt: null as Date | null,
+    metadata: input.metadata ?? null,
+  };
+  await db.insert(emailSequenceStates).values(record).onConflictDoNothing();
+  return record;
+}
+
+export async function stopSequenceForCustomer(input: {
+  customerId: string;
+  sequence: EmailSequenceKey;
+  reason: "unsubscribed" | "purchased" | "bounced" | "admin";
+}) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(emailSequenceStates)
+    .set({ status: input.reason === "purchased" ? "purchased" : "stopped", completedAt: now() })
+    .where(
+      and(
+        eq(emailSequenceStates.customerId, input.customerId),
+        eq(emailSequenceStates.sequence, input.sequence),
+      ),
+    );
+}
+
+export async function stopAllMarketingSequencesForCustomer(customerId: string) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(emailSequenceStates)
+    .set({ status: "stopped", completedAt: now() })
+    .where(and(eq(emailSequenceStates.customerId, customerId), eq(emailSequenceStates.status, "active")));
+}
+
+export type DueSequenceStep = {
+  stateId: string;
+  customerId: string;
+  sequence: EmailSequenceKey;
+  currentStep: number;
+  nextSendAt: Date;
+  customerEmail: string;
+  customerFirstName: string | null;
+  marketingOptIn: boolean;
+  metadata: Record<string, unknown> | null;
+};
+
+/**
+ * Find up-to `limit` sequence states whose next_send_at is due. Returns
+ * the joined customer info so the caller can render + send in one pass.
+ */
+export async function listDueSequenceSteps(limit = 25): Promise<DueSequenceStep[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const dueNow = now();
+
+  const rows = await db
+    .select({
+      stateId: emailSequenceStates.id,
+      customerId: emailSequenceStates.customerId,
+      sequence: emailSequenceStates.sequence,
+      currentStep: emailSequenceStates.currentStep,
+      nextSendAt: emailSequenceStates.nextSendAt,
+      metadata: emailSequenceStates.metadata,
+      customerEmail: customers.email,
+      customerFirstName: customers.firstName,
+      marketingOptIn: customers.marketingOptIn,
+    })
+    .from(emailSequenceStates)
+    .innerJoin(customers, eq(emailSequenceStates.customerId, customers.id))
+    .where(
+      and(
+        eq(emailSequenceStates.status, "active"),
+        isNotNull(emailSequenceStates.nextSendAt),
+      ),
+    )
+    .orderBy(emailSequenceStates.nextSendAt)
+    .limit(limit);
+
+  return rows
+    .filter((r) => r.nextSendAt && r.nextSendAt <= dueNow)
+    .map((r) => ({
+      stateId: r.stateId,
+      customerId: r.customerId,
+      sequence: r.sequence as EmailSequenceKey,
+      currentStep: r.currentStep,
+      nextSendAt: r.nextSendAt!,
+      customerEmail: r.customerEmail,
+      customerFirstName: r.customerFirstName,
+      marketingOptIn: r.marketingOptIn,
+      metadata: (r.metadata as Record<string, unknown> | null) ?? null,
+    }));
+}
+
+export async function advanceSequenceState(input: {
+  stateId: string;
+  nextStep: number;
+  nextSendAt: Date | null;
+}) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(emailSequenceStates)
+    .set({
+      currentStep: input.nextStep,
+      nextSendAt: input.nextSendAt,
+      lastSendAt: now(),
+      status: input.nextSendAt ? "active" : "completed",
+      completedAt: input.nextSendAt ? null : now(),
+    })
+    .where(eq(emailSequenceStates.id, input.stateId));
+}
+
+export async function recordSequenceSendAttempt(input: {
+  customerId: string;
+  orderId?: string | null;
+  sequence: EmailSequenceKey;
+  step: number;
+  template: string;
+  toEmail: string;
+  subject: string;
+  providerMessageId?: string | null;
+  status: EmailSendStatus;
+  error?: string | null;
+}) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db.insert(emailSends).values({
+    id: createId("ems"),
+    customerId: input.customerId,
+    orderId: input.orderId ?? null,
+    sequence: input.sequence,
+    step: input.step,
+    template: input.template,
+    toEmail: input.toEmail,
+    subject: input.subject,
+    provider: "resend",
+    providerMessageId: input.providerMessageId ?? null,
+    status: input.status,
+    sentAt: input.status === "sent" ? now() : null,
+    error: input.error ?? null,
+  });
+}
+
+export async function findInactiveCustomersSince(input: {
+  lastOrderBefore: Date;
+  limit?: number;
+}) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const limit = input.limit ?? 100;
+
+  // Customers whose most-recent order was before the cutoff AND who are
+  // not already enrolled in re_engagement.
+  const rows = await db.execute(sql<{
+    customer_id: string;
+    email: string;
+    first_name: string | null;
+    last_order_at: Date;
+  }>`
+    SELECT c.id AS customer_id,
+           c.email,
+           c.first_name,
+           MAX(o.created_at) AS last_order_at
+    FROM customers c
+    JOIN orders o ON o.customer_id = c.id
+    WHERE c.marketing_opt_in = true
+      AND NOT EXISTS (
+        SELECT 1 FROM email_sequence_states s
+        WHERE s.customer_id = c.id AND s.sequence = 're_engagement'
+      )
+    GROUP BY c.id, c.email, c.first_name
+    HAVING MAX(o.created_at) < ${input.lastOrderBefore}
+    ORDER BY last_order_at DESC
+    LIMIT ${limit}
+  `);
+
+  return (rows as unknown as Array<{ customer_id: string; email: string; first_name: string | null; last_order_at: Date }>).map((r) => ({
+    customerId: r.customer_id,
+    email: r.email,
+    firstName: r.first_name,
+    lastOrderAt: r.last_order_at,
+  }));
+}
 
 export type MarketingConsentUpdate = {
   customerId: string;

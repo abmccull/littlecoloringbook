@@ -13,6 +13,14 @@
     {
       "path": "/api/cron/newsletter-thursday",
       "schedule": "0 13 * * 4"
+    },
+    {
+      "path": "/api/cron/email-sequences",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/re-engagement-sweep",
+      "schedule": "0 16 * * 2"
     }
   ]
 }

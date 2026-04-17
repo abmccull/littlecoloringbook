@@ -2,8 +2,10 @@ import Link from "next/link";
 import { createPortalAccessForOrder, getOrderPortalSummaryByOrderId } from "@littlecolorbook/db";
 import { getOfferByCode } from "@littlecolorbook/shared";
 import { BrandLogo } from "../../../components/brand-logo";
+import { ConsentForm } from "../../../components/account/consent-form";
 import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
+import { getCustomerSession } from "../../../lib/auth";
 
 function formatMoney(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -20,6 +22,7 @@ export default async function OrderConfirmationPage({
   const { orderId } = await searchParams;
   const summary = orderId ? await getOrderPortalSummaryByOrderId(orderId) : null;
   const portalAccess = summary ? await createPortalAccessForOrder(summary.order.id) : null;
+  const customerSession = await getCustomerSession().catch(() => null);
   const offer = getOfferByCode(summary?.order.selectedOfferCode ?? "pdf-30");
   const portalHref = portalAccess?.portalHref ?? "/create";
   const hasConfirmedOrder = Boolean(summary);
@@ -88,6 +91,28 @@ export default async function OrderConfirmationPage({
             {hasConfirmedOrder ? "Open My Order Page" : "Go Back to Builder"}
           </Link>
         </div>
+
+        {hasConfirmedOrder && customerSession ? (
+          <div className="surface" style={{ marginTop: "24px" }}>
+            <h3>One small ask</h3>
+            <p className="muted">
+              Two quick checkboxes so we know how to treat your account. You can change these any time from your account
+              settings.
+            </p>
+            <ConsentForm initialMarketingOptIn={false} initialFeatureConsent={null} />
+          </div>
+        ) : hasConfirmedOrder ? (
+          <div className="surface" style={{ marginTop: "24px" }}>
+            <h3>Want your pages featured?</h3>
+            <p className="muted">
+              Check your inbox for a sign-in link. From your account settings you can opt into the weekly newsletter and
+              choose whether your pages can appear in our gallery.
+            </p>
+            <Link className="button button-secondary" href="/sign-in">
+              Sign in to your account
+            </Link>
+          </div>
+        ) : null}
       </section>
     </main>
   );

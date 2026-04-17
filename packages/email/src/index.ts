@@ -165,6 +165,56 @@ ${signoff(supportEmail)}`;
   };
 }
 
+export type SequenceEmailDispatchInput = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+};
+
+export type SequenceEmailDispatchResult = {
+  provider: "resend" | "stub";
+  status: "sent" | "skipped";
+  messageId: string | null;
+};
+
+export async function sendSequenceEmail(input: SequenceEmailDispatchInput): Promise<SequenceEmailDispatchResult> {
+  if (!isEmailConfigured()) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Resend email delivery is not configured.");
+    }
+    return { provider: "stub", status: "skipped", messageId: null };
+  }
+
+  const env = getEmailEnv();
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: env.fromEmail,
+      to: [input.to],
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      reply_to: input.replyTo ?? env.supportEmail,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Resend sequence send failed: ${response.status} ${errorText}`);
+  }
+
+  const data = (await response.json()) as { id?: string };
+  return { provider: "resend", status: "sent", messageId: data.id ?? null };
+}
+
+export * from "./sequences";
+
 export async function sendLifecycleEmail(input: LifecycleEmailInput): Promise<LifecycleEmailResult> {
   const payload = renderLifecycleEmail(input);
 
