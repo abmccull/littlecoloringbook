@@ -396,7 +396,7 @@ export function getIntegrationStatus() {
     stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
     stripeAccountConfigured: Boolean(process.env.STRIPE_ACCOUNT_ID),
     resendConfigured: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
-    clerkConfigured: Boolean(process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY),
+    adminAuthConfigured: Boolean((process.env.ADMIN_EMAILS ?? "").trim()),
     emailConfigured: isEmailConfigured(),
     gcsConfigured,
     gaConfigured: Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID),

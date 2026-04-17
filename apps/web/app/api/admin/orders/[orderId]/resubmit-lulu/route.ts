@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordSupportAction, setOrderStatus } from "@littlecolorbook/db";
 import { z } from "zod";
-import { isClerkConfigured, requireAdminApiSession } from "../../../../../../lib/auth";
+import { requireAdminApiSession } from "../../../../../../lib/auth";
 
 const resubmitSchema = z.object({
   reason: z.string().trim().max(500).optional(),
@@ -11,10 +11,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
   const session = await requireAdminApiSession();
 
   if (!session) {
-    return NextResponse.json(
-      { error: isClerkConfigured() ? "Unauthorized" : "Admin auth is not configured." },
-      { status: isClerkConfigured() ? 401 : 503 },
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { orderId } = await context.params;

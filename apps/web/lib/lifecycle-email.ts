@@ -16,6 +16,7 @@ export async function deliverLifecycleEmail(input: {
   orderId: string;
   template: LifecycleEmailTemplate;
   force?: boolean;
+  magicLinkUrl?: string | null;
 }) {
   const summary = await getOrderPortalSummaryByOrderId(input.orderId);
 
@@ -75,6 +76,8 @@ export async function deliverLifecycleEmail(input: {
     },
   });
 
+  const accountUrl = `${getAppUrl()}/account/orders/${summary.order.id}`;
+
   try {
     const result = await sendLifecycleEmail({
       template: input.template,
@@ -89,6 +92,8 @@ export async function deliverLifecycleEmail(input: {
       downloadUrl,
       trackingUrl: summary.fulfillment?.trackingUrl ?? null,
       supportEmail,
+      accountUrl,
+      magicLinkUrl: input.magicLinkUrl ?? null,
     });
 
     await recordLifecycleEmailEvent({

@@ -111,6 +111,49 @@ export async function createSignedDownloadUrl({
   };
 }
 
+export type DownloadObjectStream = {
+  stream: ReadableStream<Uint8Array>;
+  contentType: string | null;
+  contentLength: number | null;
+};
+
+/**
+ * Open a readable stream for the given object so a route handler can proxy
+ * it to the browser. Preferred over signed-URL redirects for authenticated
+ * downloads because the signed URL never lands in browser history/referer.
+ */
+export async function downloadObjectStream({
+  bucket,
+  objectPath,
+}: DownloadObjectRequest): Promise<DownloadObjectStream | null> {
+  const file = getStorageClient().bucket(getBucketName(bucket)).file(objectPath);
+  const [exists] = await file.exists();
+
+  if (!exists) {
+    return null;
+  }
+
+  const [metadata] = await file.getMetadata();
+  const nodeStream = file.createReadStream();
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      nodeStream.on("data", (chunk) => controller.enqueue(chunk as Uint8Array));
+      nodeStream.on("end", () => controller.close());
+      nodeStream.on("error", (error) => controller.error(error));
+    },
+    cancel() {
+      nodeStream.destroy();
+    },
+  });
+
+  return {
+    stream,
+    contentType: typeof metadata.contentType === "string" ? metadata.contentType : null,
+    contentLength: typeof metadata.size === "string" ? Number(metadata.size) : typeof metadata.size === "number" ? metadata.size : null,
+  };
+}
+
 export async function uploadObject({
   bucket,
   objectPath,

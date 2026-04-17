@@ -11,11 +11,13 @@ import {
 import { getDatabase, isDatabaseConfigured } from "./client";
 import {
   customers,
+  customerUserLinks,
   orderAddresses,
   orderEvents,
   orders,
   portalTokens,
   shippingQuotes,
+  stripeWebhookEvents,
   uploads,
   assets,
   emailEvents,
@@ -2346,4 +2348,219 @@ export async function recordSupportAction(input: {
     ...record,
     databaseConfigured: true,
   };
+}
+
+/* ------------------------------------------------------------------
+ * Customer <-> Stack user linking (Phase 1 of accounts/tickets/refunds)
+ * ------------------------------------------------------------------ */
+
+export type CustomerUserLinkSource = "post_purchase" | "self_signup" | "admin_link";
+
+export type CustomerUserLink = {
+  id: string;
+  stackUserId: string;
+  customerId: string;
+  source: string;
+  linkedAt: Date;
+};
+
+export async function findCustomerUserLinkByStackUserId(stackUserId: string): Promise<CustomerUserLink | null> {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const db = getDatabase();
+  const link = await db.query.customerUserLinks.findFirst({
+    where: eq(customerUserLinks.stackUserId, stackUserId),
+  });
+
+  return link ?? null;
+}
+
+export async function findCustomerUserLinkByCustomerId(customerId: string): Promise<CustomerUserLink | null> {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const db = getDatabase();
+  const link = await db.query.customerUserLinks.findFirst({
+    where: eq(customerUserLinks.customerId, customerId),
+  });
+
+  return link ?? null;
+}
+
+export async function createCustomerUserLink(input: {
+  stackUserId: string;
+  customerId: string;
+  source?: CustomerUserLinkSource;
+}): Promise<CustomerUserLink> {
+  const record = {
+    id: createId("cul"),
+    stackUserId: input.stackUserId,
+    customerId: input.customerId,
+    source: input.source ?? "post_purchase",
+    linkedAt: now(),
+  };
+
+  if (!isDatabaseConfigured()) {
+    return record;
+  }
+
+  const db = getDatabase();
+  const existing = await db.query.customerUserLinks.findFirst({
+    where: eq(customerUserLinks.stackUserId, input.stackUserId),
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  await db.insert(customerUserLinks).values(record).onConflictDoNothing();
+
+  const stored = await db.query.customerUserLinks.findFirst({
+    where: eq(customerUserLinks.stackUserId, input.stackUserId),
+  });
+
+  return stored ?? record;
+}
+
+/**
+ * Used on first sign-in: find the customer row by email and link it to the
+ * Stack user id. Creates a customer row if none exists. Returns the link.
+ */
+export async function linkStackUserToCustomerByEmail(input: {
+  stackUserId: string;
+  email: string;
+  source?: CustomerUserLinkSource;
+}): Promise<CustomerUserLink> {
+  const existingLink = await findCustomerUserLinkByStackUserId(input.stackUserId);
+
+  if (existingLink) {
+    return existingLink;
+  }
+
+  const customer = await upsertCustomerByEmail({ email: input.email });
+
+  return createCustomerUserLink({
+    stackUserId: input.stackUserId,
+    customerId: customer.id,
+    source: input.source ?? "self_signup",
+  });
+}
+
+/* ------------------------------------------------------------------
+ * Customer-scoped order queries
+ * ------------------------------------------------------------------ */
+
+export async function listOrdersForCustomer(customerId: string, limit = 50): Promise<AdminQueueItem[]> {
+  if (!isDatabaseConfigured()) {
+    return [];
+  }
+
+  const db = getDatabase();
+  const customer = await db.query.customers.findFirst({ where: eq(customers.id, customerId) });
+
+  if (!customer) {
+    return [];
+  }
+
+  const rows = await db.query.orders.findMany({
+    where: and(eq(orders.customerId, customerId), ne(orders.status, "draft")),
+    orderBy: [desc(orders.createdAt)],
+    limit,
+  });
+
+  return rows.map((order) => ({
+    id: order.id,
+    status: order.status,
+    deliveryMode: order.deliveryMode,
+    selectedOfferCode: order.selectedOfferCode,
+    totalCents: order.totalCents,
+    designCount: order.designCount,
+    childFirstName: order.childFirstName,
+    customerEmail: customer.email,
+    createdAt: order.createdAt,
+    luluPrintJobId: order.luluPrintJobId,
+  }));
+}
+
+export async function getOrderForCustomer(input: {
+  customerId: string;
+  orderId: string;
+}): Promise<PortalSummary | null> {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const db = getDatabase();
+  const order = await db.query.orders.findFirst({
+    where: and(eq(orders.id, input.orderId), eq(orders.customerId, input.customerId)),
+  });
+
+  if (!order) {
+    return null;
+  }
+
+  return buildPortalSummaryFromOrder(order, `/account/orders/${order.id}`);
+}
+
+/* ------------------------------------------------------------------
+ * Stripe webhook idempotency
+ * ------------------------------------------------------------------ */
+
+export type StripeWebhookEventStatus = "received" | "processed" | "ignored" | "failed";
+
+/**
+ * Insert a stripe webhook event row. Returns { firstSeen: true } the first
+ * time the event is seen; { firstSeen: false } if the event was already
+ * recorded (duplicate delivery). Safe to call concurrently — relies on the
+ * unique index on stripe_event_id.
+ */
+export async function recordStripeWebhookReceipt(input: {
+  stripeEventId: string;
+  type: string;
+  orderId?: string | null;
+  payload?: Record<string, unknown> | null;
+}): Promise<{ firstSeen: boolean }> {
+  if (!isDatabaseConfigured()) {
+    return { firstSeen: true };
+  }
+
+  const db = getDatabase();
+  const inserted = await db
+    .insert(stripeWebhookEvents)
+    .values({
+      id: createId("swe"),
+      stripeEventId: input.stripeEventId,
+      type: input.type,
+      orderId: input.orderId ?? null,
+      payload: input.payload ?? null,
+      status: "received",
+      receivedAt: now(),
+    })
+    .onConflictDoNothing({ target: stripeWebhookEvents.stripeEventId })
+    .returning({ id: stripeWebhookEvents.id });
+
+  return { firstSeen: inserted.length > 0 };
+}
+
+export async function markStripeWebhookProcessed(input: {
+  stripeEventId: string;
+  status: StripeWebhookEventStatus;
+  orderId?: string | null;
+}): Promise<void> {
+  if (!isDatabaseConfigured()) {
+    return;
+  }
+
+  const db = getDatabase();
+  await db
+    .update(stripeWebhookEvents)
+    .set({
+      status: input.status,
+      processedAt: now(),
+      ...(input.orderId ? { orderId: input.orderId } : {}),
+    })
+    .where(eq(stripeWebhookEvents.stripeEventId, input.stripeEventId));
 }

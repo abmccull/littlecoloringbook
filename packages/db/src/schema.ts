@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const orderTypeValues = ["sample", "pdf", "print"] as const;
@@ -110,6 +111,12 @@ export const orders = pgTable(
     customerIdx: index("orders_customer_idx").on(table.customerId),
     visitorIdx: index("orders_visitor_idx").on(table.visitorId),
     statusIdx: index("orders_status_idx").on(table.status),
+    stripeCheckoutSessionUnique: uniqueIndex("orders_stripe_checkout_session_unique")
+      .on(table.stripeCheckoutSessionId)
+      .where(sql`${table.stripeCheckoutSessionId} IS NOT NULL`),
+    luluPrintJobIdx: index("orders_lulu_print_job_idx")
+      .on(table.luluPrintJobId)
+      .where(sql`${table.luluPrintJobId} IS NOT NULL`),
   }),
 );
 
@@ -322,6 +329,41 @@ export const orderEvents = pgTable(
   }),
 );
 
+export const customerUserLinks = pgTable(
+  "customer_user_links",
+  {
+    id: text("id").primaryKey(),
+    stackUserId: text("stack_user_id").notNull(),
+    customerId: text("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+    source: text("source").default("post_purchase").notNull(),
+    linkedAt: timestamp("linked_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    stackUserUnique: uniqueIndex("customer_user_links_stack_user_id_unique").on(table.stackUserId),
+    customerIdx: index("customer_user_links_customer_idx").on(table.customerId),
+  }),
+);
+
+export const stripeWebhookEventStatusValues = ["received", "processed", "ignored", "failed"] as const;
+
+export const stripeWebhookEvents = pgTable(
+  "stripe_webhook_events",
+  {
+    id: text("id").primaryKey(),
+    stripeEventId: text("stripe_event_id").notNull(),
+    type: text("type").notNull(),
+    orderId: text("order_id").references(() => orders.id, { onDelete: "set null" }),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    status: text("status").default("received").notNull().$type<(typeof stripeWebhookEventStatusValues)[number]>(),
+    payload: jsonb("payload").$type<Record<string, unknown> | null>(),
+  },
+  (table) => ({
+    eventIdUnique: uniqueIndex("stripe_webhook_events_event_id_unique").on(table.stripeEventId),
+    orderIdx: index("stripe_webhook_events_order_idx").on(table.orderId),
+  }),
+);
+
 export const tableNames = {
   customers: "customers",
   orders: "orders",
@@ -336,4 +378,6 @@ export const tableNames = {
   supportActions: "support_actions",
   orderEvents: "order_events",
   portalTokens: "portal_tokens",
+  customerUserLinks: "customer_user_links",
+  stripeWebhookEvents: "stripe_webhook_events",
 } as const;

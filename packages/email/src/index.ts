@@ -6,7 +6,8 @@ export type LifecycleEmailTemplate =
   | "pdf-ready"
   | "print-submitted"
   | "order-shipped"
-  | "order-delivered";
+  | "order-delivered"
+  | "account-welcome";
 
 export type LifecycleEmailInput = {
   template: LifecycleEmailTemplate;
@@ -21,6 +22,8 @@ export type LifecycleEmailInput = {
   downloadUrl?: string | null;
   trackingUrl?: string | null;
   supportEmail?: string | null;
+  accountUrl?: string | null;
+  magicLinkUrl?: string | null;
 };
 
 export type LifecycleEmailPayload = {
@@ -66,7 +69,8 @@ Portal: ${input.portalUrl}`;
 
 We received your order for ${orderLine}. We are now turning the uploaded photos into your coloring pages${childLine}.
 
-Portal: ${input.portalUrl}
+Portal: ${input.portalUrl}${input.accountUrl ? `
+Manage your order: ${input.accountUrl}` : ""}
 
 ${signoff(supportEmail)}`;
       break;
@@ -90,7 +94,8 @@ ${signoff(supportEmail)}`;
 Your personalized coloring book PDF is ready.
 
 Download: ${input.downloadUrl ?? input.portalUrl}
-Portal: ${input.portalUrl}
+Portal: ${input.portalUrl}${input.accountUrl ? `
+Manage your order: ${input.accountUrl}` : ""}
 
 ${signoff(supportEmail)}`;
       }
@@ -101,7 +106,8 @@ ${signoff(supportEmail)}`;
 
 Your print order has been submitted to Lulu and is moving into production. You can follow progress in your portal.
 
-Portal: ${input.portalUrl}
+Portal: ${input.portalUrl}${input.accountUrl ? `
+Manage your order: ${input.accountUrl}` : ""}
 
 ${signoff(supportEmail)}`;
       break;
@@ -112,7 +118,10 @@ ${signoff(supportEmail)}`;
 Your printed coloring book is on the way.
 
 Tracking: ${input.trackingUrl ?? "Tracking will appear in your portal shortly."}
-Portal: ${input.portalUrl}
+Portal: ${input.portalUrl}${input.accountUrl ? `
+Manage your order: ${input.accountUrl}` : ""}
+
+Signed-in tip: the "Get help" button on your order page opens a support ticket directly.
 
 ${signoff(supportEmail)}`;
       break;
@@ -122,10 +131,26 @@ ${signoff(supportEmail)}`;
 
 Your printed coloring book shows as delivered.
 
-Portal: ${input.portalUrl}
+Portal: ${input.portalUrl}${input.accountUrl ? `
+Manage your order: ${input.accountUrl}` : ""}
 
 ${signoff(supportEmail)}`;
       break;
+    case "account-welcome": {
+      const accountLink = input.magicLinkUrl ?? input.accountUrl ?? input.portalUrl;
+      subject = `${APP_NAME}: your account is ready`;
+      body = `${intro}
+
+Thanks for ordering ${orderLine}${childLine}. We set up a ${APP_NAME} account under ${input.to} so you can check on this order, grab the PDF again later, and open a support ticket if anything needs a second look.
+
+Sign in with one click:
+${accountLink}
+
+This link will email you a sign-in code each time, so there's no password to remember. Your order confirmation and portal link still work too.
+
+${signoff(supportEmail)}`;
+      break;
+    }
   }
 
   const html = body

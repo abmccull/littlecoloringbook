@@ -10,7 +10,7 @@
     "@littlecolorbook/pipeline": "file:../../packages/pipeline",
     "@littlecolorbook/queue": "file:../../packages/queue",
     "@littlecolorbook/shared": "file:../../packages/shared",
-    "@clerk/nextjs": "^7.0.11",
+    "@neondatabase/auth": "0.2.0-beta.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "next": "^16.2.2",

@@ -1,38 +1,57 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import type { NextFetchEvent, NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { applyAttributionCookies } from "./lib/attribution-cookies";
 
-const isProtectedRoute = createRouteMatcher(["/admin(.*)"]);
+const ADMIN_PATH = /^\/admin(?:$|\/|\?)/;
+const HANDLER_SIGNIN_PATH = /^\/api\/auth\/(?:sign-in|send-magic-link|otp|magic-link)/;
 
-const clerkProxy = clerkMiddleware(async (auth, request) => {
-  if (isProtectedRoute(request)) {
-    await auth.protect();
+// Naive in-memory sliding window. Fine for a single Vercel instance;
+// swap for Upstash/Redis once we need global rate limiting.
+const signInWindow = new Map<string, number[]>();
+const SIGN_IN_WINDOW_MS = 60_000;
+const SIGN_IN_MAX_REQUESTS = 5;
+
+function getClientIp(request: NextRequest) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() ?? request.headers.get("x-real-ip") ?? "unknown";
+}
+
+function isRateLimited(ip: string) {
+  const now = Date.now();
+  const prior = signInWindow.get(ip) ?? [];
+  const kept = prior.filter((ts) => now - ts < SIGN_IN_WINDOW_MS);
+  if (kept.length >= SIGN_IN_MAX_REQUESTS) {
+    signInWindow.set(ip, kept);
+    return true;
   }
-});
+  kept.push(now);
+  signInWindow.set(ip, kept);
+  return false;
+}
 
-export default async function proxy(request: NextRequest, event: NextFetchEvent) {
-  const clerkConfigured = Boolean(process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+export default async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-  if (!clerkConfigured) {
-    if (process.env.NODE_ENV === "production" && isProtectedRoute(request)) {
-      return new NextResponse("Admin auth is not configured.", { status: 503 });
+  if (request.method === "POST" && HANDLER_SIGNIN_PATH.test(pathname)) {
+    if (isRateLimited(getClientIp(request))) {
+      return new NextResponse("Too many sign-in attempts. Try again in a minute.", { status: 429 });
     }
-
-    return applyAttributionCookies(request, NextResponse.next());
   }
 
-  const response = await clerkProxy(request, event);
-  const baseResponse = response
-    ? response instanceof NextResponse
-      ? response
-      : new NextResponse(response.body, {
-          headers: response.headers,
-          status: response.status,
-          statusText: response.statusText,
-        })
-    : NextResponse.next();
-  return applyAttributionCookies(request, baseResponse);
+  // /admin and /account are guarded server-side by requireAdminSession /
+  // requireCustomerSession respectively. The proxy only provides an extra
+  // defensive 503 when Stack Auth is not configured in production.
+  const authMissing = !process.env.BETTER_AUTH_URL || !process.env.BETTER_AUTH_SECRET;
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    authMissing &&
+    (ADMIN_PATH.test(pathname) || pathname.startsWith("/account"))
+  ) {
+    return new NextResponse("Auth is not configured.", { status: 503 });
+  }
+
+  return applyAttributionCookies(request, NextResponse.next());
 }
 
 export const config = {

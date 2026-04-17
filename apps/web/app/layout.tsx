@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { Suspense } from "react";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Bree_Serif, Nunito_Sans, Patrick_Hand } from "next/font/google";
 import { AnalyticsProvider } from "../components/analytics-provider";
 import { brandTheme } from "../lib/brand-theme";
@@ -54,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "--frame-book": brandTheme.imageFrames.book,
   } as CSSProperties;
 
-  const app = (
+  return (
     <html data-scroll-behavior="smooth" lang="en" style={themeVariables}>
       <body className={`${bodyFont.variable} ${displayFont.variable} ${accentFont.variable}`}>
         {children}
@@ -64,10 +63,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </body>
     </html>
   );
-
-  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
-    return app;
-  }
-
-  return <ClerkProvider>{app}</ClerkProvider>;
 }
