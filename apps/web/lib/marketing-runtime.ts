@@ -464,8 +464,9 @@ async function persistBinaryAsset(input: {
   width?: number | null;
   height?: number | null;
   durationMs?: number | null;
+  renderProfile?: string | null;
   suffix: string;
-  provider: "internal-renderer" | "gemini" | "video-api";
+  provider: "internal-renderer" | "gemini" | "custom-python" | "video-api";
 }) {
   const extension = inferExtension(input.contentType);
   const assetId = createMarketingRequestId("mktast");
@@ -501,9 +502,10 @@ async function persistBinaryAsset(input: {
     bundleOffer: input.request.bundleOffer,
     occasion: input.request.occasion ?? null,
     renderProfile:
-      input.provider === "gemini"
-        ? `gemini:${getPipelineRenderSettings(input.request.deliveryMode ?? (input.request.offerId.startsWith("print-") ? "print" : "pdf"), "sample").model}`
-        : input.provider,
+      input.renderProfile ??
+      (input.provider === "gemini" || input.provider === "custom-python"
+        ? `${input.provider}:${getPipelineRenderSettings(input.request.deliveryMode ?? (input.request.offerId.startsWith("print-") ? "print" : "pdf"), "sample").model}`
+        : input.provider),
     createdAt: new Date().toISOString(),
   } satisfies InternalProductAssetResponseAsset;
 }
@@ -587,9 +589,12 @@ export async function executeInternalProductRender(input: InternalProductAssetRe
       renderMarketingPage({
         childFirstName: input.childFirstName,
         deliveryMode,
+        fallbackModel: renderSettings.fallbackModel,
+        fallbackProvider: renderSettings.fallbackProvider,
         jobKind: input.orderStyle === "sample" ? "sample" : "full_book",
         pageNumber: index + 1,
         primaryModel: renderSettings.model,
+        primaryProvider: renderSettings.provider,
         imageSize: renderSettings.imageSize,
         source: {
           buffer: source.buffer,
@@ -614,8 +619,9 @@ export async function executeInternalProductRender(input: InternalProductAssetRe
         contentType: preferredImageType,
         width: 2400,
         height: 3105,
+        renderProfile: `${firstPage.provider}:${firstPage.model}`,
         suffix: "sample-page",
-        provider: "gemini",
+        provider: firstPage.provider,
       }),
     );
   }
