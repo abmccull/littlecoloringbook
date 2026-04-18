@@ -37,6 +37,14 @@
     {
       "path": "/api/cron/ads-launch-batch",
       "schedule": "0 13,17,21 * * *"
+    },
+    {
+      "path": "/api/cron/ads-entity-sync",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/ads-insights-rollup",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

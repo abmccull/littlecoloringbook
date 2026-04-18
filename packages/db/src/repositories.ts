@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, count, desc, eq, gt, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, gt, gte, inArray, isNotNull, lte, ne, sql, sum } from "drizzle-orm";
 import {
   getNormalizedOrderQuantity,
   getOfferByCode,
@@ -61,6 +61,9 @@ import {
   adSets,
   ads,
   adCreatives,
+  adDailyMetrics,
+  adsetDailyMetrics,
+  campaignDailyMetrics,
 } from "./schema";
 import type { CapiEventStatus, OrganicPostStatus, OrganicPostPlatform, OrganicPostFormat } from "./schema";
 
@@ -4540,6 +4543,33 @@ export async function listAdsByStatus(input: { status: string; limit?: number; o
     .offset(input.offset ?? 0);
 }
 
+export async function listNonDeletedAds() {
+  if (!isDatabaseConfigured()) return [];
+  return getDatabase()
+    .select()
+    .from(ads)
+    .where(ne(ads.status, "DELETED"))
+    .orderBy(desc(ads.createdAt));
+}
+
+export async function listNonDeletedAdSets() {
+  if (!isDatabaseConfigured()) return [];
+  return getDatabase()
+    .select()
+    .from(adSets)
+    .where(ne(adSets.status, "DELETED"))
+    .orderBy(desc(adSets.createdAt));
+}
+
+export async function listNonDeletedCampaigns() {
+  if (!isDatabaseConfigured()) return [];
+  return getDatabase()
+    .select()
+    .from(adCampaigns)
+    .where(ne(adCampaigns.status, "DELETED"))
+    .orderBy(desc(adCampaigns.createdAt));
+}
+
 export async function getAdByMetaId(metaId: string) {
   if (!isDatabaseConfigured()) return null;
   return (
@@ -4570,4 +4600,268 @@ export async function markEntitySynced(input: { entityType: EntityType; metaId: 
       .set({ lastSyncedAt: syncedAt })
       .where(eq(ads.metaId, input.metaId));
   }
+}
+
+/* ------------------------------------------------------------------
+ * Phase 3d — Daily Metrics Rollup
+ * ------------------------------------------------------------------ */
+
+export type UpsertDailyMetricsInput = {
+  entityMetaId: string;
+  date: string; // YYYY-MM-DD
+  impressions?: number;
+  reach?: number;
+  frequency?: string | null;
+  spendCents?: number;
+  clicks?: number;
+  linkClicks?: number;
+  landingPageViews?: number;
+  addsToCart?: number;
+  initiateCheckouts?: number;
+  purchases?: number;
+  revenueCents?: number;
+  ctr?: string | null;
+  cpmCents?: number | null;
+  cpcCents?: number | null;
+  cpaCents?: number | null;
+  roas?: string | null;
+  videoP25Views?: number;
+  videoP50Views?: number;
+  videoP75Views?: number;
+  videoP100Views?: number;
+  hookRate?: string | null;
+  lastSyncedAt: Date;
+};
+
+function buildMetricsUpsertValues(input: UpsertDailyMetricsInput) {
+  return {
+    entityMetaId: input.entityMetaId,
+    date: input.date,
+    impressions: input.impressions ?? 0,
+    reach: input.reach ?? 0,
+    frequency: input.frequency ?? null,
+    spendCents: input.spendCents ?? 0,
+    clicks: input.clicks ?? 0,
+    linkClicks: input.linkClicks ?? 0,
+    landingPageViews: input.landingPageViews ?? 0,
+    addsToCart: input.addsToCart ?? 0,
+    initiateCheckouts: input.initiateCheckouts ?? 0,
+    purchases: input.purchases ?? 0,
+    revenueCents: input.revenueCents ?? 0,
+    ctr: input.ctr ?? null,
+    cpmCents: input.cpmCents ?? null,
+    cpcCents: input.cpcCents ?? null,
+    cpaCents: input.cpaCents ?? null,
+    roas: input.roas ?? null,
+    videoP25Views: input.videoP25Views ?? 0,
+    videoP50Views: input.videoP50Views ?? 0,
+    videoP75Views: input.videoP75Views ?? 0,
+    videoP100Views: input.videoP100Views ?? 0,
+    hookRate: input.hookRate ?? null,
+    lastSyncedAt: input.lastSyncedAt,
+    updatedAt: now(),
+  };
+}
+
+export async function upsertAdDailyMetrics(input: UpsertDailyMetricsInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const values = { id: crypto.randomUUID(), ...buildMetricsUpsertValues(input), createdAt: now() };
+  const [row] = await db
+    .insert(adDailyMetrics)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [adDailyMetrics.entityMetaId, adDailyMetrics.date],
+      set: buildMetricsUpsertValues(input),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function upsertAdSetDailyMetrics(input: UpsertDailyMetricsInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const values = { id: crypto.randomUUID(), ...buildMetricsUpsertValues(input), createdAt: now() };
+  const [row] = await db
+    .insert(adsetDailyMetrics)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [adsetDailyMetrics.entityMetaId, adsetDailyMetrics.date],
+      set: buildMetricsUpsertValues(input),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function upsertCampaignDailyMetrics(input: UpsertDailyMetricsInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const values = { id: crypto.randomUUID(), ...buildMetricsUpsertValues(input), createdAt: now() };
+  const [row] = await db
+    .insert(campaignDailyMetrics)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [campaignDailyMetrics.entityMetaId, campaignDailyMetrics.date],
+      set: buildMetricsUpsertValues(input),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export type ListAdDailyMetricsInput = {
+  entityMetaIds?: string[];
+  dateFrom: string; // YYYY-MM-DD inclusive
+  dateTo: string;   // YYYY-MM-DD inclusive
+  limit?: number;
+  offset?: number;
+};
+
+export async function listAdDailyMetrics(input: ListAdDailyMetricsInput) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const conditions = [
+    gte(adDailyMetrics.date, input.dateFrom),
+    lte(adDailyMetrics.date, input.dateTo),
+  ];
+  if (input.entityMetaIds && input.entityMetaIds.length > 0) {
+    conditions.push(inArray(adDailyMetrics.entityMetaId, input.entityMetaIds));
+  }
+  return db
+    .select()
+    .from(adDailyMetrics)
+    .where(and(...conditions))
+    .orderBy(desc(adDailyMetrics.date))
+    .limit(input.limit ?? 500)
+    .offset(input.offset ?? 0);
+}
+
+export type AdMetricsSummary = {
+  totalImpressions: number;
+  totalSpendCents: number;
+  totalPurchases: number;
+  avgCtr: number | null;
+  avgCpmCents: number | null;
+  avgCpaCents: number | null;
+  roas: number | null;
+};
+
+export async function getAdMetricsSummary(
+  entityMetaId: string,
+  range: { dateFrom: string; dateTo: string },
+): Promise<AdMetricsSummary> {
+  if (!isDatabaseConfigured()) {
+    return { totalImpressions: 0, totalSpendCents: 0, totalPurchases: 0, avgCtr: null, avgCpmCents: null, avgCpaCents: null, roas: null };
+  }
+  const db = getDatabase();
+  const [row] = await db
+    .select({
+      totalImpressions: sql<number>`cast(coalesce(sum(${adDailyMetrics.impressions}), 0) as integer)`,
+      totalSpendCents: sql<number>`cast(coalesce(sum(${adDailyMetrics.spendCents}), 0) as integer)`,
+      totalPurchases: sql<number>`cast(coalesce(sum(${adDailyMetrics.purchases}), 0) as integer)`,
+      totalRevenueCents: sql<number>`cast(coalesce(sum(${adDailyMetrics.revenueCents}), 0) as integer)`,
+      avgCtr: avg(adDailyMetrics.ctr),
+      avgCpmCents: avg(adDailyMetrics.cpmCents),
+      avgCpaCents: avg(adDailyMetrics.cpaCents),
+    })
+    .from(adDailyMetrics)
+    .where(
+      and(
+        eq(adDailyMetrics.entityMetaId, entityMetaId),
+        gte(adDailyMetrics.date, range.dateFrom),
+        lte(adDailyMetrics.date, range.dateTo),
+      ),
+    );
+
+  if (!row) {
+    return { totalImpressions: 0, totalSpendCents: 0, totalPurchases: 0, avgCtr: null, avgCpmCents: null, avgCpaCents: null, roas: null };
+  }
+
+  const roas =
+    row.totalSpendCents > 0
+      ? parseFloat((row.totalRevenueCents / row.totalSpendCents).toFixed(4))
+      : null;
+
+  return {
+    totalImpressions: row.totalImpressions,
+    totalSpendCents: row.totalSpendCents,
+    totalPurchases: row.totalPurchases,
+    avgCtr: row.avgCtr != null ? parseFloat(row.avgCtr as unknown as string) : null,
+    avgCpmCents: row.avgCpmCents != null ? parseFloat(row.avgCpmCents as unknown as string) : null,
+    avgCpaCents: row.avgCpaCents != null ? parseFloat(row.avgCpaCents as unknown as string) : null,
+    roas,
+  };
+}
+
+export type TopPerformingAdsInput = {
+  metric: "roas" | "cpa_cents" | "ctr" | "hook_rate";
+  direction: "asc" | "desc";
+  dateFrom: string;
+  dateTo: string;
+  limit?: number;
+};
+
+export async function getTopPerformingAds(input: TopPerformingAdsInput) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+
+  const metricColMap = {
+    roas: adDailyMetrics.roas,
+    cpa_cents: adDailyMetrics.cpaCents,
+    ctr: adDailyMetrics.ctr,
+    hook_rate: adDailyMetrics.hookRate,
+  } as const;
+
+  const col = metricColMap[input.metric];
+  const orderFn = input.direction === "asc" ? asc : desc;
+
+  const rows = await db
+    .select({
+      entityMetaId: adDailyMetrics.entityMetaId,
+      avgMetric: avg(col),
+      totalSpendCents: sql<number>`cast(sum(${adDailyMetrics.spendCents}) as integer)`,
+      totalPurchases: sql<number>`cast(sum(${adDailyMetrics.purchases}) as integer)`,
+    })
+    .from(adDailyMetrics)
+    .where(
+      and(
+        gte(adDailyMetrics.date, input.dateFrom),
+        lte(adDailyMetrics.date, input.dateTo),
+        isNotNull(col),
+      ),
+    )
+    .groupBy(adDailyMetrics.entityMetaId)
+    .orderBy(orderFn(avg(col)))
+    .limit(input.limit ?? 20);
+
+  return rows.map((r) => ({
+    entityMetaId: r.entityMetaId,
+    avgMetric: r.avgMetric != null ? parseFloat(r.avgMetric as unknown as string) : null,
+    totalSpendCents: r.totalSpendCents,
+    totalPurchases: r.totalPurchases,
+  }));
+}
+
+export async function getAdsMetricsHistory(
+  entityMetaId: string,
+  { days = 14 }: { days?: number } = {},
+) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const dateTo = new Date();
+  const dateFrom = new Date(dateTo);
+  dateFrom.setDate(dateFrom.getDate() - (days - 1));
+
+  const toStr = (d: Date) => d.toISOString().slice(0, 10);
+
+  return db
+    .select()
+    .from(adDailyMetrics)
+    .where(
+      and(
+        eq(adDailyMetrics.entityMetaId, entityMetaId),
+        gte(adDailyMetrics.date, toStr(dateFrom)),
+        lte(adDailyMetrics.date, toStr(dateTo)),
+      ),
+    )
+    .orderBy(asc(adDailyMetrics.date));
 }

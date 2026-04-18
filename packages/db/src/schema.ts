@@ -632,6 +632,9 @@ export const tableNames = {
   metaApiCalls: "meta_api_calls",
   organicPosts: "organic_posts",
   organicPostMetrics: "organic_post_metrics",
+  adDailyMetrics: "ad_daily_metrics",
+  adsetDailyMetrics: "adset_daily_metrics",
+  campaignDailyMetrics: "campaign_daily_metrics",
 } as const;
 
 export const adSpendPlatformValues = ["meta", "google", "tiktok", "youtube", "reddit", "other"] as const;
@@ -986,3 +989,72 @@ export type NewCapiEvent = typeof capiEvents.$inferInsert;
 export type MetaWebhookEvent = typeof metaWebhookEvents.$inferSelect;
 export type MetaApiCall = typeof metaApiCalls.$inferSelect;
 export type NewMetaApiCall = typeof metaApiCalls.$inferInsert;
+
+// ─── Phase 3d — Daily metrics rollup ─────────────────────────────────────────
+
+const dailyMetricsColumns = {
+  id: text("id").primaryKey(),
+  entityMetaId: text("entity_meta_id").notNull(),
+  date: text("date").notNull(), // ISO date string YYYY-MM-DD; stored as text to avoid timezone ambiguity
+  impressions: integer("impressions").notNull().default(0),
+  reach: integer("reach").notNull().default(0),
+  frequency: numeric("frequency", { precision: 6, scale: 3 }),
+  spendCents: integer("spend_cents").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+  linkClicks: integer("link_clicks").notNull().default(0),
+  landingPageViews: integer("landing_page_views").notNull().default(0),
+  addsToCart: integer("adds_to_cart").notNull().default(0),
+  initiateCheckouts: integer("initiate_checkouts").notNull().default(0),
+  purchases: integer("purchases").notNull().default(0),
+  revenueCents: integer("revenue_cents").notNull().default(0),
+  ctr: numeric("ctr", { precision: 6, scale: 4 }),
+  cpmCents: integer("cpm_cents"),
+  cpcCents: integer("cpc_cents"),
+  cpaCents: integer("cpa_cents"),
+  roas: numeric("roas", { precision: 8, scale: 4 }),
+  videoP25Views: integer("video_p25_views").notNull().default(0),
+  videoP50Views: integer("video_p50_views").notNull().default(0),
+  videoP75Views: integer("video_p75_views").notNull().default(0),
+  videoP100Views: integer("video_p100_views").notNull().default(0),
+  hookRate: numeric("hook_rate", { precision: 6, scale: 4 }),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+};
+
+export const adDailyMetrics = pgTable(
+  "ad_daily_metrics",
+  dailyMetricsColumns,
+  (table) => ({
+    entityDateUnique: uniqueIndex("ad_daily_metrics_entity_date_unique").on(table.entityMetaId, table.date),
+    dateIdx: index("ad_daily_metrics_date_idx").on(table.date),
+    entityDateDescIdx: index("ad_daily_metrics_entity_date_desc_idx").on(table.entityMetaId, table.date),
+  }),
+);
+
+export const adsetDailyMetrics = pgTable(
+  "adset_daily_metrics",
+  dailyMetricsColumns,
+  (table) => ({
+    entityDateUnique: uniqueIndex("adset_daily_metrics_entity_date_unique").on(table.entityMetaId, table.date),
+    dateIdx: index("adset_daily_metrics_date_idx").on(table.date),
+    entityDateDescIdx: index("adset_daily_metrics_entity_date_desc_idx").on(table.entityMetaId, table.date),
+  }),
+);
+
+export const campaignDailyMetrics = pgTable(
+  "campaign_daily_metrics",
+  dailyMetricsColumns,
+  (table) => ({
+    entityDateUnique: uniqueIndex("campaign_daily_metrics_entity_date_unique").on(table.entityMetaId, table.date),
+    dateIdx: index("campaign_daily_metrics_date_idx").on(table.date),
+    entityDateDescIdx: index("campaign_daily_metrics_entity_date_desc_idx").on(table.entityMetaId, table.date),
+  }),
+);
+
+export type AdDailyMetric = typeof adDailyMetrics.$inferSelect;
+export type NewAdDailyMetric = typeof adDailyMetrics.$inferInsert;
+export type AdsetDailyMetric = typeof adsetDailyMetrics.$inferSelect;
+export type NewAdsetDailyMetric = typeof adsetDailyMetrics.$inferInsert;
+export type CampaignDailyMetric = typeof campaignDailyMetrics.$inferSelect;
+export type NewCampaignDailyMetric = typeof campaignDailyMetrics.$inferInsert;
