@@ -30,3 +30,20 @@ export type {
   AdsApiError,
 } from "./types";
 export { targetingSpecSchema, adsInsightsFieldSchema, ADS_INSIGHTS_FIELDS } from "./types";
+export { executeProposal } from "./agent-executor";
+export type { ProposalExecutionContext, ExecuteProposalResult } from "./agent-executor";
+export {
+  agentProposalInputSchema,
+  classifyProposalApproval,
+  pauseAdPayloadSchema,
+  scaleBudgetPayloadSchema,
+  duplicateToScalingCampaignPayloadSchema,
+  requestCreativePayloadSchema,
+  updateTargetingPayloadSchema,
+  updateAudiencePayloadSchema,
+  reportInsightPayloadSchema,
+  flagRiskPayloadSchema,
+} from "./agent-proposals";
+export type { AgentProposalInput, AgentProposalKind } from "./agent-proposals";
+export { computeOutcomeDelta } from "./outcome-reflection";
+export type { MetricsSummary, OutcomeDelta } from "./outcome-reflection";

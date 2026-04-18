@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, asc, avg, count, desc, eq, gt, gte, inArray, isNotNull, lte, ne, sql, sum } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, gt, gte, inArray, isNotNull, lt, lte, ne, sql, sum } from "drizzle-orm";
 import {
   getNormalizedOrderQuantity,
   getOfferByCode,
@@ -64,8 +64,20 @@ import {
   adDailyMetrics,
   adsetDailyMetrics,
   campaignDailyMetrics,
+  agentProposals,
+  agentJournal,
+  agentBaselines,
+  creativeRequests,
 } from "./schema";
-import type { CapiEventStatus, OrganicPostStatus, OrganicPostPlatform, OrganicPostFormat } from "./schema";
+import type {
+  CapiEventStatus,
+  OrganicPostStatus,
+  OrganicPostPlatform,
+  OrganicPostFormat,
+  AgentProposalKind,
+  AgentProposalStatus,
+  AgentJournalEntryKind,
+} from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
 export type DeliveryMode = (typeof deliveryModeValues)[number];
@@ -4864,4 +4876,238 @@ export async function getAdsMetricsHistory(
       ),
     )
     .orderBy(asc(adDailyMetrics.date));
+}
+
+/* ------------------------------------------------------------------
+ * Phase 4 — AI Agent Control Plane
+ * ------------------------------------------------------------------ */
+
+export type InsertAgentProposalInput = {
+  id: string;
+  kind: AgentProposalKind;
+  payloadJson: Record<string, unknown>;
+  rationale?: string | null;
+  targetEntityType?: string | null;
+  targetMetaId?: string | null;
+  autoApproved: boolean;
+  approvalRequiredReason?: string | null;
+  createdBy: string;
+  expiresAt: Date;
+  status?: AgentProposalStatus;
+};
+
+export async function insertAgentProposal(input: InsertAgentProposalInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .insert(agentProposals)
+    .values({
+      id: input.id,
+      kind: input.kind,
+      status: input.status ?? (input.autoApproved ? "approved" : "pending"),
+      payloadJson: input.payloadJson,
+      rationale: input.rationale ?? null,
+      targetEntityType: input.targetEntityType ?? null,
+      targetMetaId: input.targetMetaId ?? null,
+      autoApproved: input.autoApproved,
+      approvalRequiredReason: input.approvalRequiredReason ?? null,
+      createdBy: input.createdBy,
+      expiresAt: input.expiresAt,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function getAgentProposalById(id: string) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .select()
+    .from(agentProposals)
+    .where(eq(agentProposals.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+export type ListAgentProposalsInput = {
+  status?: AgentProposalStatus;
+  kind?: AgentProposalKind;
+  createdAfter?: Date;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listAgentProposals(input: ListAgentProposalsInput) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (input.status) conditions.push(eq(agentProposals.status, input.status));
+  if (input.kind) conditions.push(eq(agentProposals.kind, input.kind));
+  if (input.createdAfter) conditions.push(gt(agentProposals.createdAt, input.createdAfter));
+
+  return db
+    .select()
+    .from(agentProposals)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(agentProposals.createdAt))
+    .limit(input.limit ?? 50)
+    .offset(input.offset ?? 0);
+}
+
+export type UpdateAgentProposalStatusInput = {
+  id: string;
+  status: AgentProposalStatus;
+  reviewedBy?: string | null;
+  reviewedAt?: Date | null;
+  executedAt?: Date | null;
+  executionResultJson?: Record<string, unknown> | null;
+  errorMessage?: string | null;
+};
+
+export async function updateAgentProposalStatus(input: UpdateAgentProposalStatusInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const patch: Record<string, unknown> = {
+    status: input.status,
+    updatedAt: now(),
+  };
+  if (input.reviewedBy !== undefined) patch.reviewedBy = input.reviewedBy;
+  if (input.reviewedAt !== undefined) patch.reviewedAt = input.reviewedAt;
+  if (input.executedAt !== undefined) patch.executedAt = input.executedAt;
+  if (input.executionResultJson !== undefined) patch.executionResultJson = input.executionResultJson;
+  if (input.errorMessage !== undefined) patch.errorMessage = input.errorMessage;
+
+  const [row] = await db
+    .update(agentProposals)
+    .set(patch as Partial<typeof agentProposals.$inferInsert>)
+    .where(eq(agentProposals.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
+export async function expirePendingAgentProposals() {
+  if (!isDatabaseConfigured()) return 0;
+  const db = getDatabase();
+  const result = await db
+    .update(agentProposals)
+    .set({ status: "expired", updatedAt: now() })
+    .where(
+      and(
+        eq(agentProposals.status, "pending"),
+        lt(agentProposals.expiresAt, now()),
+      ),
+    )
+    .returning({ id: agentProposals.id });
+  return result.length;
+}
+
+export type InsertAgentJournalEntryInput = {
+  id: string;
+  kind: AgentJournalEntryKind;
+  relatedProposalId?: string | null;
+  targetEntityType?: string | null;
+  targetMetaId?: string | null;
+  note: string;
+  metricsSnapshotJson?: Record<string, unknown> | null;
+  deltaFromBaselineJson?: Record<string, unknown> | null;
+  createdBy: string;
+};
+
+export async function insertAgentJournalEntry(input: InsertAgentJournalEntryInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .insert(agentJournal)
+    .values({
+      id: input.id,
+      kind: input.kind,
+      relatedProposalId: input.relatedProposalId ?? null,
+      targetEntityType: input.targetEntityType ?? null,
+      targetMetaId: input.targetMetaId ?? null,
+      note: input.note,
+      metricsSnapshotJson: input.metricsSnapshotJson ?? null,
+      deltaFromBaselineJson: input.deltaFromBaselineJson ?? null,
+      createdBy: input.createdBy,
+      createdAt: now(),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export type ListAgentJournalInput = {
+  kind?: AgentJournalEntryKind;
+  relatedProposalId?: string;
+  createdAfter?: Date;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listAgentJournal(input: ListAgentJournalInput) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (input.kind) conditions.push(eq(agentJournal.kind, input.kind));
+  if (input.relatedProposalId) conditions.push(eq(agentJournal.relatedProposalId, input.relatedProposalId));
+  if (input.createdAfter) conditions.push(gt(agentJournal.createdAt, input.createdAfter));
+
+  return db
+    .select()
+    .from(agentJournal)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(agentJournal.createdAt))
+    .limit(input.limit ?? 50)
+    .offset(input.offset ?? 0);
+}
+
+export type InsertAgentBaselineInput = {
+  id: string;
+  proposalId: string;
+  targetMetaId: string;
+  targetEntityType: string;
+  metricsJson: Record<string, unknown>;
+};
+
+export async function insertAgentBaseline(input: InsertAgentBaselineInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .insert(agentBaselines)
+    .values({
+      id: input.id,
+      proposalId: input.proposalId,
+      targetMetaId: input.targetMetaId,
+      targetEntityType: input.targetEntityType,
+      metricsJson: input.metricsJson,
+      capturedAt: now(),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function getAgentBaselineByProposalId(proposalId: string) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .select()
+    .from(agentBaselines)
+    .where(eq(agentBaselines.proposalId, proposalId))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function insertCreativeRequest(input: { id: string; briefJson: Record<string, unknown> }) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .insert(creativeRequests)
+    .values({
+      id: input.id,
+      briefJson: input.briefJson,
+      status: "pending",
+      createdAt: now(),
+    })
+    .returning();
+  return row ?? null;
 }

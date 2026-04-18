@@ -635,6 +635,10 @@ export const tableNames = {
   adDailyMetrics: "ad_daily_metrics",
   adsetDailyMetrics: "adset_daily_metrics",
   campaignDailyMetrics: "campaign_daily_metrics",
+  agentProposals: "agent_proposals",
+  agentJournal: "agent_journal",
+  agentBaselines: "agent_baselines",
+  creativeRequests: "creative_requests",
 } as const;
 
 export const adSpendPlatformValues = ["meta", "google", "tiktok", "youtube", "reddit", "other"] as const;
@@ -1058,3 +1062,136 @@ export type AdsetDailyMetric = typeof adsetDailyMetrics.$inferSelect;
 export type NewAdsetDailyMetric = typeof adsetDailyMetrics.$inferInsert;
 export type CampaignDailyMetric = typeof campaignDailyMetrics.$inferSelect;
 export type NewCampaignDailyMetric = typeof campaignDailyMetrics.$inferInsert;
+
+// ─── Phase 4 — AI Agent Control Plane ────────────────────────────────────────
+
+export const agentProposalKindValues = [
+  'pause_ad',
+  'scale_budget',
+  'duplicate_to_scaling_campaign',
+  'request_creative',
+  'update_targeting',
+  'update_audience',
+  'report_insight',
+  'flag_risk',
+] as const;
+
+export const agentProposalStatusValues = [
+  'pending',
+  'approved',
+  'rejected',
+  'executed',
+  'failed',
+  'expired',
+] as const;
+
+export const agentJournalEntryKindValues = [
+  'proposal_created',
+  'proposal_executed',
+  'proposal_rejected',
+  'outcome_observed_24h',
+  'outcome_observed_72h',
+  'risk_flagged',
+  'insight_recorded',
+  'system_note',
+] as const;
+
+export const creativeRequestStatusValues = [
+  'pending',
+  'fulfilled',
+  'rejected',
+] as const;
+
+export const agentProposalKindEnum = pgEnum("agent_proposal_kind", agentProposalKindValues);
+export const agentProposalStatusEnum = pgEnum("agent_proposal_status", agentProposalStatusValues);
+export const agentJournalEntryKindEnum = pgEnum("agent_journal_entry_kind", agentJournalEntryKindValues);
+export const creativeRequestStatusEnum = pgEnum("creative_request_status", creativeRequestStatusValues);
+
+export type AgentProposalKind = (typeof agentProposalKindValues)[number];
+export type AgentProposalStatus = (typeof agentProposalStatusValues)[number];
+export type AgentJournalEntryKind = (typeof agentJournalEntryKindValues)[number];
+export type CreativeRequestStatus = (typeof creativeRequestStatusValues)[number];
+
+export const agentProposals = pgTable(
+  "agent_proposals",
+  {
+    id: text("id").primaryKey(),
+    kind: agentProposalKindEnum("kind").notNull(),
+    status: agentProposalStatusEnum("status").notNull().default("pending"),
+    payloadJson: jsonb("payload_json").notNull().$type<Record<string, unknown>>(),
+    rationale: text("rationale"),
+    targetEntityType: text("target_entity_type"),
+    targetMetaId: text("target_meta_id"),
+    autoApproved: boolean("auto_approved").notNull().default(false),
+    approvalRequiredReason: text("approval_required_reason"),
+    createdBy: text("created_by").notNull(),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    executedAt: timestamp("executed_at", { withTimezone: true }),
+    executionResultJson: jsonb("execution_result_json").$type<Record<string, unknown> | null>(),
+    errorMessage: text("error_message"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull().default(sql`now() + interval '24 hours'`),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index("agent_proposals_status_idx").on(table.status),
+    kindIdx: index("agent_proposals_kind_idx").on(table.kind),
+    targetMetaIdIdx: index("agent_proposals_target_meta_id_idx").on(table.targetMetaId),
+    createdAtIdx: index("agent_proposals_created_at_idx").on(table.createdAt),
+    expiresAtIdx: index("agent_proposals_expires_at_idx").on(table.expiresAt),
+  }),
+);
+
+export const agentJournal = pgTable(
+  "agent_journal",
+  {
+    id: text("id").primaryKey(),
+    kind: agentJournalEntryKindEnum("kind").notNull(),
+    relatedProposalId: text("related_proposal_id").references(() => agentProposals.id, { onDelete: "set null" }),
+    targetEntityType: text("target_entity_type"),
+    targetMetaId: text("target_meta_id"),
+    note: text("note").notNull(),
+    metricsSnapshotJson: jsonb("metrics_snapshot_json").$type<Record<string, unknown> | null>(),
+    deltaFromBaselineJson: jsonb("delta_from_baseline_json").$type<Record<string, unknown> | null>(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    relatedProposalIdx: index("agent_journal_related_proposal_idx").on(table.relatedProposalId),
+    kindIdx: index("agent_journal_kind_idx").on(table.kind),
+    createdAtIdx: index("agent_journal_created_at_idx").on(table.createdAt),
+  }),
+);
+
+export const agentBaselines = pgTable(
+  "agent_baselines",
+  {
+    id: text("id").primaryKey(),
+    proposalId: text("proposal_id").notNull().unique().references(() => agentProposals.id, { onDelete: "cascade" }),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
+    targetMetaId: text("target_meta_id").notNull(),
+    targetEntityType: text("target_entity_type").notNull(),
+    metricsJson: jsonb("metrics_json").notNull().$type<Record<string, unknown>>(),
+  },
+);
+
+export const creativeRequests = pgTable(
+  "creative_requests",
+  {
+    id: text("id").primaryKey(),
+    briefJson: jsonb("brief_json").notNull().$type<Record<string, unknown>>(),
+    status: creativeRequestStatusEnum("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
+  },
+);
+
+export type AgentProposal = typeof agentProposals.$inferSelect;
+export type NewAgentProposal = typeof agentProposals.$inferInsert;
+export type AgentJournalEntry = typeof agentJournal.$inferSelect;
+export type NewAgentJournalEntry = typeof agentJournal.$inferInsert;
+export type AgentBaseline = typeof agentBaselines.$inferSelect;
+export type NewAgentBaseline = typeof agentBaselines.$inferInsert;
+export type CreativeRequest = typeof creativeRequests.$inferSelect;
+export type NewCreativeRequest = typeof creativeRequests.$inferInsert;
