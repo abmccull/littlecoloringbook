@@ -20,6 +20,12 @@ import { getIntegrationStatus } from "@littlecolorbook/shared/env";
 import { createSignedDownloadUrl, uploadObject } from "@littlecolorbook/shared/storage";
 import { JobRunnerError } from "./errors";
 
+function estimateGeminiPageCostCents(deliveryMode: "pdf" | "print", attempts: number) {
+  const perImage = Number(process.env.GEMINI_COST_CENTS_PER_IMAGE ?? "4");
+  const sizeMultiplier = deliveryMode === "print" ? 2 : 1; // 2048x2048 print vs 1024x1024 PDF
+  return Math.max(1, Math.round(perImage * sizeMultiplier * Math.max(1, attempts)));
+}
+
 type SubmitPrintLineItem = {
   coverUrl: string;
   interiorUrl: string;
@@ -221,6 +227,7 @@ export async function runProcessPaidOrderJob(input: ProcessPaidOrderJobInput, op
               qaMetrics: pageResult.qaMetrics,
               qaScore: pageResult.qaScore,
               renderAttempts: pageResult.renderAttempts,
+              costCents: estimateGeminiPageCostCents(deliveryMode, pageResult.renderAttempts),
             }
           : {}),
       });

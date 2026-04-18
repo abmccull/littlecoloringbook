@@ -10,6 +10,8 @@ import {
 } from "@littlecolorbook/shared";
 import { getDatabase, isDatabaseConfigured } from "./client";
 import {
+  adSpendEntries,
+  adSpendPlatformValues,
   broadcastSends,
   customers,
   customerUserLinks,
@@ -1154,6 +1156,7 @@ export async function setGenerationPageStatus(
     ...(details && Array.isArray(details.qaFlags) ? { qaFlags: details.qaFlags.filter((flag): flag is string => typeof flag === "string") } : {}),
     ...(details && details.qaMetrics && typeof details.qaMetrics === "object" ? { qaMetrics: details.qaMetrics as Record<string, unknown> } : {}),
     ...(details && typeof details.renderAttempts === "number" ? { renderAttempts: Math.max(1, Math.trunc(details.renderAttempts)) } : {}),
+    ...(details && typeof details.costCents === "number" ? { costCents: Math.max(0, Math.trunc(details.costCents)) } : {}),
     status,
     updatedAt: now(),
   };
@@ -2720,6 +2723,256 @@ export async function updateMarketingConsent(input: MarketingConsentUpdate) {
   await db.update(customers).set(patch).where(eq(customers.id, input.customerId));
   const updated = await db.query.customers.findFirst({ where: eq(customers.id, input.customerId) });
   return updated ?? null;
+}
+
+/* ------------------------------------------------------------------
+ * Ad spend (manual entry for metrics)
+ * ------------------------------------------------------------------ */
+
+export type AdSpendPlatform = (typeof adSpendPlatformValues)[number];
+
+export type AdSpendEntry = {
+  id: string;
+  spendDate: string;
+  platform: AdSpendPlatform;
+  campaign: string | null;
+  amountCents: number;
+  currency: string;
+  notes: string | null;
+  recordedByEmail: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+};
+
+export async function createAdSpendEntry(input: {
+  spendDate: string;
+  platform: AdSpendPlatform;
+  campaign?: string | null;
+  amountCents: number;
+  currency?: string;
+  notes?: string | null;
+  recordedByEmail?: string | null;
+}): Promise<AdSpendEntry | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const record = {
+    id: createId("ads"),
+    spendDate: input.spendDate,
+    platform: input.platform,
+    campaign: input.campaign ?? null,
+    amountCents: Math.max(0, Math.floor(input.amountCents)),
+    currency: input.currency ?? "USD",
+    notes: input.notes ?? null,
+    recordedByEmail: input.recordedByEmail ?? null,
+    metadata: {},
+    createdAt: now(),
+  };
+  await db.insert(adSpendEntries).values(record);
+  return record as AdSpendEntry;
+}
+
+export async function listAdSpendEntries(input: {
+  limit?: number;
+} = {}): Promise<AdSpendEntry[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db
+    .select()
+    .from(adSpendEntries)
+    .orderBy(desc(adSpendEntries.spendDate))
+    .limit(input.limit ?? 200);
+  return rows as AdSpendEntry[];
+}
+
+export async function deleteAdSpendEntry(id: string) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db.delete(adSpendEntries).where(eq(adSpendEntries.id, id));
+}
+
+/* ------------------------------------------------------------------
+ * Metrics aggregations (dashboard math)
+ * ------------------------------------------------------------------ */
+
+export type MetricsWindow = { start: Date; end: Date };
+
+export type MetricsRevenueRow = {
+  gross_cents: number;
+  refunded_cents: number;
+  paid_order_count: number;
+  total_order_count: number;
+};
+
+export async function getRevenueMetrics(window: MetricsWindow): Promise<MetricsRevenueRow> {
+  const fallback: MetricsRevenueRow = { gross_cents: 0, refunded_cents: 0, paid_order_count: 0, total_order_count: 0 };
+  if (!isDatabaseConfigured()) return fallback;
+  const db = getDatabase();
+  const rows = await db.execute(sql<MetricsRevenueRow>`
+    SELECT
+      COALESCE(SUM(CASE WHEN status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample' THEN total_cents ELSE 0 END), 0)::int AS gross_cents,
+      COALESCE(SUM(refunded_cents), 0)::int AS refunded_cents,
+      COUNT(*) FILTER (WHERE status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample')::int AS paid_order_count,
+      COUNT(*)::int AS total_order_count
+    FROM orders
+    WHERE created_at >= ${window.start} AND created_at <= ${window.end}
+  `);
+  const row = (rows as unknown as MetricsRevenueRow[])[0];
+  return row ?? fallback;
+}
+
+export type MetricsOrderBreakdownRow = {
+  pdf_count: number;
+  print_count: number;
+  sample_count: number;
+  refunded_order_count: number;
+  awaiting_print_submission: number;
+  in_production: number;
+  shipped: number;
+  delivered: number;
+  pending_assembly: number;
+};
+
+export async function getOrderBreakdown(window: MetricsWindow): Promise<MetricsOrderBreakdownRow> {
+  const fallback: MetricsOrderBreakdownRow = {
+    pdf_count: 0,
+    print_count: 0,
+    sample_count: 0,
+    refunded_order_count: 0,
+    awaiting_print_submission: 0,
+    in_production: 0,
+    shipped: 0,
+    delivered: 0,
+    pending_assembly: 0,
+  };
+  if (!isDatabaseConfigured()) return fallback;
+  const db = getDatabase();
+  const rows = await db.execute(sql<MetricsOrderBreakdownRow>`
+    SELECT
+      COUNT(*) FILTER (WHERE delivery_mode = 'pdf' AND order_type != 'sample')::int AS pdf_count,
+      COUNT(*) FILTER (WHERE delivery_mode = 'print')::int AS print_count,
+      COUNT(*) FILTER (WHERE order_type = 'sample')::int AS sample_count,
+      COUNT(*) FILTER (WHERE status = 'refunded')::int AS refunded_order_count,
+      COUNT(*) FILTER (WHERE status = 'awaiting_print_submission')::int AS awaiting_print_submission,
+      COUNT(*) FILTER (WHERE status IN ('submitted_to_lulu', 'in_production'))::int AS in_production,
+      COUNT(*) FILTER (WHERE status = 'shipped')::int AS shipped,
+      COUNT(*) FILTER (WHERE status = 'delivered')::int AS delivered,
+      COUNT(*) FILTER (WHERE status IN ('preprocessing', 'generating', 'qa_review', 'assembling_pdf'))::int AS pending_assembly
+    FROM orders
+    WHERE created_at >= ${window.start} AND created_at <= ${window.end}
+  `);
+  const row = (rows as unknown as MetricsOrderBreakdownRow[])[0];
+  return row ?? fallback;
+}
+
+export async function getGeminiCostInWindow(window: MetricsWindow): Promise<{
+  sample_cost_cents: number;
+  paid_cost_cents: number;
+  total_cost_cents: number;
+}> {
+  const fallback = { sample_cost_cents: 0, paid_cost_cents: 0, total_cost_cents: 0 };
+  if (!isDatabaseConfigured()) return fallback;
+  const db = getDatabase();
+  const rows = await db.execute(sql<typeof fallback>`
+    SELECT
+      COALESCE(SUM(CASE WHEN gj.kind = 'sample' THEN gp.cost_cents ELSE 0 END), 0)::int AS sample_cost_cents,
+      COALESCE(SUM(CASE WHEN gj.kind = 'full_book' THEN gp.cost_cents ELSE 0 END), 0)::int AS paid_cost_cents,
+      COALESCE(SUM(gp.cost_cents), 0)::int AS total_cost_cents
+    FROM generation_pages gp
+    INNER JOIN generation_jobs gj ON gj.id = gp.generation_job_id
+    WHERE gp.created_at >= ${window.start} AND gp.created_at <= ${window.end}
+      AND gp.cost_cents IS NOT NULL
+  `);
+  const row = (rows as unknown as (typeof fallback)[])[0];
+  return row ?? fallback;
+}
+
+export async function sumAdSpendInWindow(window: MetricsWindow): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
+  const db = getDatabase();
+  const startStr = window.start.toISOString().slice(0, 10);
+  const endStr = window.end.toISOString().slice(0, 10);
+  const rows = await db.execute(sql<{ total_cents: number }>`
+    SELECT COALESCE(SUM(amount_cents), 0)::int AS total_cents
+    FROM ad_spend_entries
+    WHERE spend_date >= ${startStr} AND spend_date <= ${endStr}
+  `);
+  return (rows as unknown as Array<{ total_cents: number }>)[0]?.total_cents ?? 0;
+}
+
+export async function getSampleToPaidFunnel(window: MetricsWindow): Promise<{
+  samples_created: number;
+  samples_to_paid: number;
+}> {
+  const fallback = { samples_created: 0, samples_to_paid: 0 };
+  if (!isDatabaseConfigured()) return fallback;
+  const db = getDatabase();
+  const rows = await db.execute(sql<typeof fallback>`
+    WITH samples AS (
+      SELECT customer_id, MIN(created_at) AS sample_at
+      FROM orders
+      WHERE order_type = 'sample' AND created_at >= ${window.start} AND created_at <= ${window.end}
+      GROUP BY customer_id
+    ),
+    conversions AS (
+      SELECT s.customer_id
+      FROM samples s
+      INNER JOIN orders o ON o.customer_id = s.customer_id
+      WHERE o.order_type != 'sample'
+        AND o.status NOT IN ('draft', 'awaiting_payment', 'failed')
+        AND o.created_at >= s.sample_at
+    )
+    SELECT
+      (SELECT COUNT(*)::int FROM samples) AS samples_created,
+      (SELECT COUNT(DISTINCT customer_id)::int FROM conversions) AS samples_to_paid
+  `);
+  const row = (rows as unknown as (typeof fallback)[])[0];
+  return row ?? fallback;
+}
+
+export async function getRepeatCustomerStats(window: MetricsWindow): Promise<{
+  paying_customers: number;
+  repeat_customers: number;
+  total_paid_revenue_cents: number;
+}> {
+  const fallback = { paying_customers: 0, repeat_customers: 0, total_paid_revenue_cents: 0 };
+  if (!isDatabaseConfigured()) return fallback;
+  const db = getDatabase();
+  const rows = await db.execute(sql<typeof fallback>`
+    WITH paid_orders AS (
+      SELECT customer_id, total_cents - COALESCE(refunded_cents, 0) AS net_cents
+      FROM orders
+      WHERE order_type != 'sample'
+        AND status NOT IN ('draft', 'awaiting_payment', 'failed')
+        AND customer_id IS NOT NULL
+        AND created_at >= ${window.start} AND created_at <= ${window.end}
+    )
+    SELECT
+      (SELECT COUNT(DISTINCT customer_id)::int FROM paid_orders) AS paying_customers,
+      (SELECT COUNT(*)::int FROM (
+         SELECT customer_id FROM paid_orders GROUP BY customer_id HAVING COUNT(*) >= 2
+       ) AS rc) AS repeat_customers,
+      COALESCE((SELECT SUM(net_cents)::int FROM paid_orders), 0) AS total_paid_revenue_cents
+  `);
+  const row = (rows as unknown as (typeof fallback)[])[0];
+  return row ?? fallback;
+}
+
+export async function countNewPayingCustomers(window: MetricsWindow): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
+  const db = getDatabase();
+  const rows = await db.execute(sql<{ count: number }>`
+    WITH first_paid AS (
+      SELECT customer_id, MIN(created_at) AS first_at
+      FROM orders
+      WHERE order_type != 'sample'
+        AND status NOT IN ('draft', 'awaiting_payment', 'failed')
+        AND customer_id IS NOT NULL
+      GROUP BY customer_id
+    )
+    SELECT COUNT(*)::int AS count FROM first_paid
+    WHERE first_at >= ${window.start} AND first_at <= ${window.end}
+  `);
+  return (rows as unknown as Array<{ count: number }>)[0]?.count ?? 0;
 }
 
 /* ------------------------------------------------------------------

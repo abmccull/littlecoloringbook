@@ -5,6 +5,8 @@ const LINKS: Array<{ href: string; label: string }> = [
   { href: "/admin/tickets", label: "Tickets" },
   { href: "/admin/refunds", label: "Refunds" },
   { href: "/admin/broadcasts", label: "Broadcasts" },
+  { href: "/admin/metrics", label: "Metrics" },
+  { href: "/admin/ads", label: "Ads" },
 ];
 
 export function AdminNav({ sessionEmail }: { sessionEmail: string | null }) {

@@ -236,6 +236,7 @@ export const generationPages = pgTable(
     qaFlags: jsonb("qa_flags").$type<string[] | null>(),
     qaMetrics: jsonb("qa_metrics").$type<Record<string, unknown> | null>(),
     renderAttempts: integer("render_attempts").default(1).notNull(),
+    costCents: integer("cost_cents"),
     assetId: text("asset_id").references(() => assets.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -615,4 +616,27 @@ export const tableNames = {
   tickets: "tickets",
   ticketMessages: "ticket_messages",
   refunds: "refunds",
+  adSpendEntries: "ad_spend_entries",
 } as const;
+
+export const adSpendPlatformValues = ["meta", "google", "tiktok", "youtube", "reddit", "other"] as const;
+
+export const adSpendEntries = pgTable(
+  "ad_spend_entries",
+  {
+    id: text("id").primaryKey(),
+    spendDate: text("spend_date").notNull(), // ISO date YYYY-MM-DD
+    platform: text("platform").notNull().$type<(typeof adSpendPlatformValues)[number]>(),
+    campaign: text("campaign"),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").default("USD").notNull(),
+    notes: text("notes"),
+    recordedByEmail: text("recorded_by_email"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    dateIdx: index("ad_spend_entries_date_idx").on(table.spendDate),
+    platformIdx: index("ad_spend_entries_platform_idx").on(table.platform, table.spendDate),
+  }),
+);
