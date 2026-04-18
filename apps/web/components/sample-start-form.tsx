@@ -46,11 +46,15 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
       const payload = (await response.json()) as SampleCreateResponse;
 
       if (response.status === 429 && payload.blocked) {
-        const limitUrl = new URL("/sample/limit-reached", window.location.origin);
-        if (payload.existingOrderId) {
-          limitUrl.searchParams.set("orderId", payload.existingOrderId);
-        }
-        router.push(limitUrl.pathname + (limitUrl.search ? limitUrl.search : ""));
+        // User already used their free sample — drive straight to the
+        // order/build page so they can buy the full book.
+        const orderUrl = new URL("/create", window.location.origin);
+        orderUrl.searchParams.set("offer", "pdf-50");
+        orderUrl.searchParams.set("source", "sample_limit_reached");
+        orderUrl.searchParams.set("acquisitionPath", "sample_limit_upsell");
+        if (email) orderUrl.searchParams.set("email", email);
+        if (payload.existingOrderId) orderUrl.searchParams.set("sampleOrderId", payload.existingOrderId);
+        router.push(orderUrl.pathname + orderUrl.search);
         return;
       }
 
