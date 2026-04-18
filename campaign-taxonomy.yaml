@@ -1,6 +1,6 @@
 version: 1
 brand:
-  name: "Crayon Keepsake"
+  name: "little color book"
   category: "personalized memory coloring books"
   primary_offer: "Free Sample Page"
 
@@ -61,20 +61,88 @@ occasions:
   - mothers_day
   - fathers_day
   - pet_book
+  - memorial_keepsake
+  - new_sibling_arrival
+  - adoption_day
+  - deployment_keepsake
+  - wedding_favor
+  - first_day_of_school
+  - in_memory_pet
 
 personas:
+  # — Moms (primary buyer segment)
   - id: warm_millennial_mom
     name: "Warm Millennial Mom"
+    family_role: parent
+    gender_lean: female
   - id: organized_practical_mom
     name: "Organized Practical Mom"
+    family_role: parent
+    gender_lean: female
   - id: emotional_keepsake_mom
     name: "Emotional Keepsake Mom"
-  - id: grandma_gift_buyer
-    name: "Grandma Gift Buyer"
+    family_role: parent
+    gender_lean: female
   - id: homeschool_screenfree_mom
     name: "Homeschool or Screen-Free Mom"
+    family_role: parent
+    gender_lean: female
+
+  # — Dads
+  - id: dad_primary_shopper
+    name: "Dad Primary Shopper"
+    family_role: parent
+    gender_lean: male
+  - id: military_dad_keepsake
+    name: "Military / Deployed Parent Keepsake"
+    family_role: parent
+    gender_lean: any
+
+  # — Grandparents
+  - id: grandma_gift_buyer
+    name: "Grandma Gift Buyer"
+    family_role: grandparent
+    gender_lean: female
+  - id: grandpa_gift_buyer
+    name: "Grandpa Gift Buyer"
+    family_role: grandparent
+    gender_lean: male
+
+  # — Extended family
+  - id: aunt_uncle_gifter
+    name: "Aunt / Uncle Gift Giver"
+    family_role: extended_family
+    gender_lean: any
+  - id: godparent_gifter
+    name: "Godparent Gift Giver"
+    family_role: extended_family
+    gender_lean: any
+
+  # — Special-occasion & gift mindsets
+  - id: birthday_party_host
+    name: "Birthday Party Host (kids' party parent)"
+    family_role: parent
+    gender_lean: any
+  - id: holiday_gifter
+    name: "Holiday Gift Giver (Xmas/Hanukkah/etc.)"
+    family_role: any
+    gender_lean: any
+  - id: teacher_end_of_year_gifter
+    name: "Teacher End-of-Year Gift Giver"
+    family_role: parent
+    gender_lean: any
+
+  # — Adult self-purchase
+  - id: adult_self_reward
+    name: "Adult Self-Reward Colorer (stress-relief)"
+    family_role: self
+    gender_lean: any
+
+  # — Content creators
   - id: lifestyle_gift_creator
     name: "Lifestyle Creator or Gift Recommender"
+    family_role: influencer
+    gender_lean: any
 
 voice_families:
   - warm_conversational_female
