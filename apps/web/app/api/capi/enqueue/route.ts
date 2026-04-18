@@ -38,15 +38,27 @@ function buildUserDataFingerprint(userData: z.infer<typeof userDataSchema>): str
   return createHash("sha256").update(stable).digest("hex").slice(0, 16);
 }
 
-function getAllowedOrigin() {
-  return process.env.APP_URL ?? "http://localhost:3000";
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return true;
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  if (origin === appUrl) return true;
+  try {
+    const { hostname } = new URL(origin);
+    // Accept apex + any subdomain of the product domain. Covers www,
+    // staging.www, vercel preview deploys under the apex, etc.
+    if (hostname === "littlecolorbook.com" || hostname.endsWith(".littlecolorbook.com")) return true;
+    // Local dev
+    if (hostname === "localhost" || hostname === "127.0.0.1") return true;
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
-  const allowedOrigin = getAllowedOrigin();
 
-  if (origin && origin !== allowedOrigin) {
+  if (!isAllowedOrigin(origin)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
