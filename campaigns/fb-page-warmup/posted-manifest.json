@@ -1,0 +1,97 @@
+{
+  "scheduledAt": "2026-04-18T11:44:03.597Z",
+  "startDate": "2026-04-19",
+  "tz": "America/New_York",
+  "entries": [
+    {
+      "slot": 1,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/13-family--voyJ5MBnnE.png",
+      "scheduledUnix": 1776605400,
+      "humanLocal": "Sun, Apr 19, 9:30 AM EDT",
+      "metaId": "122100529826733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 2,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/20-kids-n9R0MN3XGvY.png",
+      "scheduledUnix": 1776686400,
+      "humanLocal": "Mon, Apr 20, 8:00 AM EDT",
+      "metaId": "122100529874733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 3,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/04-family-uA3eOWuQqOc.png",
+      "scheduledUnix": 1776776400,
+      "humanLocal": "Tue, Apr 21, 9:00 AM EDT",
+      "metaId": "122100529958733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 4,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/17-family-UFa5y0XKt9c.png",
+      "scheduledUnix": 1776952800,
+      "humanLocal": "Thu, Apr 23, 10:00 AM EDT",
+      "metaId": "122100530018733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 5,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/12-family-t5juxkBrQwY.png",
+      "scheduledUnix": 1777033800,
+      "humanLocal": "Fri, Apr 24, 8:30 AM EDT",
+      "metaId": "122100530066733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 6,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/34-kids-MVdFmjGG990.png",
+      "scheduledUnix": 1777226400,
+      "humanLocal": "Sun, Apr 26, 2:00 PM EDT",
+      "metaId": "122100530114733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 7,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/10-family-OdSfIy_Ft8s.png",
+      "scheduledUnix": 1777386600,
+      "humanLocal": "Tue, Apr 28, 10:30 AM EDT",
+      "metaId": "122100530156733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 8,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/37-pets-nwe2qgAhT4k.png",
+      "scheduledUnix": 1777554000,
+      "humanLocal": "Thu, Apr 30, 9:00 AM EDT",
+      "metaId": "122100530198733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 9,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/15-family-eHOZjZEx7u8.png",
+      "scheduledUnix": 1777647600,
+      "humanLocal": "Fri, May 1, 11:00 AM EDT",
+      "metaId": "122100530246733689",
+      "metaPostId": null
+    },
+    {
+      "slot": 10,
+      "status": "scheduled",
+      "image": "campaigns/fb-page-warmup/images/44-pets-VzG64C5T7p4.png",
+      "scheduledUnix": 1777723200,
+      "humanLocal": "Sat, May 2, 8:00 AM EDT",
+      "metaId": "122100530288733689",
+      "metaPostId": null
+    }
+  ]
+}

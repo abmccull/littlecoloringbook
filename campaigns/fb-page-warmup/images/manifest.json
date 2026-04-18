@@ -1,0 +1,361 @@
+{
+  "generatedAt": "2026-04-18T05:48:29.258Z",
+  "model": "gemini-2.5-flash-image",
+  "inputDir": "marketing/assets/website-proof-photo-library/images",
+  "outputDir": "campaigns/fb-page-warmup/images",
+  "totalMs": 14168,
+  "okCount": 50,
+  "failCount": 0,
+  "results": [
+    {
+      "status": "ok",
+      "file": "01-family-wa8Vb6On37Q.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\01-family-wa8Vb6On37Q.png",
+      "ms": 8393,
+      "bytes": 515227
+    },
+    {
+      "status": "ok",
+      "file": "02-family-HM1YFe2U4Qc.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\02-family-HM1YFe2U4Qc.png",
+      "ms": 8133,
+      "bytes": 377365
+    },
+    {
+      "status": "ok",
+      "file": "03-family--75ZH3qgFKg.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\03-family--75ZH3qgFKg.png",
+      "ms": 8940,
+      "bytes": 552368
+    },
+    {
+      "status": "ok",
+      "file": "04-family-uA3eOWuQqOc.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\04-family-uA3eOWuQqOc.png",
+      "ms": 10166,
+      "bytes": 478944
+    },
+    {
+      "status": "ok",
+      "file": "05-family-WUFIgDLrzQ8.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\05-family-WUFIgDLrzQ8.png",
+      "ms": 12518,
+      "bytes": 567923
+    },
+    {
+      "status": "ok",
+      "file": "06-family-EJsgG9_mtR4.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\06-family-EJsgG9_mtR4.png",
+      "ms": 8550,
+      "bytes": 469056
+    },
+    {
+      "status": "ok",
+      "file": "07-family-rpOa7uF3UL4.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\07-family-rpOa7uF3UL4.png",
+      "ms": 8322,
+      "bytes": 583686
+    },
+    {
+      "status": "ok",
+      "file": "08-family-J8tt6-cDee4.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\08-family-J8tt6-cDee4.png",
+      "ms": 8015,
+      "bytes": 390108
+    },
+    {
+      "status": "ok",
+      "file": "09-family-1eA2_18Mazc.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\09-family-1eA2_18Mazc.png",
+      "ms": 9346,
+      "bytes": 622756
+    },
+    {
+      "status": "ok",
+      "file": "10-family-OdSfIy_Ft8s.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\10-family-OdSfIy_Ft8s.png",
+      "ms": 12980,
+      "bytes": 976433
+    },
+    {
+      "status": "ok",
+      "file": "11-family-84N0eVJJuPM.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\11-family-84N0eVJJuPM.png",
+      "ms": 10376,
+      "bytes": 616099
+    },
+    {
+      "status": "ok",
+      "file": "12-family-t5juxkBrQwY.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\12-family-t5juxkBrQwY.png",
+      "ms": 9689,
+      "bytes": 394124
+    },
+    {
+      "status": "ok",
+      "file": "13-family--voyJ5MBnnE.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\13-family--voyJ5MBnnE.png",
+      "ms": 9408,
+      "bytes": 522784
+    },
+    {
+      "status": "ok",
+      "file": "14-family-bpKd0gKFV1w.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\14-family-bpKd0gKFV1w.png",
+      "ms": 6883,
+      "bytes": 599816
+    },
+    {
+      "status": "ok",
+      "file": "15-family-eHOZjZEx7u8.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\15-family-eHOZjZEx7u8.png",
+      "ms": 10790,
+      "bytes": 417616
+    },
+    {
+      "status": "ok",
+      "file": "16-family-0oZ7Nas7x4Q.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\16-family-0oZ7Nas7x4Q.png",
+      "ms": 10850,
+      "bytes": 925462
+    },
+    {
+      "status": "ok",
+      "file": "17-family-UFa5y0XKt9c.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\17-family-UFa5y0XKt9c.png",
+      "ms": 9463,
+      "bytes": 323153
+    },
+    {
+      "status": "ok",
+      "file": "18-family-tnETOdMYZfg.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\18-family-tnETOdMYZfg.png",
+      "ms": 8383,
+      "bytes": 361192
+    },
+    {
+      "status": "ok",
+      "file": "19-kids-Ac5sm2yOLFc.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\19-kids-Ac5sm2yOLFc.png",
+      "ms": 14167,
+      "bytes": 871763
+    },
+    {
+      "status": "ok",
+      "file": "20-kids-n9R0MN3XGvY.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\20-kids-n9R0MN3XGvY.png",
+      "ms": 6972,
+      "bytes": 373379
+    },
+    {
+      "status": "ok",
+      "file": "21-kids-40Ku-6znIdU.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\21-kids-40Ku-6znIdU.png",
+      "ms": 8200,
+      "bytes": 522636
+    },
+    {
+      "status": "ok",
+      "file": "22-kids-RDQl9ZX5Yq8.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\22-kids-RDQl9ZX5Yq8.png",
+      "ms": 9097,
+      "bytes": 426202
+    },
+    {
+      "status": "ok",
+      "file": "23-kids-jxFtn0SE12A.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\23-kids-jxFtn0SE12A.png",
+      "ms": 9629,
+      "bytes": 331340
+    },
+    {
+      "status": "ok",
+      "file": "24-kids-0kBytdDsaXc.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\24-kids-0kBytdDsaXc.png",
+      "ms": 7481,
+      "bytes": 283505
+    },
+    {
+      "status": "ok",
+      "file": "25-kids-r2g0RhcixOM.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\25-kids-r2g0RhcixOM.png",
+      "ms": 12963,
+      "bytes": 603005
+    },
+    {
+      "status": "ok",
+      "file": "26-kids-WpS6pI9X08A.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\26-kids-WpS6pI9X08A.png",
+      "ms": 13461,
+      "bytes": 873198
+    },
+    {
+      "status": "ok",
+      "file": "27-kids-9aR_C2KpB_Y.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\27-kids-9aR_C2KpB_Y.png",
+      "ms": 7145,
+      "bytes": 566948
+    },
+    {
+      "status": "ok",
+      "file": "28-kids-TKzRZ-suDAc.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\28-kids-TKzRZ-suDAc.png",
+      "ms": 9123,
+      "bytes": 394321
+    },
+    {
+      "status": "ok",
+      "file": "29-kids-bpVMoLr0cdc.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\29-kids-bpVMoLr0cdc.png",
+      "ms": 8880,
+      "bytes": 302713
+    },
+    {
+      "status": "ok",
+      "file": "30-kids-vwqRT8wST4s.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\30-kids-vwqRT8wST4s.png",
+      "ms": 8256,
+      "bytes": 212917
+    },
+    {
+      "status": "ok",
+      "file": "31-kids-XElzSkhBd4g.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\31-kids-XElzSkhBd4g.png",
+      "ms": 9073,
+      "bytes": 412773
+    },
+    {
+      "status": "ok",
+      "file": "32-kids-Ulpl45vyXhM.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\32-kids-Ulpl45vyXhM.png",
+      "ms": 11166,
+      "bytes": 522793
+    },
+    {
+      "status": "ok",
+      "file": "33-kids-cWxCPXZc7V8.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\33-kids-cWxCPXZc7V8.png",
+      "ms": 7984,
+      "bytes": 529422
+    },
+    {
+      "status": "ok",
+      "file": "34-kids-MVdFmjGG990.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\34-kids-MVdFmjGG990.png",
+      "ms": 8760,
+      "bytes": 594131
+    },
+    {
+      "status": "ok",
+      "file": "35-pets-x5oPmHmY3kQ.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\35-pets-x5oPmHmY3kQ.png",
+      "ms": 7014,
+      "bytes": 378738
+    },
+    {
+      "status": "ok",
+      "file": "36-pets-7Dn0hmvnCh8.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\36-pets-7Dn0hmvnCh8.png",
+      "ms": 6700,
+      "bytes": 332903
+    },
+    {
+      "status": "ok",
+      "file": "37-pets-nwe2qgAhT4k.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\37-pets-nwe2qgAhT4k.png",
+      "ms": 7585,
+      "bytes": 270102
+    },
+    {
+      "status": "ok",
+      "file": "38-pets-tycZhR54Ddk.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\38-pets-tycZhR54Ddk.png",
+      "ms": 7845,
+      "bytes": 427829
+    },
+    {
+      "status": "ok",
+      "file": "39-pets-BhYlxZ5cKmc.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\39-pets-BhYlxZ5cKmc.png",
+      "ms": 7150,
+      "bytes": 407823
+    },
+    {
+      "status": "ok",
+      "file": "40-pets-pw2eI1iVNgk.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\40-pets-pw2eI1iVNgk.png",
+      "ms": 7345,
+      "bytes": 461592
+    },
+    {
+      "status": "ok",
+      "file": "41-pets-K4mSJ7kc0As.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\41-pets-K4mSJ7kc0As.png",
+      "ms": 8680,
+      "bytes": 380259
+    },
+    {
+      "status": "ok",
+      "file": "42-pets-vXjNwYi2B8M.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\42-pets-vXjNwYi2B8M.png",
+      "ms": 9981,
+      "bytes": 900742
+    },
+    {
+      "status": "ok",
+      "file": "43-pets-5_nJw3UUgpQ.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\43-pets-5_nJw3UUgpQ.png",
+      "ms": 8030,
+      "bytes": 295094
+    },
+    {
+      "status": "ok",
+      "file": "44-pets-VzG64C5T7p4.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\44-pets-VzG64C5T7p4.png",
+      "ms": 7188,
+      "bytes": 475277
+    },
+    {
+      "status": "ok",
+      "file": "45-pets-JKdIHsDLAu8.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\45-pets-JKdIHsDLAu8.png",
+      "ms": 7030,
+      "bytes": 626151
+    },
+    {
+      "status": "ok",
+      "file": "46-pets-nM4gJR-7RWQ.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\46-pets-nM4gJR-7RWQ.png",
+      "ms": 9149,
+      "bytes": 249866
+    },
+    {
+      "status": "ok",
+      "file": "47-pets-9Iod_2fmhu4.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\47-pets-9Iod_2fmhu4.png",
+      "ms": 6697,
+      "bytes": 323965
+    },
+    {
+      "status": "ok",
+      "file": "48-pets-qdBrQB_WdmA.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\48-pets-qdBrQB_WdmA.png",
+      "ms": 7197,
+      "bytes": 521390
+    },
+    {
+      "status": "ok",
+      "file": "49-pets-cwwwHfTytSI.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\49-pets-cwwwHfTytSI.png",
+      "ms": 6887,
+      "bytes": 353499
+    },
+    {
+      "status": "ok",
+      "file": "50-pets-qHfPFK16PeM.jpg",
+      "output": "campaigns\\fb-page-warmup\\images\\50-pets-qHfPFK16PeM.png",
+      "ms": 6894,
+      "bytes": 400305
+    }
+  ]
+}
