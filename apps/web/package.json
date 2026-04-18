@@ -25,7 +25,9 @@
     "sharp": "^0.34.5",
     "stripe": "^22.0.0",
     "zod": "^4.3.6",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "@littlecolorbook/ads": "file:../../packages/ads",
+    "@littlecolorbook/creative": "file:../../packages/creative"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",
