@@ -923,6 +923,11 @@ export type OrganicPostStatus = (typeof organicPostStatusValues)[number];
 export type OrganicPostPlatform = (typeof organicPostPlatformValues)[number];
 export type OrganicPostFormat = (typeof organicPostFormatValues)[number];
 
+// Phase 3b: approval workflow + backfill tracking
+export const organicPostApprovalStatusValues = ['draft', 'approved', 'rejected', 'auto_generated'] as const;
+export const organicPostApprovalStatusEnum = pgEnum("organic_post_approval_status", organicPostApprovalStatusValues);
+export type OrganicPostApprovalStatus = (typeof organicPostApprovalStatusValues)[number];
+
 export const organicPosts = pgTable(
   "organic_posts",
   {
@@ -940,6 +945,12 @@ export const organicPosts = pgTable(
     metaIgPostId: text("meta_ig_post_id"),
     errorMessage: text("error_message"),
     createdBy: text("created_by"),
+    // Phase 3b columns
+    approvalStatus: organicPostApprovalStatusEnum("approval_status").notNull().default("draft"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: text("approved_by"),
+    backfilledAt: timestamp("backfilled_at", { withTimezone: true }),
+    sourceCreativeAssetId: text("source_creative_asset_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -947,6 +958,7 @@ export const organicPosts = pgTable(
     statusIdx: index("organic_posts_status_idx").on(table.status),
     scheduledAtIdx: index("organic_posts_scheduled_at_idx").on(table.scheduledAt),
     publishedAtIdx: index("organic_posts_published_at_idx").on(table.publishedAt),
+    approvalStatusIdx: index("organic_posts_approval_status_idx").on(table.approvalStatus),
   }),
 );
 

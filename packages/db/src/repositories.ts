@@ -57,6 +57,7 @@ import {
   metaApiCalls,
   organicPosts,
   organicPostMetrics,
+  organicPostApprovalStatusValues,
   adCampaigns,
   adSets,
   ads,
@@ -80,6 +81,7 @@ import type {
   OrganicPostStatus,
   OrganicPostPlatform,
   OrganicPostFormat,
+  OrganicPostApprovalStatus,
   AgentProposalKind,
   AgentProposalStatus,
   AgentJournalEntryKind,
@@ -5872,5 +5874,186 @@ export async function incrementDmKeywordResponseMatch(input: {
       updatedAt: now(),
     })
     .where(eq(dmKeywordResponses.id, input.id));
+}
+
+// ─── Phase 3b — Organic Backfill helpers ─────────────────────────────────────
+
+export const organicPostApprovalStatusExported = organicPostApprovalStatusValues;
+export type { OrganicPostApprovalStatus };
+
+/**
+ * List organic posts in the given window that are in an active/upcoming state.
+ * Used by the backfill cron to see what already occupies each slot.
+ */
+export async function listUpcomingOrganicPosts({
+  fromDate,
+  toDate,
+}: {
+  fromDate: Date;
+  toDate: Date;
+}) {
+  if (!isDatabaseConfigured()) return [];
+  return getDatabase()
+    .select()
+    .from(organicPosts)
+    .where(
+      and(
+        inArray(organicPosts.status, ["scheduled", "draft", "approved"] as OrganicPostStatus[]),
+        gte(organicPosts.scheduledAt, fromDate),
+        lt(organicPosts.scheduledAt, toDate),
+      ),
+    )
+    .orderBy(asc(organicPosts.scheduledAt));
+}
+
+/**
+ * Alias used by the slot-rules engine to load existing posts for a window.
+ * Returns scheduled_at, platform, format so the pure functions can compute
+ * which slots are already filled without pulling full post data.
+ */
+export async function listUnfilledSlots({
+  fromDate,
+  toDate,
+}: {
+  fromDate: Date;
+  toDate: Date;
+}) {
+  // The actual "unfilled" computation is pure TS in slot-rules.ts.
+  // This function returns existing posts so the caller can diff against the full slot grid.
+  return listUpcomingOrganicPosts({ fromDate, toDate });
+}
+
+export type UpdateOrganicPostApprovalInput = {
+  id: string;
+  approvalStatus: OrganicPostApprovalStatus;
+  approvedBy?: string | null;
+};
+
+/**
+ * Transition approval_status on a post (draft → approved | rejected).
+ * Sets approved_at automatically when transitioning to 'approved'.
+ */
+export async function updateOrganicPostApproval(input: UpdateOrganicPostApprovalInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const approvedAt = input.approvalStatus === "approved" ? now() : undefined;
+  const [row] = await db
+    .update(organicPosts)
+    .set({
+      approvalStatus: input.approvalStatus,
+      ...(input.approvedBy !== undefined ? { approvedBy: input.approvedBy } : {}),
+      ...(approvedAt !== undefined ? { approvedAt } : {}),
+      updatedAt: now(),
+    })
+    .where(eq(organicPosts.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
+export type CountOrganicPostsByPlatformResult = {
+  platform: OrganicPostPlatform;
+  count: number;
+};
+
+/**
+ * Count posts (scheduled/draft/approved) per platform within a date window.
+ * Used by the backfill cron to understand slot saturation per platform.
+ */
+export async function countOrganicPostsByPlatform({
+  fromDate,
+  toDate,
+}: {
+  fromDate: Date;
+  toDate: Date;
+}): Promise<CountOrganicPostsByPlatformResult[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db
+    .select({
+      platform: organicPosts.platform,
+      count: sql<number>`cast(count(*) as integer)`,
+    })
+    .from(organicPosts)
+    .where(
+      and(
+        inArray(organicPosts.status, ["scheduled", "draft", "approved"] as OrganicPostStatus[]),
+        gte(organicPosts.scheduledAt, fromDate),
+        lt(organicPosts.scheduledAt, toDate),
+      ),
+    )
+    .groupBy(organicPosts.platform);
+  return rows as CountOrganicPostsByPlatformResult[];
+}
+
+/**
+ * Finds assets whose gcs_object appears in organic_posts.source_creative_asset_id
+ * within the last N days. Used by the backfill cron to deprioritize recently-used assets.
+ */
+export async function listRecentlyUsedCreativeAssetIds({
+  sinceDaysAgo,
+}: {
+  sinceDaysAgo: number;
+}): Promise<string[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const since = new Date(Date.now() - sinceDaysAgo * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ assetId: organicPosts.sourceCreativeAssetId })
+    .from(organicPosts)
+    .where(
+      and(
+        isNotNull(organicPosts.sourceCreativeAssetId),
+        gte(organicPosts.createdAt, since),
+      ),
+    );
+  return rows
+    .map((r) => r.assetId)
+    .filter((id): id is string => id !== null && id !== undefined);
+}
+
+export type InsertBackfilledOrganicPostInput = {
+  id: string;
+  platform: OrganicPostPlatform;
+  format: OrganicPostFormat;
+  caption: string;
+  imageAssetIds: string[];
+  scheduledAt: Date;
+  sourceCreativeAssetId: string;
+  backfilledAt: Date;
+  createdBy?: string | null;
+};
+
+/**
+ * Insert an auto-generated organic post from the backfill cron.
+ * Sets status='scheduled', approval_status='auto_generated', backfilled_at=now().
+ */
+export async function insertBackfilledOrganicPost(input: InsertBackfilledOrganicPostInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .insert(organicPosts)
+    .values({
+      id: input.id,
+      platform: input.platform,
+      format: input.format,
+      status: "scheduled",
+      approvalStatus: "auto_generated",
+      caption: input.caption,
+      firstComment: null,
+      imageAssetIds: input.imageAssetIds,
+      scheduledAt: input.scheduledAt,
+      publishingAttempts: 0,
+      publishedAt: null,
+      metaFbPostId: null,
+      metaIgPostId: null,
+      errorMessage: null,
+      backfilledAt: input.backfilledAt,
+      sourceCreativeAssetId: input.sourceCreativeAssetId,
+      createdBy: input.createdBy ?? "backfill-cron",
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .returning();
+  return row ?? null;
 }
 
