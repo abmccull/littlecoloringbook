@@ -24,6 +24,7 @@ import {
 } from "../../../../lib/sequence-enrollment";
 import { reconcileStripeRefund } from "../../../../lib/refund-executor";
 import { captureServerEvent } from "../../../../lib/posthog-server";
+import { enqueuePurchaseCapiEvent } from "../../../../lib/capi-purchase";
 
 function getPaymentIntentId(session: Stripe.Checkout.Session) {
   if (!session.payment_intent) {
@@ -119,6 +120,18 @@ async function handleCheckoutCompleted(event: Stripe.Event, session: Stripe.Chec
         offerCode: orderRow?.selectedOfferCode ?? null,
       },
     });
+  }
+
+  // Meta CAPI Purchase event. Best-effort: a failure here must never
+  // break Stripe order processing, since the critical work is already done.
+  try {
+    await enqueuePurchaseCapiEvent({
+      orderId,
+      session,
+      eventSourceUrl: process.env.APP_URL ? `${process.env.APP_URL}/thanks` : undefined,
+    });
+  } catch (error) {
+    console.error("stripe webhook: enqueuePurchaseCapiEvent failed", error);
   }
 
   return { orderId, accountStatus };
