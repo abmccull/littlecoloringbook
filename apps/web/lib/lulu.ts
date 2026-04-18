@@ -277,6 +277,38 @@ export async function getLuluPrintJob(providerJobId: string) {
   })) as Record<string, unknown>;
 }
 
+export type LuluCancelResult = {
+  ok: boolean;
+  attempted: boolean;
+  status?: string | null;
+  error?: string | null;
+};
+
+/**
+ * Attempt to cancel a Lulu print job. Lulu accepts cancellation only
+ * while the job is in an early state (pre-production). We don't block
+ * the refund flow on cancellation failure — the caller should apply
+ * the appropriate refund tier regardless.
+ */
+export async function cancelLuluPrintJob(providerJobId: string): Promise<LuluCancelResult> {
+  try {
+    const response = (await luluRequest<Record<string, unknown>>(
+      `/print-jobs/${providerJobId}/status/`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ name: "CANCELED" }),
+      },
+    )) as Record<string, unknown>;
+    return { ok: true, attempted: true, status: extractLuluStatusName(response) };
+  } catch (error) {
+    return {
+      ok: false,
+      attempted: true,
+      error: error instanceof Error ? error.message : "lulu_cancel_failed",
+    };
+  }
+}
+
 export function extractLuluStatusName(payload: Record<string, unknown>) {
   const status = asRecord(payload.status);
 

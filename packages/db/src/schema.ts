@@ -75,6 +75,7 @@ export const orders = pgTable(
   "orders",
   {
     id: text("id").primaryKey(),
+    refundedCents: integer("refunded_cents").default(0).notNull(),
     customerId: text("customer_id").references(() => customers.id, { onDelete: "set null" }),
     orderType: orderTypeEnum("order_type").notNull(),
     deliveryMode: deliveryModeEnum("delivery_mode").notNull(),
@@ -515,6 +516,64 @@ export const tickets = pgTable(
   }),
 );
 
+export const refundStatusValues = [
+  "requested",
+  "approved",
+  "processing",
+  "succeeded",
+  "failed",
+  "voided",
+] as const;
+
+export const refundReasonValues = [
+  "customer_request_no_questions",
+  "print_quality",
+  "shipping_damage",
+  "shipping_lost",
+  "duplicate_charge",
+  "fraud",
+  "admin_discretion",
+  "other",
+] as const;
+
+export const refundPolicyTierValues = [
+  "full_pre_lulu",
+  "full_digital",
+  "partial_in_production",
+  "full_shipped_quality",
+  "replacement_shipped_quality",
+  "replacement_shipping_damage",
+  "store_credit_change_of_mind",
+  "manual",
+] as const;
+
+export const refunds = pgTable(
+  "refunds",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("order_id").notNull().references(() => orders.id, { onDelete: "restrict" }),
+    ticketId: text("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+    status: text("status").default("requested").notNull().$type<(typeof refundStatusValues)[number]>(),
+    reason: text("reason").notNull().$type<(typeof refundReasonValues)[number]>(),
+    amountCents: integer("amount_cents").notNull(),
+    refundedCents: integer("refunded_cents"),
+    stripeRefundId: text("stripe_refund_id"),
+    stripeError: jsonb("stripe_error").$type<Record<string, unknown> | null>(),
+    requestedByEmail: text("requested_by_email"),
+    approvedByEmail: text("approved_by_email"),
+    policyTier: text("policy_tier").notNull().$type<(typeof refundPolicyTierValues)[number]>(),
+    notes: text("notes"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    stripeRefundUnique: uniqueIndex("refunds_stripe_refund_unique").on(table.stripeRefundId),
+    orderIdx: index("refunds_order_idx").on(table.orderId),
+    ticketIdx: index("refunds_ticket_idx").on(table.ticketId),
+  }),
+);
+
 export const ticketMessages = pgTable(
   "ticket_messages",
   {
@@ -555,4 +614,5 @@ export const tableNames = {
   emailSequenceStates: "email_sequence_states",
   tickets: "tickets",
   ticketMessages: "ticket_messages",
+  refunds: "refunds",
 } as const;

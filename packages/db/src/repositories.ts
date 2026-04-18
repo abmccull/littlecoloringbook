@@ -19,6 +19,10 @@ import {
   orderEvents,
   orders,
   portalTokens,
+  refunds,
+  refundPolicyTierValues,
+  refundReasonValues,
+  refundStatusValues,
   shippingQuotes,
   stripeWebhookEvents,
   ticketMessages,
@@ -806,7 +810,7 @@ export async function createPortalAccessForOrder(orderId: string) {
   };
 }
 
-async function appendOrderEvent(orderId: string, eventType: string, details: Record<string, unknown> | null = null) {
+export async function appendOrderEvent(orderId: string, eventType: string, details: Record<string, unknown> | null = null) {
   if (!isDatabaseConfigured()) {
     return;
   }
@@ -2626,6 +2630,82 @@ export type MarketingConsentUpdate = {
   featureConsent?: boolean;
 };
 
+/**
+ * GDPR delete: redact PII from customer-adjacent rows and stop all
+ * active sequences. Orders stay (business records), but PII columns
+ * are nulled/redacted.
+ */
+export async function redactCustomerData(customerId: string): Promise<{
+  customerId: string;
+  redactedRows: Record<string, number>;
+}> {
+  if (!isDatabaseConfigured()) return { customerId, redactedRows: {} };
+  const db = getDatabase();
+  const counts: Record<string, number> = {};
+
+  await db
+    .update(customers)
+    .set({
+      email: `redacted-${customerId}@removed.localhost`,
+      firstName: null,
+      phone: null,
+      marketingOptIn: false,
+      featureConsent: false,
+      resendContactId: null,
+      updatedAt: now(),
+    })
+    .where(eq(customers.id, customerId));
+  counts.customer = 1;
+
+  const customerOrders = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.customerId, customerId));
+  for (const order of customerOrders) {
+    await db
+      .update(orderAddresses)
+      .set({
+        fullName: "REDACTED",
+        line1: "REDACTED",
+        line2: null,
+        city: "REDACTED",
+        state: "XX",
+        postalCode: "00000",
+        phone: null,
+      })
+      .where(eq(orderAddresses.orderId, order.id));
+  }
+  counts.order_addresses = customerOrders.length;
+
+  const customerTickets = await db
+    .select({ id: tickets.id })
+    .from(tickets)
+    .where(eq(tickets.customerId, customerId));
+  if (customerTickets.length > 0) {
+    await db
+      .update(ticketMessages)
+      .set({ body: "[redacted by user request]", authorEmail: null })
+      .where(
+        and(
+          eq(ticketMessages.author, "customer"),
+          inArray(
+            ticketMessages.ticketId,
+            customerTickets.map((t) => t.id),
+          ),
+        ),
+      );
+  }
+  counts.tickets_scrubbed = customerTickets.length;
+
+  await db.delete(emailSequenceStates).where(eq(emailSequenceStates.customerId, customerId));
+  counts.sequence_states_removed = 1;
+
+  await db.delete(customerUserLinks).where(eq(customerUserLinks.customerId, customerId));
+  counts.user_links_removed = 1;
+
+  return { customerId, redactedRows: counts };
+}
+
 export async function updateMarketingConsent(input: MarketingConsentUpdate) {
   if (!isDatabaseConfigured()) return null;
   const db = getDatabase();
@@ -2640,6 +2720,140 @@ export async function updateMarketingConsent(input: MarketingConsentUpdate) {
   await db.update(customers).set(patch).where(eq(customers.id, input.customerId));
   const updated = await db.query.customers.findFirst({ where: eq(customers.id, input.customerId) });
   return updated ?? null;
+}
+
+/* ------------------------------------------------------------------
+ * Refunds (Phase 3)
+ * ------------------------------------------------------------------ */
+
+export type RefundStatus = (typeof refundStatusValues)[number];
+export type RefundReason = (typeof refundReasonValues)[number];
+export type RefundPolicyTier = (typeof refundPolicyTierValues)[number];
+
+export type RefundRow = {
+  id: string;
+  orderId: string;
+  ticketId: string | null;
+  status: RefundStatus;
+  reason: RefundReason;
+  amountCents: number;
+  refundedCents: number | null;
+  stripeRefundId: string | null;
+  stripeError: Record<string, unknown> | null;
+  requestedByEmail: string | null;
+  approvedByEmail: string | null;
+  policyTier: RefundPolicyTier;
+  notes: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export async function createRefundRequest(input: {
+  orderId: string;
+  ticketId?: string | null;
+  reason: RefundReason;
+  amountCents: number;
+  policyTier: RefundPolicyTier;
+  requestedByEmail?: string | null;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+  initialStatus?: RefundStatus;
+}): Promise<RefundRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const record = {
+    id: createId("ref"),
+    orderId: input.orderId,
+    ticketId: input.ticketId ?? null,
+    status: (input.initialStatus ?? "requested") as RefundStatus,
+    reason: input.reason,
+    amountCents: Math.max(0, Math.floor(input.amountCents)),
+    refundedCents: null as number | null,
+    stripeRefundId: null as string | null,
+    stripeError: null as Record<string, unknown> | null,
+    requestedByEmail: input.requestedByEmail ?? null,
+    approvedByEmail: null as string | null,
+    policyTier: input.policyTier,
+    notes: input.notes ?? null,
+    metadata: input.metadata ?? {},
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  await db.insert(refunds).values(record);
+  return record as RefundRow;
+}
+
+export async function listRefundsForOrder(orderId: string): Promise<RefundRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db.select().from(refunds).where(eq(refunds.orderId, orderId)).orderBy(desc(refunds.createdAt));
+  return rows as RefundRow[];
+}
+
+export async function listAdminRefundQueue(limit = 50): Promise<RefundRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db
+    .select()
+    .from(refunds)
+    .where(inArray(refunds.status, ["requested", "approved", "processing"]))
+    .orderBy(refunds.createdAt)
+    .limit(limit);
+  return rows as RefundRow[];
+}
+
+export async function getRefundById(id: string): Promise<RefundRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const row = await db.query.refunds.findFirst({ where: eq(refunds.id, id) });
+  return (row as RefundRow) ?? null;
+}
+
+export async function updateRefundStatus(input: {
+  id: string;
+  status: RefundStatus;
+  stripeRefundId?: string | null;
+  refundedCents?: number | null;
+  stripeError?: Record<string, unknown> | null;
+  approvedByEmail?: string | null;
+  notes?: string | null;
+}): Promise<RefundRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const patch: Record<string, unknown> = { status: input.status, updatedAt: now() };
+  if (input.stripeRefundId !== undefined) patch.stripeRefundId = input.stripeRefundId;
+  if (input.refundedCents !== undefined) patch.refundedCents = input.refundedCents;
+  if (input.stripeError !== undefined) patch.stripeError = input.stripeError;
+  if (input.approvedByEmail !== undefined) patch.approvedByEmail = input.approvedByEmail;
+  if (input.notes !== undefined) patch.notes = input.notes;
+  await db.update(refunds).set(patch).where(eq(refunds.id, input.id));
+  const row = await db.query.refunds.findFirst({ where: eq(refunds.id, input.id) });
+  return (row as RefundRow) ?? null;
+}
+
+export async function incrementOrderRefundedCents(input: {
+  orderId: string;
+  addCents: number;
+}) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(orders)
+    .set({
+      refundedCents: sql`${orders.refundedCents} + ${input.addCents}`,
+      updatedAt: now(),
+    })
+    .where(eq(orders.id, input.orderId));
+}
+
+export async function findRefundByStripeRefundId(stripeRefundId: string): Promise<RefundRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const row = await db.query.refunds.findFirst({
+    where: eq(refunds.stripeRefundId, stripeRefundId),
+  });
+  return (row as RefundRow) ?? null;
 }
 
 /* ------------------------------------------------------------------

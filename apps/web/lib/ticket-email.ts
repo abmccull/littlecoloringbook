@@ -218,6 +218,37 @@ Thanks for working through it with us.
   return resendSend({ to: input.to, subject, text: textShell(text), html: htmlShell(subject, inner, preheader) });
 }
 
+export async function sendTicketReviewRequestEmail(input: {
+  to: string;
+  firstName: string | null;
+  ticket: TicketRow;
+}) {
+  const greeting = input.firstName ? `Hi ${input.firstName},` : "Hi,";
+  const link = ticketUrl(input.ticket.id);
+  const subject = "Quick favor — how did we do?";
+  const preheader = "One line, however honest you want to be.";
+  const text = `${greeting}
+
+We closed out your ticket. Before you go — how'd we do?
+
+If we got it right: a reply saying so (or a line on Google / Trustpilot / wherever) means the world to a tiny team.
+
+If we didn't: tell me what we missed. I read every one.
+
+— The Little Color Book team
+
+You can always reopen the ticket here: ${link}`;
+  const inner = `
+<tr><td style="padding:0 0 14px;font-size:16px;">${greeting}</td></tr>
+<tr><td style="padding:0 0 14px;font-size:16px;">We closed out your ticket. Quick favor — how'd we do?</td></tr>
+<tr><td style="padding:0 0 14px;font-size:14px;">If we got it right, a reply (or a line on Google / Trustpilot) means the world to a tiny team. If we didn't — tell me. I read every one.</td></tr>
+<tr><td style="padding:14px 0 18px;">
+  <a href="${link}" style="background:#ff6b57;color:#fff;padding:14px 22px;text-decoration:none;border-radius:999px;font-weight:600;display:inline-block;">Leave a reply</a>
+</td></tr>
+<tr><td style="padding:0 0 14px;">— The Little Color Book team</td></tr>`;
+  return resendSend({ to: input.to, subject, text: textShell(text), html: htmlShell(subject, inner, preheader) });
+}
+
 export async function sendAdminSlaBreachEmail(input: {
   tickets: Array<{ id: string; subject: string; customerEmail: string; category: string; firstResponseDueAt: Date | null }>;
 }) {

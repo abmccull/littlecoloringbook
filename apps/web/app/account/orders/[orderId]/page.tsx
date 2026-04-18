@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getOrderForCustomer } from "@littlecolorbook/db";
 import { getOfferByCode } from "@littlecolorbook/shared";
 import { getCustomerSession } from "../../../../lib/auth";
+import { RefundRequestButton } from "../../../../components/account/refund-request-button";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,7 @@ export default async function AccountOrderDetailPage({
           <Link className="button button-secondary" href={`/account/orders/${summary.order.id}/tickets/new`}>
             Get help with this order
           </Link>
+          <RefundRequestButton orderId={summary.order.id} />
         </div>
       </div>
 

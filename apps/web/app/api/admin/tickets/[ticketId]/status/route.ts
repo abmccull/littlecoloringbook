@@ -6,7 +6,10 @@ import {
   ticketStatusValues,
 } from "@littlecolorbook/db";
 import { requireAdminApiSession } from "../../../../../../lib/auth";
-import { sendTicketResolvedEmail } from "../../../../../../lib/ticket-email";
+import {
+  sendTicketResolvedEmail,
+  sendTicketReviewRequestEmail,
+} from "../../../../../../lib/ticket-email";
 
 const schema = z.object({
   status: z.enum(ticketStatusValues),
@@ -41,6 +44,14 @@ export async function POST(
       firstName: before.ticket.customerFirstName,
       ticket: after,
     }).catch((error) => console.error("sendTicketResolvedEmail failed", error));
+  }
+
+  if (parsed.data.status === "closed" && before.ticket.status !== "closed" && after) {
+    sendTicketReviewRequestEmail({
+      to: before.ticket.customerEmail,
+      firstName: before.ticket.customerFirstName,
+      ticket: after,
+    }).catch((error) => console.error("sendTicketReviewRequestEmail failed", error));
   }
 
   return NextResponse.json({ ok: true, status: after?.status });

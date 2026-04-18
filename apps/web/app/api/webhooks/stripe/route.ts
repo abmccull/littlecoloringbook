@@ -22,6 +22,7 @@ import {
   enrollInAbandonment,
   enrollInPostPurchase,
 } from "../../../../lib/sequence-enrollment";
+import { reconcileStripeRefund } from "../../../../lib/refund-executor";
 
 function getPaymentIntentId(session: Stripe.Checkout.Session) {
   if (!session.payment_intent) {
@@ -229,6 +230,41 @@ export async function POST(request: NextRequest) {
         eventType: event.type,
         eventId: event.id,
         orderId,
+      });
+    }
+
+    if (event.type === "charge.refunded" || event.type === "refund.updated") {
+      const refundObj = (event.type === "refund.updated"
+        ? (event.data.object as Stripe.Refund)
+        : null) ?? null;
+      if (refundObj) {
+        await reconcileStripeRefund({
+          stripeRefundId: refundObj.id,
+          status: refundObj.status ?? null,
+          amount: refundObj.amount ?? null,
+          failureReason: refundObj.failure_reason ?? null,
+        });
+      } else if (event.type === "charge.refunded") {
+        const charge = event.data.object as Stripe.Charge;
+        const refundsList = charge.refunds?.data ?? [];
+        for (const r of refundsList) {
+          await reconcileStripeRefund({
+            stripeRefundId: r.id,
+            status: r.status ?? null,
+            amount: r.amount ?? null,
+            failureReason: r.failure_reason ?? null,
+          });
+        }
+      }
+      await markStripeWebhookProcessed({
+        stripeEventId: event.id,
+        status: "processed",
+      });
+      return NextResponse.json({
+        received: true,
+        mode: "verified",
+        eventType: event.type,
+        eventId: event.id,
       });
     }
 
