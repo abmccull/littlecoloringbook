@@ -29,3 +29,45 @@ export type IgFeedPublishInput = {
   imageUrl: string;
   caption: string;
 };
+
+// ─── DM / Inbox types ────────────────────────────────────────────────────────
+
+/**
+ * Thrown when a send fails because the 24-hour messaging window has expired.
+ * Callers should surface a prompt for a human agent to reply with tag=HUMAN_AGENT.
+ *
+ * Meta Graph API signals this as error code 10, error_subcode 2018278.
+ */
+export class DmWindowExpiredError extends Error {
+  public readonly code = 10;
+  public readonly subcode = 2018278;
+
+  constructor(
+    public readonly recipientPsid: string,
+    message = "24-hour messaging window has expired for this recipient",
+  ) {
+    super(message);
+    this.name = "DmWindowExpiredError";
+  }
+}
+
+export type SendDmResult = {
+  message_id: string;
+  recipient_id: string;
+};
+
+export type IncomingDmAttachment = {
+  type: string;
+  url: string;
+  mime_type?: string;
+};
+
+export type IncomingDmEvent = {
+  platform: "fb_messenger" | "ig_direct";
+  platformUserId: string;
+  metaMessageId: string;
+  text: string;
+  attachments: IncomingDmAttachment[];
+  sentAt: Date;
+  pageId: string;
+};

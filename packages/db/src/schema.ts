@@ -1314,3 +1314,75 @@ export type CreativeBrief = typeof creativeBriefs.$inferSelect;
 export type NewCreativeBrief = typeof creativeBriefs.$inferInsert;
 export type CreativeAsset = typeof creativeAssets.$inferSelect;
 export type NewCreativeAsset = typeof creativeAssets.$inferInsert;
+
+// ─── Phase 5 — DM Inbox ──────────────────────────────────────────────────────
+
+export const dmPlatformValues = ['fb_messenger', 'ig_direct'] as const;
+export const dmThreadStatusValues = ['open', 'snoozed', 'closed'] as const;
+export const dmMessageDirectionValues = ['inbound', 'outbound'] as const;
+
+export const dmPlatformEnum = pgEnum("dm_platform", dmPlatformValues);
+export const dmThreadStatusEnum = pgEnum("dm_thread_status", dmThreadStatusValues);
+export const dmMessageDirectionEnum = pgEnum("dm_message_direction", dmMessageDirectionValues);
+
+export type DmPlatform = (typeof dmPlatformValues)[number];
+export type DmThreadStatus = (typeof dmThreadStatusValues)[number];
+export type DmMessageDirection = (typeof dmMessageDirectionValues)[number];
+
+export type DmAttachment = {
+  type: string;
+  url: string;
+  mime_type?: string;
+};
+
+export const dmThreads = pgTable(
+  "dm_threads",
+  {
+    id: text("id").primaryKey(),
+    platform: dmPlatformEnum("platform").notNull(),
+    platformUserId: text("platform_user_id").notNull(),
+    platformUserHandle: text("platform_user_handle"),
+    userDisplayName: text("user_display_name"),
+    avatarUrl: text("avatar_url"),
+    status: dmThreadStatusEnum("status").notNull().default("open"),
+    lastUserMessageAt: timestamp("last_user_message_at", { withTimezone: true }),
+    lastAgentMessageAt: timestamp("last_agent_message_at", { withTimezone: true }),
+    windowExpiresAt: timestamp("window_expires_at", { withTimezone: true }),
+    assignedTo: text("assigned_to"),
+    unreadCount: integer("unread_count").notNull().default(0),
+    ticketId: text("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    platformUserUnique: uniqueIndex("dm_threads_platform_user_unique").on(table.platform, table.platformUserId),
+    statusIdx: index("dm_threads_status_idx").on(table.status),
+    windowExpiresAtIdx: index("dm_threads_window_expires_at_idx").on(table.windowExpiresAt),
+  }),
+);
+
+export const dmMessages = pgTable(
+  "dm_messages",
+  {
+    id: text("id").primaryKey(),
+    threadId: text("thread_id").notNull().references(() => dmThreads.id, { onDelete: "cascade" }),
+    direction: dmMessageDirectionEnum("direction").notNull(),
+    metaMessageId: text("meta_message_id").notNull(),
+    body: text("body").notNull(),
+    attachmentsJson: jsonb("attachments_json").$type<DmAttachment[] | null>(),
+    sentBy: text("sent_by"),
+    tag: text("tag"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaMessageIdUnique: uniqueIndex("dm_messages_meta_message_id_unique").on(table.metaMessageId),
+    threadSentAtIdx: index("dm_messages_thread_sent_at_idx").on(table.threadId, table.sentAt),
+  }),
+);
+
+export type DmThread = typeof dmThreads.$inferSelect;
+export type NewDmThread = typeof dmThreads.$inferInsert;
+export type DmMessage = typeof dmMessages.$inferSelect;
+export type NewDmMessage = typeof dmMessages.$inferInsert;

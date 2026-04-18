@@ -70,6 +70,9 @@ import {
   creativeRequests,
   creativeBriefs,
   creativeAssets,
+  metaWebhookEvents,
+  dmThreads,
+  dmMessages,
 } from "./schema";
 import type {
   CapiEventStatus,
@@ -86,6 +89,13 @@ import type {
   CreativeAssetTagsJson,
   NewCreativeBrief,
   NewCreativeAsset,
+  DmPlatform,
+  DmThreadStatus,
+  DmMessageDirection,
+  DmAttachment,
+  DmThread,
+  DmMessage,
+  MetaWebhookStatus,
 } from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
@@ -5490,4 +5500,272 @@ export async function countCreativeAssetsBySource() {
     .from(creativeAssets)
     .groupBy(creativeAssets.source)
     .orderBy(desc(sql`count(*)`));
+}
+
+// ─── Phase 5 — Meta Webhook Events ───────────────────────────────────────────
+
+export async function insertMetaWebhookEvent(input: {
+  id: string;
+  topic: string;
+  objectType: string;
+  payloadJson: Record<string, unknown>;
+  signatureHeader: string;
+}): Promise<{ id: string; firstSeen: boolean }> {
+  if (!isDatabaseConfigured()) return { id: input.id, firstSeen: true };
+  const db = getDatabase();
+  const ts = now();
+  const rows = await db
+    .insert(metaWebhookEvents)
+    .values({
+      id: input.id,
+      provider: "meta",
+      topic: input.topic,
+      objectType: input.objectType,
+      payloadJson: input.payloadJson,
+      signatureHeader: input.signatureHeader,
+      status: "received",
+      receivedAt: ts,
+      createdAt: ts,
+      updatedAt: ts,
+    })
+    .onConflictDoNothing()
+    .returning({ id: metaWebhookEvents.id });
+  const firstSeen = rows.length > 0;
+  return { id: input.id, firstSeen };
+}
+
+export async function markMetaWebhookEventProcessed(input: {
+  id: string;
+  status: MetaWebhookStatus;
+  errorMessage?: string | null;
+}): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(metaWebhookEvents)
+    .set({
+      status: input.status,
+      processedAt: now(),
+      errorMessage: input.errorMessage ?? null,
+      updatedAt: now(),
+    })
+    .where(eq(metaWebhookEvents.id, input.id));
+}
+
+// ─── Phase 5 — DM Inbox Repositories ─────────────────────────────────────────
+// DmPlatform, DmThreadStatus, DmMessageDirection, DmAttachment, DmThread, DmMessage
+// are imported above and re-exported via schema's wildcard from index.ts.
+
+export type UpsertDmThreadInput = {
+  platform: DmPlatform;
+  platformUserId: string;
+  platformUserHandle?: string | null;
+  userDisplayName?: string | null;
+  avatarUrl?: string | null;
+};
+
+export async function upsertDmThread(input: UpsertDmThreadInput): Promise<DmThread | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const ts = now();
+  const id = createId("dmth");
+  const [row] = await db
+    .insert(dmThreads)
+    .values({
+      id,
+      platform: input.platform,
+      platformUserId: input.platformUserId,
+      platformUserHandle: input.platformUserHandle ?? null,
+      userDisplayName: input.userDisplayName ?? null,
+      avatarUrl: input.avatarUrl ?? null,
+      status: "open",
+      unreadCount: 0,
+      createdAt: ts,
+      updatedAt: ts,
+    })
+    .onConflictDoUpdate({
+      target: [dmThreads.platform, dmThreads.platformUserId],
+      set: {
+        platformUserHandle: input.platformUserHandle ?? null,
+        userDisplayName: input.userDisplayName ?? null,
+        avatarUrl: input.avatarUrl ?? null,
+        updatedAt: ts,
+      },
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function insertDmMessage(input: {
+  id: string;
+  threadId: string;
+  direction: DmMessageDirection;
+  metaMessageId: string;
+  body: string;
+  attachmentsJson?: DmAttachment[] | null;
+  sentBy?: string | null;
+  tag?: string | null;
+  sentAt: Date;
+}): Promise<DmMessage | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const ts = now();
+  // Idempotent by metaMessageId — return existing row on conflict
+  const existing = await db
+    .select()
+    .from(dmMessages)
+    .where(eq(dmMessages.metaMessageId, input.metaMessageId))
+    .limit(1);
+  if (existing.length > 0) return existing[0] ?? null;
+
+  const [row] = await db
+    .insert(dmMessages)
+    .values({
+      id: input.id,
+      threadId: input.threadId,
+      direction: input.direction,
+      metaMessageId: input.metaMessageId,
+      body: input.body,
+      attachmentsJson: input.attachmentsJson ?? null,
+      sentBy: input.sentBy ?? null,
+      tag: input.tag ?? null,
+      sentAt: input.sentAt,
+      createdAt: ts,
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function getDmThreadById(id: string): Promise<DmThread | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const row = await db.query.dmThreads.findFirst({ where: eq(dmThreads.id, id) });
+  return row ?? null;
+}
+
+export async function getDmThreadByPlatformUser(
+  platform: DmPlatform,
+  platformUserId: string,
+): Promise<DmThread | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const row = await db.query.dmThreads.findFirst({
+    where: and(eq(dmThreads.platform, platform), eq(dmThreads.platformUserId, platformUserId)),
+  });
+  return row ?? null;
+}
+
+export async function listDmThreads(input: {
+  platform?: DmPlatform;
+  status?: DmThreadStatus;
+  limit: number;
+  offset: number;
+}): Promise<DmThread[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+
+  const conditions = [];
+  if (input.platform) conditions.push(eq(dmThreads.platform, input.platform));
+  if (input.status) conditions.push(eq(dmThreads.status, input.status));
+
+  return db
+    .select()
+    .from(dmThreads)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(dmThreads.lastUserMessageAt))
+    .limit(input.limit)
+    .offset(input.offset);
+}
+
+export async function getDmThreadWithMessages(
+  id: string,
+  opts: { messageLimit?: number; messageOffset?: number } = {},
+): Promise<{ thread: DmThread; messages: DmMessage[] } | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+
+  const thread = await db.query.dmThreads.findFirst({ where: eq(dmThreads.id, id) });
+  if (!thread) return null;
+
+  const messages = await db
+    .select()
+    .from(dmMessages)
+    .where(eq(dmMessages.threadId, id))
+    .orderBy(asc(dmMessages.sentAt))
+    .limit(opts.messageLimit ?? 50)
+    .offset(opts.messageOffset ?? 0);
+
+  return { thread, messages };
+}
+
+export async function touchDmThreadLastUserMessage(input: {
+  threadId: string;
+  sentAt: Date;
+}): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  const windowExpiresAt = new Date(input.sentAt.getTime() + 24 * 60 * 60 * 1000);
+  await db
+    .update(dmThreads)
+    .set({
+      lastUserMessageAt: input.sentAt,
+      windowExpiresAt,
+      unreadCount: sql`${dmThreads.unreadCount} + 1`,
+      updatedAt: now(),
+    })
+    .where(eq(dmThreads.id, input.threadId));
+}
+
+export async function touchDmThreadLastAgentMessage(input: {
+  threadId: string;
+  sentAt: Date;
+  assignedTo?: string | null;
+}): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  const set: Partial<typeof dmThreads.$inferInsert> = {
+    lastAgentMessageAt: input.sentAt,
+    unreadCount: 0,
+    updatedAt: now(),
+  };
+  if (input.assignedTo !== undefined) {
+    set.assignedTo = input.assignedTo;
+  }
+  await db.update(dmThreads).set(set).where(eq(dmThreads.id, input.threadId));
+}
+
+export async function markDmThreadStatus(input: {
+  id: string;
+  status: DmThreadStatus;
+  assignedTo?: string | null;
+}): Promise<DmThread | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const set: Partial<typeof dmThreads.$inferInsert> = {
+    status: input.status,
+    updatedAt: now(),
+  };
+  if (input.assignedTo !== undefined) {
+    set.assignedTo = input.assignedTo;
+  }
+  const [row] = await db
+    .update(dmThreads)
+    .set(set)
+    .where(eq(dmThreads.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
+export async function setDmThreadTicket(input: {
+  id: string;
+  ticketId: string;
+}): Promise<DmThread | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .update(dmThreads)
+    .set({ ticketId: input.ticketId, updatedAt: now() })
+    .where(eq(dmThreads.id, input.id))
+    .returning();
+  return row ?? null;
 }
