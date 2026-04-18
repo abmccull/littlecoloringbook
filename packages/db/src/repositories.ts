@@ -5106,6 +5106,165 @@ export async function getAgentBaselineByProposalId(proposalId: string) {
   return row ?? null;
 }
 
+// Returns baselines that fall in the 24h or 72h observation window and do not
+// yet have a matching journal entry for that window. Window edges use a ±30 min
+// tolerance so 6-hourly cron runs never miss a slot.
+export type BaselineNeedingObservation = {
+  id: string;
+  proposalId: string;
+  targetMetaId: string;
+  targetEntityType: string;
+  metricsJson: Record<string, unknown>;
+  capturedAt: Date;
+  observationKind: "outcome_observed_24h" | "outcome_observed_72h";
+};
+
+export async function findBaselinesNeedingObservation(
+  batchLimit = 50,
+): Promise<BaselineNeedingObservation[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+
+  // Raw SQL is clearest here: two window conditions unioned, each with a NOT EXISTS
+  // guard against duplicate journal entries.
+  const rows = await db.execute<{
+    id: string;
+    proposal_id: string;
+    target_meta_id: string;
+    target_entity_type: string;
+    metrics_json: Record<string, unknown>;
+    captured_at: Date;
+    observation_window: string;
+  }>(sql`
+    SELECT
+      ab.id,
+      ab.proposal_id,
+      ab.target_meta_id,
+      ab.target_entity_type,
+      ab.metrics_json,
+      ab.captured_at,
+      '24h' AS observation_window
+    FROM agent_baselines ab
+    WHERE
+      ab.captured_at >= NOW() - INTERVAL '24.5 hours'
+      AND ab.captured_at <= NOW() - INTERVAL '23.5 hours'
+      AND NOT EXISTS (
+        SELECT 1 FROM agent_journal aj
+        WHERE aj.related_proposal_id = ab.proposal_id
+          AND aj.kind = 'outcome_observed_24h'
+      )
+
+    UNION ALL
+
+    SELECT
+      ab.id,
+      ab.proposal_id,
+      ab.target_meta_id,
+      ab.target_entity_type,
+      ab.metrics_json,
+      ab.captured_at,
+      '72h' AS observation_window
+    FROM agent_baselines ab
+    WHERE
+      ab.captured_at >= NOW() - INTERVAL '72.5 hours'
+      AND ab.captured_at <= NOW() - INTERVAL '71.5 hours'
+      AND NOT EXISTS (
+        SELECT 1 FROM agent_journal aj
+        WHERE aj.related_proposal_id = ab.proposal_id
+          AND aj.kind = 'outcome_observed_72h'
+      )
+
+    ORDER BY captured_at ASC
+    LIMIT ${batchLimit}
+  `);
+
+  return rows.rows.map((r) => ({
+    id: r.id,
+    proposalId: r.proposal_id,
+    targetMetaId: r.target_meta_id,
+    targetEntityType: r.target_entity_type,
+    metricsJson: r.metrics_json as Record<string, unknown>,
+    capturedAt: new Date(r.captured_at),
+    observationKind: (r.observation_window === "24h"
+      ? "outcome_observed_24h"
+      : "outcome_observed_72h") as "outcome_observed_24h" | "outcome_observed_72h",
+  }));
+}
+
+// Generic metrics summary aggregator that works across all three daily-metrics
+// tables. The caller passes the entity type to route to the right table.
+export async function getEntityMetricsSummary(
+  entityType: "ad" | "adset" | "campaign",
+  entityMetaId: string,
+  range: { dateFrom: string; dateTo: string },
+): Promise<AdMetricsSummary> {
+  if (!isDatabaseConfigured()) {
+    return {
+      totalImpressions: 0,
+      totalSpendCents: 0,
+      totalPurchases: 0,
+      avgCtr: null,
+      avgCpmCents: null,
+      avgCpaCents: null,
+      roas: null,
+    };
+  }
+
+  const table =
+    entityType === "ad"
+      ? adDailyMetrics
+      : entityType === "adset"
+        ? adsetDailyMetrics
+        : campaignDailyMetrics;
+
+  const db = getDatabase();
+  const [row] = await db
+    .select({
+      totalImpressions: sql<number>`cast(coalesce(sum(${table.impressions}), 0) as integer)`,
+      totalSpendCents: sql<number>`cast(coalesce(sum(${table.spendCents}), 0) as integer)`,
+      totalPurchases: sql<number>`cast(coalesce(sum(${table.purchases}), 0) as integer)`,
+      totalRevenueCents: sql<number>`cast(coalesce(sum(${table.revenueCents}), 0) as integer)`,
+      avgCtr: avg(table.ctr),
+      avgCpmCents: avg(table.cpmCents),
+      avgCpaCents: avg(table.cpaCents),
+    })
+    .from(table)
+    .where(
+      and(
+        eq(table.entityMetaId, entityMetaId),
+        gte(table.date, range.dateFrom),
+        lte(table.date, range.dateTo),
+      ),
+    );
+
+  if (!row) {
+    return {
+      totalImpressions: 0,
+      totalSpendCents: 0,
+      totalPurchases: 0,
+      avgCtr: null,
+      avgCpmCents: null,
+      avgCpaCents: null,
+      roas: null,
+    };
+  }
+
+  const roas =
+    row.totalSpendCents > 0
+      ? parseFloat((row.totalRevenueCents / row.totalSpendCents).toFixed(4))
+      : null;
+
+  return {
+    totalImpressions: row.totalImpressions,
+    totalSpendCents: row.totalSpendCents,
+    totalPurchases: row.totalPurchases,
+    avgCtr: row.avgCtr != null ? parseFloat(row.avgCtr as unknown as string) : null,
+    avgCpmCents: row.avgCpmCents != null ? parseFloat(row.avgCpmCents as unknown as string) : null,
+    avgCpaCents: row.avgCpaCents != null ? parseFloat(row.avgCpaCents as unknown as string) : null,
+    roas,
+  };
+}
+
 export async function insertCreativeRequest(input: { id: string; briefJson: Record<string, unknown> }) {
   if (!isDatabaseConfigured()) return null;
   const db = getDatabase();

@@ -45,6 +45,14 @@
     {
       "path": "/api/cron/ads-insights-rollup",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/agent-outcome-reflection",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/agent-cleanup",
+      "schedule": "0 3 * * *"
     }
   ]
 }

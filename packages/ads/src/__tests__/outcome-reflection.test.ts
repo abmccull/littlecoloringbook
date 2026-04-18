@@ -69,3 +69,113 @@ describe("computeOutcomeDelta", () => {
     expect(direction).toBe("flat");
   });
 });
+
+// ─── Round-trip tests: SQL → MetricsSummary → computeOutcomeDelta ─────────────
+// These verify that the MetricsSummary shape produced by getEntityMetricsSummary
+// (aggregated from daily_metrics rows) is accepted by computeOutcomeDelta without
+// type errors and produces meaningful output. The summaries here mirror the shape
+// that the SQL aggregation returns.
+
+describe("computeOutcomeDelta — realistic MetricsSummary round-trips", () => {
+  it("handles a real ad improvement: spend up, CPA down, ROAS up", () => {
+    const baseline: MetricsSummary = {
+      totalImpressions: 12_000,
+      totalSpendCents: 45_00,   // $45
+      totalPurchases: 2,
+      avgCtr: 0.025,
+      avgCpmCents: 375,
+      avgCpaCents: 2250,
+      roas: 1.8,
+    };
+    const current: MetricsSummary = {
+      totalImpressions: 18_000,
+      totalSpendCents: 60_00,   // $60
+      totalPurchases: 5,
+      avgCtr: 0.031,
+      avgCpmCents: 333,
+      avgCpaCents: 1200,
+      roas: 2.7,
+    };
+    const { direction, delta } = computeOutcomeDelta(baseline, current);
+    expect(direction).toBe("improved");
+    expect(delta.spend_cents).toBe(1500);
+    expect(delta.purchases).toBe(3);
+    expect(delta.roas_relative_pct).toBeCloseTo(50, 0);
+  });
+
+  it("handles zero-spend baseline (new ad, no history) without divide-by-zero", () => {
+    const baseline: MetricsSummary = {
+      totalImpressions: 0,
+      totalSpendCents: 0,
+      totalPurchases: 0,
+      avgCtr: null,
+      avgCpmCents: null,
+      avgCpaCents: null,
+      roas: null,
+    };
+    const current: MetricsSummary = {
+      totalImpressions: 5_000,
+      totalSpendCents: 20_00,
+      totalPurchases: 1,
+      avgCtr: 0.02,
+      avgCpmCents: 400,
+      avgCpaCents: 2000,
+      roas: 1.5,
+    };
+    // ROAS goes from null → value, relativeDelta returns null, so falls through to tiebreaker.
+    // CPA: null before → no CPA signal. CTR: null before → no CTR signal. Direction is flat.
+    const { direction } = computeOutcomeDelta(baseline, current);
+    expect(direction).toBe("flat");
+  });
+
+  it("handles adset-level summary (same shape as ad-level) correctly", () => {
+    // adset and campaign summaries share the AdMetricsSummary shape — verify
+    // computeOutcomeDelta accepts them without type issues.
+    const baseline: MetricsSummary = {
+      totalImpressions: 50_000,
+      totalSpendCents: 200_00,
+      totalPurchases: 10,
+      avgCtr: 0.018,
+      avgCpmCents: 400,
+      avgCpaCents: 2000,
+      roas: 2.0,
+    };
+    const current: MetricsSummary = {
+      totalImpressions: 48_000,
+      totalSpendCents: 200_00,
+      totalPurchases: 8,
+      avgCtr: 0.015,
+      avgCpmCents: 417,
+      avgCpaCents: 2500,
+      roas: 1.6,
+    };
+    const { direction, delta } = computeOutcomeDelta(baseline, current);
+    expect(direction).toBe("worsened");
+    expect(delta.roas_relative_pct).toBeCloseTo(-20, 0);
+  });
+
+  it("produces cpa_relative_pct that matches manual calculation", () => {
+    const baseline: MetricsSummary = {
+      totalImpressions: 10_000,
+      totalSpendCents: 30_00,
+      totalPurchases: 3,
+      avgCtr: null,
+      avgCpmCents: null,
+      avgCpaCents: 1000,
+      roas: null,
+    };
+    const current: MetricsSummary = {
+      totalImpressions: 10_000,
+      totalSpendCents: 30_00,
+      totalPurchases: 3,
+      avgCtr: null,
+      avgCpmCents: null,
+      avgCpaCents: 880,
+      roas: null,
+    };
+    const { direction, delta } = computeOutcomeDelta(baseline, current);
+    // CPA dropped 12% — improved (lower CPA = better)
+    expect(direction).toBe("improved");
+    expect(delta.cpa_relative_pct).toBeCloseTo(-12, 0);
+  });
+});
