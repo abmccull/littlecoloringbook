@@ -5,6 +5,7 @@ const GROWTH_TABS: Array<{ href: string; label: string }> = [
   { href: "/admin/growth/ads", label: "Ads" },
   { href: "/admin/growth/campaigns", label: "Campaigns" },
   { href: "/admin/growth/organic", label: "Organic" },
+  { href: "/admin/growth/inbox", label: "Inbox" },
   { href: "/admin/growth/proposals", label: "Proposals" },
   { href: "/admin/growth/journal", label: "Journal" },
 ];

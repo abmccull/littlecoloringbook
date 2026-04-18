@@ -73,6 +73,7 @@ import {
   metaWebhookEvents,
   dmThreads,
   dmMessages,
+  dmKeywordResponses,
 } from "./schema";
 import type {
   CapiEventStatus,
@@ -96,6 +97,9 @@ import type {
   DmThread,
   DmMessage,
   MetaWebhookStatus,
+  DmKeywordResponse,
+  NewDmKeywordResponse,
+  KeywordResponseMatchKind,
 } from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
@@ -5769,3 +5773,104 @@ export async function setDmThreadTicket(input: {
     .returning();
   return row ?? null;
 }
+
+// ─── DM Keyword Responses ─────────────────────────────────────────────────────
+
+export async function listDmKeywordResponses(input: {
+  enabledOnly?: boolean;
+  platform?: DmPlatform;
+} = {}): Promise<DmKeywordResponse[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const conditions = [];
+  if (input.enabledOnly) conditions.push(eq(dmKeywordResponses.enabled, true));
+  if (input.platform) {
+    // null platform = applies to all; exact platform match also applies
+    conditions.push(
+      sql`(${dmKeywordResponses.platform} IS NULL OR ${dmKeywordResponses.platform} = ${input.platform})`,
+    );
+  }
+  return db
+    .select()
+    .from(dmKeywordResponses)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(asc(dmKeywordResponses.createdAt));
+}
+
+export async function insertDmKeywordResponse(input: {
+  id: string;
+  label: string;
+  matchKind: KeywordResponseMatchKind;
+  matchPattern: string;
+  responseBody: string;
+  platform?: DmPlatform | null;
+  enabled?: boolean;
+}): Promise<DmKeywordResponse | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const ts = now();
+  const [row] = await db
+    .insert(dmKeywordResponses)
+    .values({
+      id: input.id,
+      label: input.label,
+      matchKind: input.matchKind,
+      matchPattern: input.matchPattern,
+      responseBody: input.responseBody,
+      platform: input.platform ?? null,
+      enabled: input.enabled ?? true,
+      matchCount: 0,
+      createdAt: ts,
+      updatedAt: ts,
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function updateDmKeywordResponse(input: {
+  id: string;
+  patch: Partial<{
+    label: string;
+    matchKind: KeywordResponseMatchKind;
+    matchPattern: string;
+    responseBody: string;
+    platform: DmPlatform | null;
+    enabled: boolean;
+  }>;
+}): Promise<DmKeywordResponse | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .update(dmKeywordResponses)
+    .set({ ...input.patch, updatedAt: now() })
+    .where(eq(dmKeywordResponses.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
+export async function deleteDmKeywordResponse(id: string): Promise<boolean> {
+  if (!isDatabaseConfigured()) return false;
+  const db = getDatabase();
+  const result = await db
+    .delete(dmKeywordResponses)
+    .where(eq(dmKeywordResponses.id, id))
+    .returning({ id: dmKeywordResponses.id });
+  return result.length > 0;
+}
+
+export async function incrementDmKeywordResponseMatch(input: {
+  id: string;
+  matchedAt: Date;
+}): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(dmKeywordResponses)
+    .set({
+      matchCount: sql`${dmKeywordResponses.matchCount} + 1`,
+      lastMatchedAt: input.matchedAt,
+      updatedAt: now(),
+    })
+    .where(eq(dmKeywordResponses.id, input.id));
+}
+

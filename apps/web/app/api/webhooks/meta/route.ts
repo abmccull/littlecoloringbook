@@ -7,13 +7,20 @@ import {
   upsertDmThread,
   insertDmMessage,
   touchDmThreadLastUserMessage,
+  touchDmThreadLastAgentMessage,
+  listDmKeywordResponses,
+  incrementDmKeywordResponseMatch,
+  getDmThreadWithMessages,
   isDatabaseConfigured,
 } from "@littlecolorbook/db";
 import {
   verifyMetaWebhookSignature,
   parseIncomingMessengerEvent,
   parseIncomingIgEvent,
+  matchAutoReply,
+  sendFbMessengerText,
 } from "@littlecolorbook/social";
+import type { AutoReplyKeywordResponse } from "@littlecolorbook/social";
 
 // ─── GET — Webhook challenge verification ─────────────────────────────────────
 
@@ -141,6 +148,89 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
 
         count++;
+
+        // ── Auto-reply engine ────────────────────────────────────────────────
+        // Fire-and-forget: errors must never block the 200 response to Meta.
+        void (async () => {
+          try {
+            if (!event.text) return;
+
+            // Fetch enabled rules for this platform (null platform = both).
+            const rawRules = await listDmKeywordResponses({
+              enabledOnly: true,
+              platform: event.platform,
+            });
+
+            // Map DB rows to the matcher's KeywordResponse shape.
+            const rules: AutoReplyKeywordResponse[] = rawRules.map((r) => ({
+              id: r.id,
+              matchKind: r.matchKind,
+              matchPattern: r.matchPattern,
+              responseBody: r.responseBody,
+              platform: r.platform ?? null,
+            }));
+
+            const matched = matchAutoReply(event.text, event.platform, rules);
+            if (!matched) return;
+
+            // Loop guard: skip if the most recent outbound message on this
+            // thread was already sent by this auto-reply rule.
+            const recent = await getDmThreadWithMessages(thread.id, { messageLimit: 5, messageOffset: 0 });
+            const recentMessages = recent?.messages ?? [];
+
+            const autoSentBy = `auto:${matched.id}`;
+            const lastOutbound = [...recentMessages]
+              .sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime())
+              .find((m) => m.direction === "outbound");
+            if (lastOutbound?.sentBy === autoSentBy) return;
+
+            // Send the reply — only Messenger is fully implemented; IG is stubbed.
+            if (event.platform === "fb_messenger") {
+              const pageToken = process.env.META_PAGE_ACCESS_TOKEN;
+              const pageId = process.env.META_PAGE_ID ?? event.pageId;
+              if (!pageToken || !pageId) {
+                console.warn("meta webhook auto-reply: META_PAGE_ACCESS_TOKEN or META_PAGE_ID not configured");
+                return;
+              }
+              await sendFbMessengerText({
+                pageAccessToken: pageToken,
+                pageId,
+                recipientPsid: event.platformUserId,
+                text: matched.responseBody,
+              });
+            } else {
+              // IG DM send is not yet implemented — log and skip silently.
+              console.info(
+                `meta webhook auto-reply: IG DM send not yet implemented; skipping rule ${matched.id}`,
+              );
+              return;
+            }
+
+            const sentAt = new Date();
+
+            // Persist the outbound message.
+            await insertDmMessage({
+              id: `dmmsg_${randomUUID().replace(/-/g, "")}`,
+              threadId: thread.id,
+              direction: "outbound",
+              metaMessageId: `auto_${randomUUID().replace(/-/g, "")}`,
+              body: matched.responseBody,
+              attachmentsJson: null,
+              sentBy: autoSentBy,
+              tag: null,
+              sentAt,
+            });
+
+            // Touch the thread's last-agent-message timestamp.
+            await touchDmThreadLastAgentMessage({ threadId: thread.id, sentAt });
+
+            // Increment the rule's match counter for observability.
+            await incrementDmKeywordResponseMatch({ id: matched.id, matchedAt: sentAt });
+          } catch (autoErr) {
+            // Log but swallow — auto-reply failures must never affect the webhook response.
+            console.error("meta webhook auto-reply: error", autoErr);
+          }
+        })();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("meta webhook: failed to process message event", msg, err);

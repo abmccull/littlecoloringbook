@@ -1,3 +1,5 @@
+export { matchAutoReply } from "./auto-reply";
+export type { KeywordResponse as AutoReplyKeywordResponse } from "./auto-reply";
 export { publishFbPagePhoto } from "./fb-page";
 export { publishIgFeedSingle } from "./ig";
 export { FbPublishError } from "./types";

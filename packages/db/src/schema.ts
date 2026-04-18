@@ -1386,3 +1386,32 @@ export type DmThread = typeof dmThreads.$inferSelect;
 export type NewDmThread = typeof dmThreads.$inferInsert;
 export type DmMessage = typeof dmMessages.$inferSelect;
 export type NewDmMessage = typeof dmMessages.$inferInsert;
+
+// ─── DM Keyword Responses ─────────────────────────────────────────────────────
+
+export const keywordResponseMatchKindValues = ['exact', 'contains', 'prefix', 'regex'] as const;
+export type KeywordResponseMatchKind = (typeof keywordResponseMatchKindValues)[number];
+export const keywordResponseMatchKindEnum = pgEnum("keyword_response_match_kind", keywordResponseMatchKindValues);
+
+export const dmKeywordResponses = pgTable(
+  "dm_keyword_responses",
+  {
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    matchKind: keywordResponseMatchKindEnum("match_kind").notNull(),
+    matchPattern: text("match_pattern").notNull(),
+    responseBody: text("response_body").notNull(),
+    platform: dmPlatformEnum("platform"),
+    enabled: boolean("enabled").notNull().default(true),
+    matchCount: integer("match_count").notNull().default(0),
+    lastMatchedAt: timestamp("last_matched_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    enabledIdx: index("dm_keyword_responses_enabled_idx").on(table.enabled),
+  }),
+);
+
+export type DmKeywordResponse = typeof dmKeywordResponses.$inferSelect;
+export type NewDmKeywordResponse = typeof dmKeywordResponses.$inferInsert;
