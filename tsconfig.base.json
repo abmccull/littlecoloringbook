@@ -74,6 +74,18 @@
       ],
       "@littlecolorbook/creative/*": [
         "packages/creative/src/*"
+      ],
+      "@littlecolorbook/gamma": [
+        "packages/gamma/src/index.ts"
+      ],
+      "@littlecolorbook/gamma/*": [
+        "packages/gamma/src/*"
+      ],
+      "@littlecolorbook/voiceover": [
+        "packages/voiceover/src/index.ts"
+      ],
+      "@littlecolorbook/voiceover/*": [
+        "packages/voiceover/src/*"
       ]
     }
   }
