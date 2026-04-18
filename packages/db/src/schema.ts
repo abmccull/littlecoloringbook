@@ -630,6 +630,8 @@ export const tableNames = {
   capiEvents: "capi_events",
   metaWebhookEvents: "meta_webhook_events",
   metaApiCalls: "meta_api_calls",
+  organicPosts: "organic_posts",
+  organicPostMetrics: "organic_post_metrics",
 } as const;
 
 export const adSpendPlatformValues = ["meta", "google", "tiktok", "youtube", "reddit", "other"] as const;
@@ -899,6 +901,73 @@ export const metaApiCalls = pgTable(
     endpointIdx: index("meta_api_calls_endpoint_idx").on(table.endpoint),
   }),
 );
+
+// ─── Organic Social Publishing — Phase 3a ────────────────────────────────────
+
+export const organicPostStatusValues = ['draft', 'scheduled', 'publishing', 'published', 'failed', 'canceled'] as const;
+export const organicPostPlatformValues = ['fb', 'ig', 'fb_ig'] as const;
+export const organicPostFormatValues = ['single_image', 'carousel', 'reel', 'story'] as const;
+
+export const organicPostStatusEnum = pgEnum("organic_post_status", organicPostStatusValues);
+export const organicPostPlatformEnum = pgEnum("organic_post_platform", organicPostPlatformValues);
+export const organicPostFormatEnum = pgEnum("organic_post_format", organicPostFormatValues);
+
+export type OrganicPostStatus = (typeof organicPostStatusValues)[number];
+export type OrganicPostPlatform = (typeof organicPostPlatformValues)[number];
+export type OrganicPostFormat = (typeof organicPostFormatValues)[number];
+
+export const organicPosts = pgTable(
+  "organic_posts",
+  {
+    id: text("id").primaryKey(),
+    platform: organicPostPlatformEnum("platform").notNull(),
+    format: organicPostFormatEnum("format").notNull(),
+    status: organicPostStatusEnum("status").notNull().default("draft"),
+    caption: text("caption").notNull(),
+    firstComment: text("first_comment"),
+    imageAssetIds: text("image_asset_ids").array().notNull().default(sql`'{}'`),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    publishingAttempts: integer("publishing_attempts").notNull().default(0),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    metaFbPostId: text("meta_fb_post_id"),
+    metaIgPostId: text("meta_ig_post_id"),
+    errorMessage: text("error_message"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index("organic_posts_status_idx").on(table.status),
+    scheduledAtIdx: index("organic_posts_scheduled_at_idx").on(table.scheduledAt),
+    publishedAtIdx: index("organic_posts_published_at_idx").on(table.publishedAt),
+  }),
+);
+
+export const organicPostMetrics = pgTable(
+  "organic_post_metrics",
+  {
+    id: text("id").primaryKey(),
+    organicPostId: text("organic_post_id").notNull().references(() => organicPosts.id, { onDelete: "cascade" }),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+    platform: organicPostPlatformEnum("platform").notNull(),
+    impressions: integer("impressions").notNull().default(0),
+    reach: integer("reach").notNull().default(0),
+    reactions: integer("reactions").notNull().default(0),
+    comments: integer("comments").notNull().default(0),
+    shares: integer("shares").notNull().default(0),
+    clicks: integer("clicks").notNull().default(0),
+    engagementRate: numeric("engagement_rate", { precision: 5, scale: 4 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    postObservedIdx: index("organic_post_metrics_post_observed_idx").on(table.organicPostId, table.observedAt),
+  }),
+);
+
+export type OrganicPost = typeof organicPosts.$inferSelect;
+export type NewOrganicPost = typeof organicPosts.$inferInsert;
+export type OrganicPostMetric = typeof organicPostMetrics.$inferSelect;
+export type NewOrganicPostMetric = typeof organicPostMetrics.$inferInsert;
 
 export type MetaToken = typeof metaTokens.$inferSelect;
 export type NewMetaToken = typeof metaTokens.$inferInsert;

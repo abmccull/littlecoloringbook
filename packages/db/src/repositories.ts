@@ -55,8 +55,10 @@ import {
   capiEvents,
   capiEventStatusValues,
   metaApiCalls,
+  organicPosts,
+  organicPostMetrics,
 } from "./schema";
-import type { CapiEventStatus } from "./schema";
+import type { CapiEventStatus, OrganicPostStatus, OrganicPostPlatform, OrganicPostFormat } from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
 export type DeliveryMode = (typeof deliveryModeValues)[number];
@@ -3327,6 +3329,180 @@ export async function getRepeatCustomerStats(window: MetricsWindow): Promise<{
   const row = (rows as unknown as (typeof fallback)[])[0];
   return row ?? fallback;
 }
+
+/* ------------------------------------------------------------------
+ * Organic Social Publishing — Phase 3a
+ * ------------------------------------------------------------------ */
+
+export type InsertOrganicPostInput = {
+  id: string;
+  platform: OrganicPostPlatform;
+  format: OrganicPostFormat;
+  caption: string;
+  firstComment?: string | null;
+  imageAssetIds?: string[];
+  scheduledAt?: Date | null;
+  createdBy?: string | null;
+};
+
+export async function insertOrganicPost(input: InsertOrganicPostInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const status: OrganicPostStatus = input.scheduledAt ? "scheduled" : "draft";
+  const [row] = await db
+    .insert(organicPosts)
+    .values({
+      id: input.id,
+      platform: input.platform,
+      format: input.format,
+      status,
+      caption: input.caption,
+      firstComment: input.firstComment ?? null,
+      imageAssetIds: input.imageAssetIds ?? [],
+      scheduledAt: input.scheduledAt ?? null,
+      publishingAttempts: 0,
+      publishedAt: null,
+      metaFbPostId: null,
+      metaIgPostId: null,
+      errorMessage: null,
+      createdBy: input.createdBy ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export type UpdateOrganicPostStatusPatch = {
+  metaFbPostId?: string | null;
+  metaIgPostId?: string | null;
+  publishedAt?: Date | null;
+  errorMessage?: string | null;
+  publishingAttempts?: number;
+  scheduledAt?: Date | null;
+};
+
+export async function updateOrganicPostStatus(
+  id: string,
+  status: OrganicPostStatus,
+  patch?: UpdateOrganicPostStatusPatch,
+) {
+  if (!isDatabaseConfigured()) return;
+  await getDatabase()
+    .update(organicPosts)
+    .set({
+      status,
+      ...(patch?.metaFbPostId !== undefined ? { metaFbPostId: patch.metaFbPostId } : {}),
+      ...(patch?.metaIgPostId !== undefined ? { metaIgPostId: patch.metaIgPostId } : {}),
+      ...(patch?.publishedAt !== undefined ? { publishedAt: patch.publishedAt } : {}),
+      ...(patch?.errorMessage !== undefined ? { errorMessage: patch.errorMessage } : {}),
+      ...(patch?.publishingAttempts !== undefined ? { publishingAttempts: patch.publishingAttempts } : {}),
+      ...(patch?.scheduledAt !== undefined ? { scheduledAt: patch.scheduledAt } : {}),
+      updatedAt: now(),
+    })
+    .where(eq(organicPosts.id, id));
+}
+
+export async function listDueOrganicPosts({ nowUnix, limit = 10 }: { nowUnix: number; limit?: number }) {
+  if (!isDatabaseConfigured()) return [];
+  const cutoff = new Date(nowUnix * 1000);
+  return getDatabase()
+    .select()
+    .from(organicPosts)
+    .where(
+      and(
+        eq(organicPosts.status, "scheduled"),
+        sql`${organicPosts.scheduledAt} <= ${cutoff}`,
+      ),
+    )
+    .orderBy(organicPosts.scheduledAt)
+    .limit(limit);
+}
+
+export async function getOrganicPostById(id: string) {
+  if (!isDatabaseConfigured()) return null;
+  return (
+    getDatabase().query.organicPosts.findFirst({
+      where: eq(organicPosts.id, id),
+    }) ?? null
+  );
+}
+
+export async function listOrganicPosts({
+  status,
+  platform,
+  limit = 50,
+  offset = 0,
+}: {
+  status?: OrganicPostStatus;
+  platform?: OrganicPostPlatform;
+  limit?: number;
+  offset?: number;
+}) {
+  if (!isDatabaseConfigured()) return [];
+  const conditions = [
+    ...(status ? [eq(organicPosts.status, status)] : []),
+    ...(platform ? [eq(organicPosts.platform, platform)] : []),
+  ];
+  return getDatabase()
+    .select()
+    .from(organicPosts)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(organicPosts.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function cancelOrganicPost(id: string) {
+  if (!isDatabaseConfigured()) return;
+  await getDatabase()
+    .update(organicPosts)
+    .set({ status: "canceled", updatedAt: now() })
+    .where(
+      and(
+        eq(organicPosts.id, id),
+        sql`${organicPosts.status} NOT IN ('published', 'publishing')`,
+      ),
+    );
+}
+
+export type RecordOrganicPostMetricInput = {
+  id: string;
+  organicPostId: string;
+  platform: OrganicPostPlatform;
+  observedAt: Date;
+  impressions?: number;
+  reach?: number;
+  reactions?: number;
+  comments?: number;
+  shares?: number;
+  clicks?: number;
+  engagementRate?: string | null;
+};
+
+export async function recordOrganicPostMetricSnapshot(input: RecordOrganicPostMetricInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .insert(organicPostMetrics)
+    .values({
+      id: input.id,
+      organicPostId: input.organicPostId,
+      observedAt: input.observedAt,
+      platform: input.platform,
+      impressions: input.impressions ?? 0,
+      reach: input.reach ?? 0,
+      reactions: input.reactions ?? 0,
+      comments: input.comments ?? 0,
+      shares: input.shares ?? 0,
+      clicks: input.clicks ?? 0,
+      engagementRate: input.engagementRate ?? null,
+      createdAt: now(),
+    })
+    .returning();
+  return row ?? null;
+}
+
 
 export async function countNewPayingCustomers(window: MetricsWindow): Promise<number> {
   if (!isDatabaseConfigured()) return 0;

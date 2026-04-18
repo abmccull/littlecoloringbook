@@ -56,6 +56,12 @@
       ],
       "@littlecolorbook/meta/*": [
         "packages/meta/src/*"
+      ],
+      "@littlecolorbook/social": [
+        "packages/social/src/index.ts"
+      ],
+      "@littlecolorbook/social/*": [
+        "packages/social/src/*"
       ]
     }
   }

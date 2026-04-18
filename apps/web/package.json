@@ -5,6 +5,8 @@
   "dependencies": {
     "@littlecolorbook/db": "file:../../packages/db",
     "@littlecolorbook/email": "file:../../packages/email",
+    "@littlecolorbook/meta": "file:../../packages/meta",
+    "@littlecolorbook/social": "file:../../packages/social",
     "@littlecolorbook/jobs": "file:../../packages/jobs",
     "@littlecolorbook/pdf-templates": "file:../../packages/pdf-templates",
     "@littlecolorbook/pipeline": "file:../../packages/pipeline",
