@@ -2305,6 +2305,7 @@ export async function countSamplesByEmail(email: string): Promise<number> {
         eq(orders.customerId, customer.id),
         eq(orders.orderType, "sample"),
         ne(orders.status, "draft"),
+        ne(orders.status, "failed"),
       ),
     );
 
@@ -2325,6 +2326,7 @@ export async function countSamplesByIp(ip: string): Promise<number> {
         eq(orders.clientIp, ip),
         eq(orders.orderType, "sample"),
         ne(orders.status, "draft"),
+        ne(orders.status, "failed"),
       ),
     );
 
@@ -2345,6 +2347,7 @@ export async function countSamplesByVisitor(visitorId: string): Promise<number> 
         eq(orders.visitorId, visitorId),
         eq(orders.orderType, "sample"),
         ne(orders.status, "draft"),
+        ne(orders.status, "failed"),
       ),
     );
 

@@ -271,9 +271,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         optimizationGoal: "OFFSITE_CONVERSIONS",
         billingEvent: "IMPRESSIONS",
         targeting: {
-          geo_locations: { countries: ["US"] },
+          geo_locations: { countries: ["US", "CA", "GB", "AU"] },
           age_min: 25,
-          age_max: 55,
+          age_max: 70,
         },
         pixelId,
         status: "PAUSED",
@@ -287,7 +287,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         dailyBudgetCents: perAdDailyBudgetCents,
         optimizationGoal: "OFFSITE_CONVERSIONS",
         billingEvent: "IMPRESSIONS",
-        targetingJson: { geo_locations: { countries: ["US"] }, age_min: 25, age_max: 55 },
+        targetingJson: { geo_locations: { countries: ["US", "CA", "GB", "AU"] }, age_min: 25, age_max: 70 },
       });
 
       // (d) Create ad — always paused; human flips to ACTIVE

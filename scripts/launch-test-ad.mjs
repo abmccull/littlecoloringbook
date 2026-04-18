@@ -145,14 +145,14 @@ console.log();
 console.log("Step 4/5: Creating ad set ($5/day, US 25-55)...");
 const adSetBody = {
   campaign_id: campaign.id,
-  name: "LCB Test Ad Set — US 25-55",
+  name: "LCB Test Ad Set — US/CA/UK/AU 25-70",
   daily_budget: 500,
   optimization_goal: "OFFSITE_CONVERSIONS",
   billing_event: "IMPRESSIONS",
   targeting: {
-    geo_locations: { countries: ["US"] },
+    geo_locations: { countries: ["US", "CA", "GB", "AU"] },
     age_min: 25,
-    age_max: 55,
+    age_max: 70,
   },
   status: "PAUSED",
 };
