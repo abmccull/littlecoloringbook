@@ -4,3 +4,4 @@ export * from "./gemini.js";
 export * from "./cropping.js";
 export * from "./tagging.js";
 export * from "./orchestrator.js";
+export * from "./canva/index.js";

@@ -77,6 +77,17 @@ export const creativeBriefInputSchema = z.object({
   tags: creativeAssetTagsJsonSchema.optional(),
   // Optional override — if provided the orchestrator uses it directly
   caption: z.string().max(2000).nullish(),
+  // ─── Canva Connect autofill (Phase 2b) ─────────────────────────────────────
+  /** Canva Brand Template ID — required to activate the autofill overlay step */
+  canvaTemplateId: z.string().max(200).nullish(),
+  /**
+   * Maps Canva template field keys to brief copy properties.
+   * Values must be one of: 'hook' | 'body' | 'cta' | 'hero_image'.
+   * Defaults to DEFAULT_CANVA_FIELD_MAPPING when omitted.
+   */
+  canvaFieldMapping: z
+    .record(z.string(), z.enum(["hook", "body", "cta", "hero_image"]))
+    .optional(),
 });
 
 export type CreativeBriefInput = z.infer<typeof creativeBriefInputSchema>;
@@ -138,6 +149,14 @@ export type ProduceResult = {
     aspect_16x9: string;
   };
   complianceStatus: "passed" | "warned" | "rejected";
+  metadata?: {
+    /** Set when the Canva autofill pipeline ran successfully */
+    canvaDesignId?: string;
+    /** Set to true when Canva was attempted but failed; raw Gemini hero was used */
+    canvaFailed?: boolean;
+    /** Human-readable error message from the failed Canva step */
+    canvaError?: string;
+  };
 };
 
 // ─── Compliance ───────────────────────────────────────────────────────────────

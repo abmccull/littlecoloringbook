@@ -436,12 +436,21 @@ export type CanvaEnv = {
   clientId: string | null;
   clientSecret: string | null;
   accessToken: string | null;
+  /** OAuth refresh_token obtained during the one-time human authorization flow */
+  refreshToken: string | null;
+  /** Base URL for the Canva Connect REST API (default: https://api.canva.com/rest/v1) */
+  apiBaseUrl: string;
+  /** Set to 'true' to enable the Canva autofill overlay step in creative production */
+  templateAutofillEnabled: boolean;
 };
 
 const rawCanvaEnvSchema = z.object({
   CANVA_CLIENT_ID: z.string().optional(),
   CANVA_CLIENT_SECRET: z.string().optional(),
   CANVA_ACCESS_TOKEN: z.string().optional(),
+  CANVA_REFRESH_TOKEN: z.string().optional(),
+  CANVA_API_BASE_URL: z.string().url().default("https://api.canva.com/rest/v1"),
+  CANVA_TEMPLATE_AUTOFILL_ENABLED: z.string().default("false"),
 });
 
 export function getCanvaEnv(): CanvaEnv {
@@ -449,12 +458,18 @@ export function getCanvaEnv(): CanvaEnv {
     CANVA_CLIENT_ID: process.env.CANVA_CLIENT_ID,
     CANVA_CLIENT_SECRET: process.env.CANVA_CLIENT_SECRET,
     CANVA_ACCESS_TOKEN: process.env.CANVA_ACCESS_TOKEN,
+    CANVA_REFRESH_TOKEN: process.env.CANVA_REFRESH_TOKEN,
+    CANVA_API_BASE_URL: process.env.CANVA_API_BASE_URL ?? "https://api.canva.com/rest/v1",
+    CANVA_TEMPLATE_AUTOFILL_ENABLED: process.env.CANVA_TEMPLATE_AUTOFILL_ENABLED ?? "false",
   });
 
   return {
     clientId: parsed.CANVA_CLIENT_ID ?? null,
     clientSecret: parsed.CANVA_CLIENT_SECRET ?? null,
     accessToken: parsed.CANVA_ACCESS_TOKEN ?? null,
+    refreshToken: parsed.CANVA_REFRESH_TOKEN ?? null,
+    apiBaseUrl: parsed.CANVA_API_BASE_URL.replace(/\/$/, ""),
+    templateAutofillEnabled: parsed.CANVA_TEMPLATE_AUTOFILL_ENABLED === "true",
   };
 }
 
