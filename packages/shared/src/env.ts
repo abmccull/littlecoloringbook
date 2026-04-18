@@ -624,3 +624,18 @@ export function getAnthropicEnv(): AnthropicEnv {
 export function isAnthropicConfigured() {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
+
+// ─── FFmpeg env ───────────────────────────────────────────────────────────────
+// Optional override for Railway or other environments that provide a system ffmpeg.
+// Falls back to @ffmpeg-installer/ffmpeg bundled binary when absent.
+
+export type FfmpegEnv = {
+  /** Override path to the ffmpeg binary. If absent, @ffmpeg-installer/ffmpeg is used. */
+  binaryPath: string | null;
+};
+
+export function getFfmpegEnv(): FfmpegEnv {
+  return {
+    binaryPath: process.env.FFMPEG_BINARY_PATH ?? null,
+  };
+}

@@ -5,14 +5,19 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@littlecolorbook/db": "file:../db",
+    "@littlecolorbook/gamma": "file:../gamma",
     "@littlecolorbook/pipeline": "file:../pipeline",
     "@littlecolorbook/shared": "file:../shared",
+    "@littlecolorbook/voiceover": "file:../voiceover",
+    "fluent-ffmpeg": "^2.1.3",
     "js-yaml": "^4.1.0",
     "sharp": "^0.33.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.27",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.0.0",
     "vitest": "^3.2.4"

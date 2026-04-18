@@ -8,11 +8,15 @@ import {
   insertCreativeAsset,
   updateCreativeAssetCompliance,
 } from "@littlecolorbook/db/repositories";
+import type { InsertCreativeBriefInput } from "@littlecolorbook/db/repositories";
+import type { GammaClient } from "@littlecolorbook/gamma";
+import type { ElevenLabsClient } from "@littlecolorbook/voiceover";
 import {
   creativeBriefInputSchema,
   ComplianceRejectedError,
-  NotImplementedError,
+  MissingClientError,
   type CreativeBriefInput,
+  type CreativeBriefParsed,
   type ProduceResult,
   type ComplianceReport,
   type CropKey,
@@ -25,6 +29,10 @@ import { tagsToTagsJson } from "./tagging.js";
 import { CanvaClient } from "./canva/client.js";
 import { DEFAULT_CANVA_FIELD_MAPPING } from "./canva/types.js";
 import type { CanvaAutofillField } from "./canva/types.js";
+import { produceCarouselImage } from "./carousel.js";
+import { produceStopMotionReveal } from "./video/stop-motion.js";
+import { produceSlideshowNarrationVideo } from "./video/slideshow-narration.js";
+import { produceUgcNarrated } from "./video/ugc-narrated.js";
 
 const GCS_BUCKET = "exports" as const;
 
@@ -37,6 +45,12 @@ export type ProduceCreativeOptions = {
   createdBy?: string;
   /** Override for the Canva client instance — used in tests */
   canvaClient?: CanvaClient;
+  /** Gamma client — required for slideshow_narration_video kind */
+  gammaClient?: GammaClient;
+  /** ElevenLabs client — required for ugc_narrated and slideshow_narration_video kinds */
+  voiceoverClient?: ElevenLabsClient;
+  /** Skip compliance scan — used in tests */
+  skipCompliance?: boolean;
 };
 
 export async function produceCreative(
@@ -46,35 +60,74 @@ export async function produceCreative(
   // 1. Validate the brief
   const parsed = creativeBriefInputSchema.parse(briefInput);
 
-  // 2. Compliance scan on brief copy
-  const report = scanText({
-    caption: parsed.caption,
-    hook: parsed.hook,
-    body: parsed.body,
-    cta: parsed.cta,
-  });
+  // 2. Compliance scan on brief copy (unless skipped in tests)
+  let report: ComplianceReport;
 
-  if (report.status === "rejected") {
-    throw new ComplianceRejectedError(report);
-  }
+  if (opts.skipCompliance) {
+    report = { status: "passed", warnings: [], errors: [], policyVersion: "skip" };
+  } else {
+    report = scanText({
+      caption: parsed.caption,
+      hook: parsed.hook,
+      body: parsed.body,
+      cta: parsed.cta,
+    });
 
-  if (report.status === "warned") {
-    console.warn(
-      "[creative/orchestrator] Brief has compliance warnings:",
-      report.warnings.map((w) => w.code).join(", "),
-    );
+    if (report.status === "rejected") {
+      throw new ComplianceRejectedError(report);
+    }
+
+    if (report.status === "warned") {
+      console.warn(
+        "[creative/orchestrator] Brief has compliance warnings:",
+        report.warnings.map((w) => w.code).join(", "),
+      );
+    }
   }
 
   // 3. Dispatch by kind
-  if (parsed.kind !== "static_image") {
-    throw new NotImplementedError(`Creative kind '${parsed.kind}' — deferred to later phase.`);
-  }
+  switch (parsed.kind) {
+    case "static_image":
+      return produceStaticImage(parsed, report, opts);
 
-  return produceStaticImage(parsed, report, opts);
+    case "carousel_image":
+      return produceCarouselImage(parsed, report, opts);
+
+    case "stop_motion_reveal":
+      return produceStopMotionReveal(parsed, report, opts);
+
+    case "slideshow_narration_video": {
+      if (!opts.gammaClient) {
+        throw new MissingClientError("gammaClient", "slideshow_narration_video");
+      }
+      if (!opts.voiceoverClient) {
+        throw new MissingClientError("voiceoverClient", "slideshow_narration_video");
+      }
+      return produceSlideshowNarrationVideo(parsed, report, opts, {
+        gammaClient: opts.gammaClient,
+        voiceoverClient: opts.voiceoverClient,
+      });
+    }
+
+    case "ugc_narrated": {
+      if (!opts.voiceoverClient) {
+        throw new MissingClientError("voiceoverClient", "ugc_narrated");
+      }
+      return produceUgcNarrated(parsed, report, opts, {
+        voiceoverClient: opts.voiceoverClient,
+      });
+    }
+
+    default: {
+      // TypeScript exhaustiveness check — should never reach here
+      const _exhaustive: never = parsed.kind;
+      throw new Error(`Unhandled creative kind: ${String(_exhaustive)}`);
+    }
+  }
 }
 
 async function produceStaticImage(
-  brief: CreativeBriefInput,
+  brief: CreativeBriefParsed,
   report: ComplianceReport,
   opts: ProduceCreativeOptions,
 ): Promise<ProduceResult> {
@@ -162,7 +215,7 @@ async function produceStaticImage(
   // i. Insert DB rows
   await insertCreativeBrief({
     id: briefId,
-    kind: brief.kind,
+    kind: brief.kind as InsertCreativeBriefInput["kind"],
     concept: brief.concept,
     format: brief.format,
     hook: brief.hook,
@@ -235,7 +288,7 @@ type CanvaMeta =
 
 async function maybeRunCanvaAutofill(
   geminiBuffer: Buffer,
-  brief: CreativeBriefInput,
+  brief: CreativeBriefParsed,
   opts: ProduceCreativeOptions,
 ): Promise<{ heroBuffer: Buffer; canvaMeta: CanvaMeta }> {
   // Feature flag: must be explicitly enabled

@@ -5,3 +5,5 @@ export * from "./cropping.js";
 export * from "./tagging.js";
 export * from "./orchestrator.js";
 export * from "./canva/index.js";
+export * from "./carousel.js";
+export * from "./video/ffmpeg.js";

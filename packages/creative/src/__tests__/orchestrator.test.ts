@@ -32,7 +32,7 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 import { produceCreative } from "../orchestrator.js";
-import { ComplianceRejectedError, NotImplementedError } from "../types.js";
+import { ComplianceRejectedError, MissingClientError } from "../types.js";
 import { renderColoringPageImage } from "../gemini.js";
 import { uploadObject } from "@littlecolorbook/shared/storage";
 import {
@@ -87,10 +87,10 @@ describe("produceCreative", () => {
 
     expect(result.briefId).toBeTruthy();
     expect(result.heroAssetId).toBeTruthy();
-    expect(result.crops.aspect_1x1).toBeTruthy();
-    expect(result.crops.aspect_4x5).toBeTruthy();
-    expect(result.crops.aspect_9x16).toBeTruthy();
-    expect(result.crops.aspect_16x9).toBeTruthy();
+    expect(result.crops?.aspect_1x1).toBeTruthy();
+    expect(result.crops?.aspect_4x5).toBeTruthy();
+    expect(result.crops?.aspect_9x16).toBeTruthy();
+    expect(result.crops?.aspect_16x9).toBeTruthy();
     expect(result.complianceStatus).toBe("passed");
   });
 
@@ -136,12 +136,12 @@ describe("produceCreative", () => {
     expect(insertCreativeBrief).not.toHaveBeenCalled();
   });
 
-  it("throws NotImplementedError for non-static_image kinds", async () => {
-    const videoBrief = { ...validBrief, kind: "stop_motion_reveal" as const };
+  it("throws MissingClientError for ugc_narrated when voiceoverClient is absent", async () => {
+    const videoBrief = { ...validBrief, kind: "ugc_narrated" as const };
 
     await expect(
       produceCreative(videoBrief, { sourceImagePath: "/fake/source.png" }),
-    ).rejects.toThrow(NotImplementedError);
+    ).rejects.toThrow(MissingClientError);
 
     expect(renderColoringPageImage).not.toHaveBeenCalled();
   });

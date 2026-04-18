@@ -27,7 +27,9 @@
     "zod": "^4.3.6",
     "js-yaml": "^4.1.0",
     "@littlecolorbook/ads": "file:../../packages/ads",
-    "@littlecolorbook/creative": "file:../../packages/creative"
+    "@littlecolorbook/creative": "file:../../packages/creative",
+    "@littlecolorbook/gamma": "file:../../packages/gamma",
+    "@littlecolorbook/voiceover": "file:../../packages/voiceover"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",

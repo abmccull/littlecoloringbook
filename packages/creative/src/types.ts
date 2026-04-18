@@ -7,6 +7,7 @@ export const creativeBriefKindValues = [
   "carousel_image",
   "stop_motion_reveal",
   "ugc_narrated",
+  "slideshow_narration_video",
 ] as const;
 
 export const creativeAssetSourceValues = [
@@ -62,6 +63,27 @@ export type CreativeAssetTagsJson = z.infer<typeof creativeAssetTagsJsonSchema>;
 
 // ─── Brief input (validated by orchestrator) ─────────────────────────────────
 
+export const voiceFamilyValues = [
+  "warm_conversational_female",
+  "upbeat_female",
+  "calm_premium_female",
+  "friendly_gift_guide",
+] as const;
+
+export type VoiceFamilyValue = (typeof voiceFamilyValues)[number];
+
+export const targetAspectRatioValues = ["9:16", "1:1", "4:5", "16:9"] as const;
+export type TargetAspectRatio = (typeof targetAspectRatioValues)[number];
+
+// Per-card copy for carousel
+export const carouselCardSchema = z.object({
+  hook: z.string().min(1).max(500),
+  body: z.string().min(1).max(1000),
+  cta: z.string().min(1).max(200),
+  visualPrompt: z.string().min(1).max(2000),
+});
+export type CarouselCard = z.infer<typeof carouselCardSchema>;
+
 export const creativeBriefInputSchema = z.object({
   kind: z.enum(creativeBriefKindValues),
   concept: z.string().min(1).max(200),
@@ -73,7 +95,7 @@ export const creativeBriefInputSchema = z.object({
   occasion: z.string().max(100).nullish(),
   offerCode: z.string().max(50).nullish(),
   visualPrompt: z.string().min(1).max(2000),
-  voiceFamily: z.string().max(100).nullish(),
+  voiceFamily: z.enum(voiceFamilyValues).nullish(),
   tags: creativeAssetTagsJsonSchema.optional(),
   // Optional override — if provided the orchestrator uses it directly
   caption: z.string().max(2000).nullish(),
@@ -88,9 +110,25 @@ export const creativeBriefInputSchema = z.object({
   canvaFieldMapping: z
     .record(z.string(), z.enum(["hook", "body", "cta", "hero_image"]))
     .optional(),
+  // ─── carousel_image fields ──────────────────────────────────────────────────
+  /** Number of cards in the carousel (3–10, default 5). */
+  cardCount: z.number().int().min(3).max(10).optional().default(5),
+  /** Per-card copy. If absent, derived automatically from base brief. */
+  cards: z.array(carouselCardSchema).optional(),
+  // ─── Video kind fields ──────────────────────────────────────────────────────
+  /** Target video duration in seconds (5–90, default 15). Used by video kinds. */
+  targetDurationSeconds: z.number().min(5).max(90).optional().default(15),
+  /** Custom narration script. If absent, derived from hook + body + cta. */
+  narrationScript: z.string().max(5000).optional(),
+  /** Target aspect ratio for video output (default 9:16 for Reels). */
+  targetAspectRatio: z.enum(targetAspectRatioValues).optional().default("9:16"),
 });
 
-export type CreativeBriefInput = z.infer<typeof creativeBriefInputSchema>;
+/** The type callers pass into produceCreative() — fields with .default() are optional. */
+export type CreativeBriefInput = z.input<typeof creativeBriefInputSchema>;
+
+/** The internal parsed type after Zod defaults are applied — used inside orchestrator/producers. */
+export type CreativeBriefParsed = z.infer<typeof creativeBriefInputSchema>;
 
 // ─── DB-shaped rows (loosely typed mirror of schema.ts) ──────────────────────
 
@@ -139,15 +177,34 @@ export type CreativeAsset = {
 
 // ─── Orchestrator result ──────────────────────────────────────────────────────
 
+/** Per-card result for carousel_image kind */
+export type CarouselCardResult = {
+  heroAssetId: string;
+  cropAssetIds: {
+    aspect_1x1: string;
+    aspect_4x5: string;
+  };
+};
+
 export type ProduceResult = {
   briefId: string;
-  heroAssetId: string;
-  crops: {
+  /** Present for static_image kind */
+  heroAssetId?: string;
+  /** Present for static_image kind */
+  crops?: {
     aspect_1x1: string;
     aspect_4x5: string;
     aspect_9x16: string;
     aspect_16x9: string;
   };
+  /** Present for carousel_image kind */
+  cards?: CarouselCardResult[];
+  /** Present for video kinds */
+  videoAssetId?: string;
+  /** Present for video kinds — actual duration of the rendered video */
+  durationSeconds?: number;
+  /** Present when audio was uploaded separately (UGC / slideshow) */
+  audioAssetId?: string;
   complianceStatus: "passed" | "warned" | "rejected";
   metadata?: {
     /** Set when the Canva autofill pipeline ran successfully */
@@ -158,6 +215,28 @@ export type ProduceResult = {
     canvaError?: string;
   };
 };
+
+// ─── Custom errors ─────────────────────────────────────────────────────────────
+
+export class MissingClientError extends Error {
+  constructor(clientName: string, requiredBy: string) {
+    super(
+      `[creative/orchestrator] ${clientName} client is required for '${requiredBy}' kind but was not provided in ProduceCreativeOptions.`,
+    );
+    this.name = "MissingClientError";
+  }
+}
+
+export class VideoGenerationError extends Error {
+  constructor(
+    public readonly stage: string,
+    message: string,
+    public readonly cause?: unknown,
+  ) {
+    super(`[creative/video] ${stage}: ${message}`);
+    this.name = "VideoGenerationError";
+  }
+}
 
 // ─── Compliance ───────────────────────────────────────────────────────────────
 
