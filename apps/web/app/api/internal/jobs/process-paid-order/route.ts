@@ -1,4 +1,4 @@
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 import { NextRequest, NextResponse } from "next/server";
 import { isJobRunnerError, runProcessPaidOrderJob } from "@littlecolorbook/jobs";

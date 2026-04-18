@@ -8,6 +8,11 @@ export type SignedUploadRequest = {
   objectPath: string;
   contentType: string;
   expiresInMinutes?: number;
+  /**
+   * Upper bound in bytes. Enforced by Google via x-goog-content-length-range.
+   * Clients must send matching header or the PUT fails.
+   */
+  maxBytes?: number;
 };
 
 export type SignedDownloadRequest = {
@@ -74,21 +79,40 @@ export function buildAssetPath(parts: string[]) {
 export async function createSignedUploadUrl({
   bucket,
   objectPath,
+  contentType,
   expiresInMinutes = 15,
+  maxBytes,
 }: SignedUploadRequest) {
   const file = getStorageClient().bucket(getBucketName(bucket)).file(objectPath);
   const expiresAt = Date.now() + expiresInMinutes * 60 * 1000;
+
+  // Bind the signed URL to a specific content-type AND byte-range so
+  // the client can't reuse it to upload a different payload. Both
+  // headers must be set on the PUT request — GCS rejects if missing.
+  const extensionHeaders: Record<string, string> = {};
+  if (maxBytes && maxBytes > 0) {
+    extensionHeaders["x-goog-content-length-range"] = `0,${maxBytes}`;
+  }
+
   const [url] = await file.getSignedUrl({
     version: "v4",
     action: "write",
     expires: expiresAt,
+    contentType,
+    extensionHeaders: Object.keys(extensionHeaders).length ? extensionHeaders : undefined,
   });
+
+  const headers: Record<string, string> = { "Content-Type": contentType };
+  if (maxBytes && maxBytes > 0) {
+    headers["x-goog-content-length-range"] = `0,${maxBytes}`;
+  }
 
   return {
     url,
     expiresAt: new Date(expiresAt).toISOString(),
     method: "PUT" as const,
-    headers: {},
+    headers,
+    maxBytes: maxBytes ?? null,
   };
 }
 

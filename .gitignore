@@ -16,3 +16,5 @@ npm-debug.log*
 .env*.local
 apps/web/apps/
 *.vercel-prod*
+test-results/
+playwright-report/
