@@ -268,7 +268,21 @@ export async function createLuluPrintJob(input: LuluCreatePrintJobInput) {
   return {
     providerJobId: String(providerJobId),
     rawPayload: payload,
+    costCents: extractLuluTotalCostCents(payload),
   };
+}
+
+/**
+ * Pull total print-job cost from a Lulu response payload. Lulu returns
+ * an object like { costs: { total_cost_incl_tax: "12.30", ... } } on
+ * newer API versions. Older responses expose it at the top level.
+ */
+export function extractLuluTotalCostCents(payload: Record<string, unknown>): number | null {
+  const costs = asRecord(payload.costs);
+  const direct = payload.total_cost_incl_tax ?? payload.total_cost_excl_tax;
+  const nested = costs?.total_cost_incl_tax ?? costs?.total_cost_excl_tax;
+  const value = parseMoneyToCents((direct ?? nested) as unknown);
+  return value > 0 ? value : null;
 }
 
 export async function getLuluPrintJob(providerJobId: string) {

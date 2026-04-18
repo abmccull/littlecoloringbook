@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
       providerJobId: submission.providerJobId,
       shippingService: context.selectedQuote.service,
       rawPayload: submission.rawPayload,
+      costCents: submission.costCents ?? null,
     });
 
     try {

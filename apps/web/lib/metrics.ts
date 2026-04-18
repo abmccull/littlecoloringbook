@@ -3,6 +3,7 @@ import "server-only";
 import {
   countNewPayingCustomers,
   getGeminiCostInWindow,
+  getLuluActualCostInWindow,
   getOrderBreakdown,
   getRepeatCustomerStats,
   getRevenueMetrics,
@@ -110,7 +111,7 @@ export async function computeDashboardMetrics(
   const w = windowFromRange(range);
   const window: MetricsWindow = { start: w.start, end: w.end };
 
-  const [revenue, breakdown, gemini, adSpend, funnel, repeat, newPaying] = await Promise.all([
+  const [revenue, breakdown, gemini, adSpend, funnel, repeat, newPaying, luluActual] = await Promise.all([
     getRevenueMetrics(window),
     getOrderBreakdown(window),
     getGeminiCostInWindow(window),
@@ -118,16 +119,20 @@ export async function computeDashboardMetrics(
     getSampleToPaidFunnel(window),
     getRepeatCustomerStats(window),
     countNewPayingCustomers(window),
+    getLuluActualCostInWindow(window),
   ]);
 
   const netCents = Math.max(0, revenue.gross_cents - revenue.refunded_cents);
   const stripeFeeCents = revenue.paid_order_count > 0
     ? Math.round(revenue.gross_cents * STRIPE_FEE_PCT + STRIPE_FEE_FLAT_CENTS * revenue.paid_order_count)
     : 0;
-  // Rough Lulu estimate: print_count * avg_print_order_revenue * 40%. We
-  // don't have per-order Lulu cost yet.
+  // Lulu cost — prefer actual per-job cost from the provider response.
+  // Fall back to 40%-of-print-portion estimate for jobs we haven't
+  // captured cost on yet.
+  const luluJobsWithoutCost = Math.max(0, luluActual.jobs_total - luluActual.jobs_with_cost);
   const avgPrintRevenueCents = breakdown.print_count > 0 ? Math.round(revenue.gross_cents / Math.max(1, revenue.paid_order_count)) : 0;
-  const luluEstimateCents = Math.round(breakdown.print_count * avgPrintRevenueCents * LULU_PRINT_COST_RATIO);
+  const luluEstimateCents =
+    luluActual.known_cost_cents + Math.round(luluJobsWithoutCost * avgPrintRevenueCents * LULU_PRINT_COST_RATIO);
 
   const totalCostsCents = adSpend + gemini.total_cost_cents + stripeFeeCents + luluEstimateCents;
   const grossMarginCents = netCents - totalCostsCents;

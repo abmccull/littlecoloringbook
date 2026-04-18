@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { getDailyRevenueSeries, type MetricsWindow } from "@littlecolorbook/db";
 import { AdminNav } from "../../../components/admin/admin-nav";
+import { MetricsLineChart } from "../../../components/admin/metrics-chart";
 import { requireAdminSession } from "../../../lib/auth";
-import { computeDashboardMetrics } from "../../../lib/metrics";
+import { computeDashboardMetrics, windowFromRange } from "../../../lib/metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +66,12 @@ export default async function AdminMetricsPage({
     ? (range as RangeKey)
     : "30d";
   const metrics = await computeDashboardMetrics(rangeKey);
+  const w = windowFromRange(rangeKey);
+  const window: MetricsWindow = { start: w.start, end: w.end };
+  const series = await getDailyRevenueSeries(window);
+  const revenueSeries = series.map((row) => ({ day: row.day, value: row.revenue_cents }));
+  const ordersSeries = series.map((row) => ({ day: row.day, value: row.paid_orders }));
+  const samplesSeries = series.map((row) => ({ day: row.day, value: row.samples }));
 
   return (
     <main>
@@ -74,7 +82,7 @@ export default async function AdminMetricsPage({
             <h1 style={{ margin: 0 }}>Metrics</h1>
             <p className="muted" style={{ margin: "4px 0 0" }}>{metrics.window.label}</p>
           </div>
-          <nav style={{ display: "flex", gap: "6px" }}>
+          <nav style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
             {(Object.keys(RANGE_LABELS) as RangeKey[]).map((k) => (
               <Link
                 href={`/admin/metrics?range=${k}`}
@@ -92,7 +100,19 @@ export default async function AdminMetricsPage({
                 {RANGE_LABELS[k]}
               </Link>
             ))}
+            <a
+              href={`/api/admin/metrics/export?range=${rangeKey}&format=summary`}
+              style={{ padding: "6px 12px", fontSize: "0.85rem", color: "var(--color-ink)" }}
+            >
+              Export CSV ↓
+            </a>
           </nav>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "14px" }}>
+          <MetricsLineChart points={revenueSeries} label="Daily revenue" yFormatter={(v) => formatMoney(v)} />
+          <MetricsLineChart points={ordersSeries} label="Daily paid orders" stroke="#3a8879" fill="#e5f0ec" />
+          <MetricsLineChart points={samplesSeries} label="Daily samples" stroke="#d28a3b" fill="#faf0d8" />
         </div>
 
         <h2 style={{ marginBottom: 0 }}>Revenue</h2>

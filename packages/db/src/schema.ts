@@ -276,6 +276,7 @@ export const fulfillmentJobs = pgTable(
     shippingService: text("shipping_service"),
     trackingNumber: text("tracking_number"),
     trackingUrl: text("tracking_url"),
+    costCents: integer("cost_cents"),
     rawPayload: jsonb("raw_payload").$type<Record<string, unknown> | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

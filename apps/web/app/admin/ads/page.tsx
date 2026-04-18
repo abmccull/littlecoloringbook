@@ -27,7 +27,10 @@ export default async function AdSpendPage() {
           <AdSpendForm />
         </div>
 
-        <h2>Recent entries</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2 style={{ margin: 0 }}>Recent entries</h2>
+          <a href="/api/admin/ad-spend/export" style={{ fontSize: "0.9rem" }}>Export CSV ↓</a>
+        </div>
         {entries.length === 0 ? (
           <p className="muted">No entries yet.</p>
         ) : (

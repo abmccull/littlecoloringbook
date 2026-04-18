@@ -12,6 +12,7 @@ import {
 } from "@littlecolorbook/db";
 import { getStripe, isStripeConfigured } from "./stripe";
 import { cancelLuluPrintJob } from "./lulu";
+import { captureServerEvent } from "./posthog-server";
 
 function mapStripeRefundStatus(status: string | null | undefined): "processing" | "succeeded" | "failed" | "voided" {
   switch (status) {
@@ -108,6 +109,19 @@ export async function executeRefund(input: {
         amountCents: stripeRefund.amount ?? refund.amountCents,
         policyTier: refund.policyTier,
       });
+      if (order.customerId) {
+        captureServerEvent({
+          event: "refund_succeeded",
+          distinctId: order.customerId,
+          properties: {
+            orderId: order.id,
+            refundId: refund.id,
+            amountCents: stripeRefund.amount ?? refund.amountCents,
+            policyTier: refund.policyTier,
+            reason: refund.reason,
+          },
+        });
+      }
       // Move order status into a refund-aware terminal state.
       const summary = await getOrderPortalSummaryByOrderId(order.id);
       const shouldCancel =

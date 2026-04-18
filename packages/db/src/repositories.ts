@@ -1580,6 +1580,7 @@ async function upsertFulfillmentJob(input: {
   trackingNumber?: string | null;
   trackingUrl?: string | null;
   rawPayload?: Record<string, unknown> | null;
+  costCents?: number | null;
 }) {
   if (!isDatabaseConfigured()) {
     return {
@@ -1603,6 +1604,7 @@ async function upsertFulfillmentJob(input: {
       trackingNumber: input.trackingNumber ?? existing.trackingNumber,
       trackingUrl: input.trackingUrl ?? existing.trackingUrl,
       rawPayload: input.rawPayload ?? existing.rawPayload,
+      costCents: input.costCents ?? existing.costCents,
       updatedAt: now(),
     };
 
@@ -1625,6 +1627,7 @@ async function upsertFulfillmentJob(input: {
     trackingNumber: input.trackingNumber ?? null,
     trackingUrl: input.trackingUrl ?? null,
     rawPayload: input.rawPayload ?? null,
+    costCents: input.costCents ?? null,
     createdAt: now(),
     updatedAt: now(),
   };
@@ -1642,6 +1645,7 @@ export async function markOrderSubmittedToLulu(input: {
   providerJobId: string;
   shippingService?: string | null;
   rawPayload?: Record<string, unknown> | null;
+  costCents?: number | null;
 }) {
   if (!isDatabaseConfigured()) {
     return {
@@ -1667,6 +1671,7 @@ export async function markOrderSubmittedToLulu(input: {
     status: "submitted",
     shippingService: input.shippingService ?? null,
     rawPayload: input.rawPayload ?? null,
+    costCents: input.costCents ?? null,
   });
 
   const updated = {
@@ -2881,6 +2886,52 @@ export async function getGeminiCostInWindow(window: MetricsWindow): Promise<{
     INNER JOIN generation_jobs gj ON gj.id = gp.generation_job_id
     WHERE gp.created_at >= ${window.start} AND gp.created_at <= ${window.end}
       AND gp.cost_cents IS NOT NULL
+  `);
+  const row = (rows as unknown as (typeof fallback)[])[0];
+  return row ?? fallback;
+}
+
+export type DailyMetricsRow = {
+  day: string; // YYYY-MM-DD
+  revenue_cents: number;
+  paid_orders: number;
+  samples: number;
+};
+
+export async function getDailyRevenueSeries(window: MetricsWindow): Promise<DailyMetricsRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db.execute(sql<DailyMetricsRow>`
+    SELECT
+      to_char(date_trunc('day', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
+      COALESCE(SUM(CASE WHEN status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample' THEN total_cents - COALESCE(refunded_cents, 0) ELSE 0 END), 0)::int AS revenue_cents,
+      COUNT(*) FILTER (WHERE status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample')::int AS paid_orders,
+      COUNT(*) FILTER (WHERE order_type = 'sample')::int AS samples
+    FROM orders
+    WHERE created_at >= ${window.start} AND created_at <= ${window.end}
+    GROUP BY 1
+    ORDER BY 1
+  `);
+  return rows as unknown as DailyMetricsRow[];
+}
+
+export async function getLuluActualCostInWindow(window: MetricsWindow): Promise<{
+  known_cost_cents: number;
+  jobs_with_cost: number;
+  jobs_total: number;
+}> {
+  const fallback = { known_cost_cents: 0, jobs_with_cost: 0, jobs_total: 0 };
+  if (!isDatabaseConfigured()) return fallback;
+  const db = getDatabase();
+  const rows = await db.execute(sql<typeof fallback>`
+    SELECT
+      COALESCE(SUM(fj.cost_cents), 0)::int AS known_cost_cents,
+      COUNT(*) FILTER (WHERE fj.cost_cents IS NOT NULL)::int AS jobs_with_cost,
+      COUNT(*)::int AS jobs_total
+    FROM fulfillment_jobs fj
+    INNER JOIN orders o ON o.id = fj.order_id
+    WHERE o.created_at >= ${window.start} AND o.created_at <= ${window.end}
+      AND fj.status != 'draft'
   `);
   const row = (rows as unknown as (typeof fallback)[])[0];
   return row ?? fallback;

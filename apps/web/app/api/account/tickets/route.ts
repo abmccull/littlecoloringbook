@@ -3,6 +3,7 @@ import { z } from "zod";
 import { listTicketsForCustomer, openTicket, ticketCategoryValues } from "@littlecolorbook/db";
 import { getCustomerSession } from "../../../../lib/auth";
 import { sendTicketReceivedEmail, sendAdminNewTicketEmail } from "../../../../lib/ticket-email";
+import { captureServerEvent } from "../../../../lib/posthog-server";
 
 const createSchema = z.object({
   orderId: z.string().trim().min(1).optional(),
@@ -55,6 +56,16 @@ export async function POST(request: NextRequest) {
       firstMessage: parsed.data.body,
     }).catch((error) => console.error("sendAdminNewTicketEmail failed", error)),
   ]);
+
+  captureServerEvent({
+    event: "ticket_opened",
+    distinctId: session.customerId,
+    properties: {
+      ticketId: result.ticket.id,
+      orderId: parsed.data.orderId ?? null,
+      category: parsed.data.category,
+    },
+  });
 
   return NextResponse.json({ ticketId: result.ticket.id, status: result.ticket.status });
 }

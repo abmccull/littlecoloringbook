@@ -23,6 +23,7 @@ import {
   enrollInPostPurchase,
 } from "../../../../lib/sequence-enrollment";
 import { reconcileStripeRefund } from "../../../../lib/refund-executor";
+import { captureServerEvent } from "../../../../lib/posthog-server";
 
 function getPaymentIntentId(session: Stripe.Checkout.Session) {
   if (!session.payment_intent) {
@@ -104,6 +105,20 @@ async function handleCheckoutCompleted(event: Stripe.Event, session: Stripe.Chec
     } catch (error) {
       console.error("stripe webhook: enrollInPostPurchase failed", error);
     }
+
+    captureServerEvent({
+      event: "order_paid",
+      distinctId: customerId,
+      properties: {
+        orderId,
+        email: customerEmail,
+        totalCents: session.amount_total ?? 0,
+        currency: session.currency ?? "usd",
+        accountStatus,
+        deliveryMode: orderRow?.deliveryMode ?? null,
+        offerCode: orderRow?.selectedOfferCode ?? null,
+      },
+    });
   }
 
   return { orderId, accountStatus };
