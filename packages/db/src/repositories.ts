@@ -2937,6 +2937,180 @@ export async function getLuluActualCostInWindow(window: MetricsWindow): Promise<
   return row ?? fallback;
 }
 
+/* ------------------------------------------------------------------
+ * Daily metrics rollup (nightly pre-aggregation)
+ * ------------------------------------------------------------------ */
+
+export type DailyRollupRow = {
+  day: string;
+  revenue_cents: number;
+  refunded_cents: number;
+  paid_orders: number;
+  pdf_orders: number;
+  print_orders: number;
+  samples: number;
+  new_paying_customers: number;
+  gemini_cost_cents: number;
+  lulu_cost_cents: number;
+  ad_spend_cents: number;
+};
+
+export async function recomputeDailyRollup(dayIso: string): Promise<DailyRollupRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const rows = await db.execute(sql<DailyRollupRow>`
+    WITH day_bounds AS (
+      SELECT
+        ${dayIso}::date AS d,
+        (${dayIso}::date)::timestamptz AS start_ts,
+        ((${dayIso}::date) + INTERVAL '1 day')::timestamptz AS end_ts
+    ),
+    order_agg AS (
+      SELECT
+        COALESCE(SUM(CASE WHEN status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample' THEN total_cents ELSE 0 END), 0)::int AS revenue_cents,
+        COALESCE(SUM(refunded_cents), 0)::int AS refunded_cents,
+        COUNT(*) FILTER (WHERE status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample')::int AS paid_orders,
+        COUNT(*) FILTER (WHERE delivery_mode = 'pdf' AND order_type != 'sample')::int AS pdf_orders,
+        COUNT(*) FILTER (WHERE delivery_mode = 'print')::int AS print_orders,
+        COUNT(*) FILTER (WHERE order_type = 'sample')::int AS samples
+      FROM orders, day_bounds
+      WHERE created_at >= start_ts AND created_at < end_ts
+    ),
+    first_paid_day AS (
+      SELECT MIN(created_at) AS first_at
+      FROM orders
+      WHERE status NOT IN ('draft', 'awaiting_payment', 'failed')
+        AND order_type != 'sample'
+        AND customer_id IS NOT NULL
+      GROUP BY customer_id
+    ),
+    new_paying AS (
+      SELECT COUNT(*)::int AS c
+      FROM first_paid_day, day_bounds
+      WHERE first_at >= start_ts AND first_at < end_ts
+    ),
+    gemini_agg AS (
+      SELECT COALESCE(SUM(cost_cents), 0)::int AS c
+      FROM generation_pages, day_bounds
+      WHERE created_at >= start_ts AND created_at < end_ts
+        AND cost_cents IS NOT NULL
+    ),
+    lulu_agg AS (
+      SELECT COALESCE(SUM(fj.cost_cents), 0)::int AS c
+      FROM fulfillment_jobs fj, day_bounds
+      WHERE fj.updated_at >= start_ts AND fj.updated_at < end_ts
+        AND fj.cost_cents IS NOT NULL
+    ),
+    ad_agg AS (
+      SELECT COALESCE(SUM(amount_cents), 0)::int AS c
+      FROM ad_spend_entries, day_bounds
+      WHERE spend_date = d
+    )
+    SELECT
+      to_char(d, 'YYYY-MM-DD') AS day,
+      oa.revenue_cents,
+      oa.refunded_cents,
+      oa.paid_orders,
+      oa.pdf_orders,
+      oa.print_orders,
+      oa.samples,
+      np.c AS new_paying_customers,
+      ga.c AS gemini_cost_cents,
+      la.c AS lulu_cost_cents,
+      ada.c AS ad_spend_cents
+    FROM day_bounds db2
+    CROSS JOIN order_agg oa
+    CROSS JOIN new_paying np
+    CROSS JOIN gemini_agg ga
+    CROSS JOIN lulu_agg la
+    CROSS JOIN ad_agg ada
+  `);
+
+  const row = (rows as unknown as DailyRollupRow[])[0];
+  if (!row) return null;
+
+  // Upsert into daily_metrics_rollup.
+  await db.execute(sql`
+    INSERT INTO daily_metrics_rollup (
+      day, revenue_cents, refunded_cents, paid_orders, pdf_orders, print_orders,
+      samples, new_paying_customers, gemini_cost_cents, lulu_cost_cents, ad_spend_cents,
+      recomputed_at
+    ) VALUES (
+      ${dayIso}::date, ${row.revenue_cents}, ${row.refunded_cents}, ${row.paid_orders},
+      ${row.pdf_orders}, ${row.print_orders}, ${row.samples}, ${row.new_paying_customers},
+      ${row.gemini_cost_cents}, ${row.lulu_cost_cents}, ${row.ad_spend_cents}, NOW()
+    )
+    ON CONFLICT (day) DO UPDATE SET
+      revenue_cents = EXCLUDED.revenue_cents,
+      refunded_cents = EXCLUDED.refunded_cents,
+      paid_orders = EXCLUDED.paid_orders,
+      pdf_orders = EXCLUDED.pdf_orders,
+      print_orders = EXCLUDED.print_orders,
+      samples = EXCLUDED.samples,
+      new_paying_customers = EXCLUDED.new_paying_customers,
+      gemini_cost_cents = EXCLUDED.gemini_cost_cents,
+      lulu_cost_cents = EXCLUDED.lulu_cost_cents,
+      ad_spend_cents = EXCLUDED.ad_spend_cents,
+      recomputed_at = NOW()
+  `);
+
+  return row;
+}
+
+export async function listDailyRollup(days = 90): Promise<DailyRollupRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db.execute(sql<DailyRollupRow>`
+    SELECT
+      to_char(day, 'YYYY-MM-DD') AS day,
+      revenue_cents, refunded_cents, paid_orders, pdf_orders, print_orders,
+      samples, new_paying_customers, gemini_cost_cents, lulu_cost_cents, ad_spend_cents
+    FROM daily_metrics_rollup
+    WHERE day >= (CURRENT_DATE - (${days}::int * INTERVAL '1 day'))
+    ORDER BY day ASC
+  `);
+  return rows as unknown as DailyRollupRow[];
+}
+
+/* ------------------------------------------------------------------
+ * UTM attribution report
+ * ------------------------------------------------------------------ */
+
+export type AttributionRow = {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  acquisition_path: string;
+  samples: number;
+  paid_orders: number;
+  revenue_cents: number;
+  refunded_cents: number;
+  unique_customers: number;
+};
+
+export async function getUtmAttributionReport(window: MetricsWindow): Promise<AttributionRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db.execute(sql<AttributionRow>`
+    SELECT
+      COALESCE(utm_source, '(none)') AS utm_source,
+      COALESCE(utm_medium, '(none)') AS utm_medium,
+      COALESCE(utm_campaign, '(none)') AS utm_campaign,
+      COALESCE(acquisition_path, 'unknown') AS acquisition_path,
+      COUNT(*) FILTER (WHERE order_type = 'sample')::int AS samples,
+      COUNT(*) FILTER (WHERE status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample')::int AS paid_orders,
+      COALESCE(SUM(CASE WHEN status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample' THEN total_cents ELSE 0 END), 0)::int AS revenue_cents,
+      COALESCE(SUM(CASE WHEN status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample' THEN COALESCE(refunded_cents, 0) ELSE 0 END), 0)::int AS refunded_cents,
+      COUNT(DISTINCT customer_id)::int AS unique_customers
+    FROM orders
+    WHERE created_at >= ${window.start} AND created_at <= ${window.end}
+    GROUP BY 1, 2, 3, 4
+    HAVING COUNT(*) > 0
+    ORDER BY paid_orders DESC, samples DESC
+  `);
+  return rows as unknown as AttributionRow[];
+}
+
 export async function sumAdSpendInWindow(window: MetricsWindow): Promise<number> {
   if (!isDatabaseConfigured()) return 0;
   const db = getDatabase();

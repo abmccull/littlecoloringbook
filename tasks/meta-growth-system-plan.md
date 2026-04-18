@@ -1,9 +1,22 @@
 # Meta Growth System — Implementation Plan
 
 **Last updated:** 2026-04-17
-**Status:** Draft — awaiting Alec's approval to move to execution
+**Status:** Approved — §8 questions answered, moving to Phase 0 execution
 **Owner:** AI-assisted build
-**Budget envelope target (launch):** $50–200/day total paid spend, scaling to $500+/day at day 60
+**Budget envelope target (launch):** $50/day, **performance-gated** scaling up to the $100/day ad-account cap; verification to lift cap is a Phase 0 task
+
+---
+
+## Decisions (resolved 2026-04-17)
+
+1. **Public brand name:** "little color book" (lowercase, all three words). `campaign-taxonomy.yaml` and any other files using "Crayon Keepsake" are legacy and should be renamed during Phase 2.
+2. **Meta asset state:**
+   - FB Page: created, **blank** — no posts yet. Warm-up is the long-pole Phase 0 blocker (2 weeks of organic before first paid ad).
+   - IG account: created + added as business asset; it's a **repurposed old page**, needs rename + bio + profile photo + post purge (manual, via the IG app).
+   - Ad account: "decently aged" but capped at **$100/day by Meta** — business verification probably not yet complete. Getting verified to lift the cap is a Phase 0 task.
+3. **AI agent driver:** Claude Desktop running locally with direct repo access + local cron for scheduled routines. Agent calls our HTTP `/api/agent/*` endpoints via Bash. **No MCP server in v1** — that's a v1.5 stretch goal.
+4. **Budget:** performance-gated, not calendar-gated. Published ramp is a cap, not a target. Scale actions only fire when measurable performance criteria are met (see §7 + agent proposal rules in §5).
+5. **Customer sample consent:** opt-in checkbox on sample form. Stylized coloring-page output only ever appears in ads/social; raw child photos never leave the system.
 
 ---
 
@@ -29,17 +42,28 @@ Build a closed-loop Meta growth system inside the `littlecoloringbook` monorepo 
 Build in 5 phases. Each phase ships end-to-end and is individually useful. Target ~1 week/phase with focused effort.
 
 ### Phase 0 — Foundations (Week 0, pre-build)
-Prerequisites before any code. Most are manual in Meta Business Manager.
+Prerequisites before any code. **The long pole is FB Page warm-up (14 days minimum).** Kick that off today, parallel with everything else.
 
-- Business Manager business verification complete; domain verified; ad account aged ≥30 days before scaling past $50/day.
-- Dedicated System User created in Business Manager; token scopes: `ads_management`, `ads_read`, `pages_manage_posts`, `pages_manage_engagement`, `pages_read_engagement`, `pages_messaging`, `instagram_content_publish`, `instagram_manage_messages`, `instagram_manage_insights`, `instagram_basic`, `business_management`, `private_computation_access`, `catalog_management`.
-- System User assigned as Admin on: Ad Account, Page, Instagram Account, Pixel/Dataset, Product Catalog.
-- Apply for Advanced Access → "Ads Management Standard Access" (unlocks 100K+ calls/hour tier). Required App Review.
-- Apply for Advanced Access → `instagram_content_publish` (required to publish to non-owned accounts; for own IG it's already Standard).
-- Facebook Page seeded with ≥2 weeks of organic content (10 posts minimum) before first paid ad. Can begin this immediately in parallel with build.
-- Landing page policy scrub — no "know your child" personal-attribute language, no unsubstantiated claims, no false urgency timers. Use Meta's Ad Preview crawler before launching.
-- Install Meta Pixel on littlecolorbook.com with at least 5 events: `PageView`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Purchase`. Add `Lead` for sample form submits.
-- Register all Meta env vars in `packages/shared/src/env.ts` and `.env.example` (see §10).
+**Critical path (start today):**
+- [ ] **FB Page warm-up** — seed the blank "little color book" Page with ≥10 organic posts over ≥14 calendar days. Mix of: product beauty shots (from the 1,300 test images), a founder-voice introduction post, 2–3 customer-angle posts, a "how it works" carousel. We can write and schedule these manually via the Page's native scheduler in the first 48h — the system won't be automating publishing until Phase 3.
+- [ ] **IG account cleanup** — rename the repurposed old page to `@littlecolorbook` (or closest available), update bio, profile photo, and purge or archive old posts. Confirm it's converted to Business account and linked to the FB Page.
+
+**Meta Business Manager setup:**
+- [ ] Complete business verification (legal entity + domain verification) — this is what lifts the $100/day ad account cap.
+- [ ] Domain verification for littlecolorbook.com (DNS TXT record or meta-tag).
+- [ ] Dedicated System User created in Business Manager; token scopes: `ads_management`, `ads_read`, `pages_manage_posts`, `pages_manage_engagement`, `pages_read_engagement`, `pages_messaging`, `instagram_content_publish`, `instagram_manage_messages`, `instagram_manage_insights`, `instagram_basic`, `business_management`, `private_computation_access`, `catalog_management`.
+- [ ] System User assigned as Admin on: Ad Account, Page, Instagram Account, Pixel/Dataset, Product Catalog.
+- [ ] Apply for Advanced Access → "Ads Management Standard Access" (unlocks 100K+ calls/hour tier). Required App Review.
+- [ ] Apply for Advanced Access → `instagram_content_publish` (required to publish to non-owned accounts at scale).
+
+**Pixel + landing page:**
+- [ ] Install Meta Pixel on littlecolorbook.com with: `PageView`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Purchase`, `Lead` (sample form submits).
+- [ ] Landing page policy scrub — no "know your child" personal-attribute language, no unsubstantiated claims, no false urgency timers. Run Meta's Ad Preview crawler on each funnel URL before Phase 1 goes live.
+- [ ] Add consent opt-in checkbox to sample form: *"It's okay to use my created coloring pages (not my photos) in little color book's ads and social posts."* Stored as `customers.marketing_sample_use_opt_in` (schema change).
+
+**Repo scaffolding (can start in parallel, does not block):**
+- [ ] Register all Meta env vars in `packages/shared/src/env.ts` and `.env.example` (see §10).
+- [ ] Stub the new package directories: `packages/meta`, `packages/creative`, `packages/social`, `packages/ads`.
 
 ### Phase 1 — Meta API client + CAPI (Week 1)
 
@@ -267,32 +291,41 @@ Built into the scheduler, not the operator's memory:
 
 ---
 
-## 8. Open questions / decisions needed from Alec
+## 8. Open questions / decisions
 
-1. **Brand naming:** `campaign-taxonomy.yaml` uses "Crayon Keepsake"; repo uses "littlecolorbook.com". Which is the brand for ad copy + page name?
-2. **Page + IG account status:** Are the FB Page and IG Business account already set up, verified, and linked? Is business verification complete?
-3. **Ad account age:** What's the current age of the ad account we'll use?
-4. **Initial daily budget cap:** Confirm $50/day start is right (or different), and the ramp curve.
-5. **Human review bandwidth:** Who approves agent proposals? What SLA (minutes/hours)?
-6. **Customer sample consent:** OK to add opt-in to the sample form to use their created coloring pages (not raw photos) in our social/ads?
-7. **Video generation provider priority:** I'd default to Kling 3.0 (cheapest, no approval gate, 1080p). Want me to add Luma Ray3 as fallback only?
-8. **Which AI agent will be primary driver** for the daily routine — Claude Desktop with MCP, or a separate cron-run Codex agent hitting the HTTP API? (Both supported; one will ship first.)
-9. **ASC graduation threshold:** I suggest 50 purchases/week before we layer in Advantage+. Agree?
-10. **DM auto-reply tolerance:** How aggressive? Never / keyword-only / LLM with confidence gate?
+**Resolved 2026-04-17:**
+1. ~~Brand naming~~ → **"little color book"** (lowercase).
+2. ~~Page + IG account status~~ → FB Page blank (needs warm-up); IG repurposed (needs rename); business verification incomplete (hence $100/day cap); Pixel not yet installed.
+3. ~~Ad account age~~ → decently aged but capped at $100/day pending verification.
+4. ~~Initial daily budget cap~~ → start $50/day, **performance-gated scale** up to the $100/day cap. Verification unlocks higher.
+6. ~~Customer sample consent~~ → yes, opt-in on sample form; stylized page output only, never raw photos.
+8. ~~Primary AI agent~~ → **Claude Desktop with local repo access + local cron**. Agent calls `/api/agent/*` via Bash. No MCP server in v1.
+
+**Still open:**
+5. **Human review bandwidth:** Who approves agent proposals, and what's the SLA? (Assumption for now: Alec reviews once per day in the 7am routine.)
+7. **Video generation provider priority:** Default to **Kling 3.0** (cheapest, no approval gate, 1080p). Add Luma Ray3 as fallback only — confirm?
+9. **ASC graduation threshold:** 50 purchases/week before Advantage+. Agree?
+10. **DM auto-reply tolerance:** Never / keyword-only / LLM with confidence gate? (Recommend keyword-only for v1, LLM-with-gate for v1.5.)
 
 ---
 
 ## 9. Phase 0 launch checklist (blocking items before Phase 1 code starts)
 
-- [ ] Meta Business Manager verification complete
-- [ ] Dedicated System User + token (with all scopes above)
-- [ ] Ad account, Page, IG account, Pixel/Dataset, Catalog all assigned to the System User
-- [ ] Apply for Advanced Access on `ads_management` standard + `instagram_content_publish`
-- [ ] Meta Pixel installed and firing all 5 events
-- [ ] Facebook Page seeded with ≥10 organic posts over ≥14 days
-- [ ] Landing page compliance scrub done
+**Alec (manual, in Meta Business Manager + the apps):**
+- [ ] FB Page "little color book" seeded with ≥10 organic posts over ≥14 days (start today — this is the critical path)
+- [ ] IG account renamed to `@littlecolorbook`, bio + profile photo + old-post purge complete
+- [ ] Business Manager business verification submitted and approved (unlocks $100/day → higher cap)
+- [ ] Domain verification for littlecolorbook.com
+- [ ] Dedicated System User + token (scopes listed in Phase 0)
+- [ ] System User assigned as Admin on Ad Account, Page, IG Account, Pixel, Catalog
+- [ ] Advanced Access applications submitted for `ads_management_standard` + `instagram_content_publish`
+
+**AI-assisted (in the repo):**
 - [ ] `.env` populated with Meta env vars (see §10)
-- [ ] Answers to §8 open questions
+- [ ] Meta Pixel installed on littlecolorbook.com firing all 6 events (`PageView`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Purchase`, `Lead`)
+- [ ] Landing page compliance scrub done (automated scanner run on key URLs)
+- [ ] Sample-form consent checkbox added + schema migration for `customers.marketing_sample_use_opt_in`
+- [ ] Package directory stubs created for `packages/meta`, `packages/creative`, `packages/social`, `packages/ads`
 
 ---
 

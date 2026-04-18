@@ -92,6 +92,13 @@
       "when": 1777104000000,
       "tag": "0012_lulu_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1777190400000,
+      "tag": "0013_daily_rollup",
+      "breakpoints": true
     }
   ]
 }

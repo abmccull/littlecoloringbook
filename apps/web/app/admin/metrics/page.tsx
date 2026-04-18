@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDailyRevenueSeries, type MetricsWindow } from "@littlecolorbook/db";
 import { AdminNav } from "../../../components/admin/admin-nav";
 import { MetricsLineChart } from "../../../components/admin/metrics-chart";
+import { MetricsLiveRefresh } from "../../../components/admin/metrics-live-refresh";
 import { requireAdminSession } from "../../../lib/auth";
 import { computeDashboardMetrics, windowFromRange } from "../../../lib/metrics";
 
@@ -29,11 +30,13 @@ function Tile({
   value,
   sub,
   tone = "default",
+  liveId,
 }: {
   label: string;
   value: string;
   sub?: string;
   tone?: "default" | "good" | "warn" | "bad";
+  liveId?: string;
 }) {
   const toneColor =
     tone === "good" ? "#3a8879" : tone === "warn" ? "#d28a3b" : tone === "bad" ? "#c85a4a" : "var(--color-ink)";
@@ -49,7 +52,7 @@ function Tile({
       }}
     >
       <span className="muted mini-note">{label}</span>
-      <strong style={{ fontSize: "1.4rem", color: toneColor }}>{value}</strong>
+      <strong data-live-id={liveId} style={{ fontSize: "1.4rem", color: toneColor }}>{value}</strong>
       {sub ? <span className="mini-note">{sub}</span> : null}
     </div>
   );
@@ -81,6 +84,9 @@ export default async function AdminMetricsPage({
           <div>
             <h1 style={{ margin: 0 }}>Metrics</h1>
             <p className="muted" style={{ margin: "4px 0 0" }}>{metrics.window.label}</p>
+            <div style={{ marginTop: "6px" }}>
+              <MetricsLiveRefresh range={rangeKey} />
+            </div>
           </div>
           <nav style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
             {(Object.keys(RANGE_LABELS) as RangeKey[]).map((k) => (
@@ -117,20 +123,20 @@ export default async function AdminMetricsPage({
 
         <h2 style={{ marginBottom: 0 }}>Revenue</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-          <Tile label="Gross revenue" value={formatMoney(metrics.revenue.grossCents)} />
-          <Tile label="Refunded" value={formatMoney(metrics.revenue.refundedCents)} tone={metrics.revenue.refundedCents > 0 ? "warn" : "default"} />
-          <Tile label="Net revenue" value={formatMoney(metrics.revenue.netCents)} tone="good" />
-          <Tile label="Gross margin" value={formatMoney(metrics.unit.grossMarginCents)} tone={metrics.unit.grossMarginCents > 0 ? "good" : "bad"} />
+          <Tile liveId="revenue-gross" label="Gross revenue" value={formatMoney(metrics.revenue.grossCents)} />
+          <Tile liveId="revenue-refunded" label="Refunded" value={formatMoney(metrics.revenue.refundedCents)} tone={metrics.revenue.refundedCents > 0 ? "warn" : "default"} />
+          <Tile liveId="revenue-net" label="Net revenue" value={formatMoney(metrics.revenue.netCents)} tone="good" />
+          <Tile liveId="margin-gross" label="Gross margin" value={formatMoney(metrics.unit.grossMarginCents)} tone={metrics.unit.grossMarginCents > 0 ? "good" : "bad"} />
           <Tile label="Profit margin" value={formatPct(metrics.unit.profitMarginPct)} />
         </div>
 
         <h2 style={{ marginBottom: 0 }}>Orders</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-          <Tile label="Paid orders" value={String(metrics.orders.paidOrders)} />
-          <Tile label="AOV" value={formatMoney(metrics.unit.aovCents)} />
+          <Tile liveId="orders-paid" label="Paid orders" value={String(metrics.orders.paidOrders)} />
+          <Tile liveId="orders-aov" label="AOV" value={formatMoney(metrics.unit.aovCents)} />
           <Tile label="PDF / print" value={`${metrics.orders.pdfOrders} / ${metrics.orders.printOrders}`} />
-          <Tile label="Free samples" value={String(metrics.orders.samples)} />
-          <Tile label="Refunds" value={String(metrics.orders.refundedOrders)} sub={formatPct(metrics.orders.refundRatePct) + " refund rate"} tone={metrics.orders.refundRatePct > 5 ? "warn" : "default"} />
+          <Tile liveId="orders-samples" label="Free samples" value={String(metrics.orders.samples)} />
+          <Tile liveId="orders-refund-rate" label="Refunds" value={String(metrics.orders.refundedOrders)} sub={formatPct(metrics.orders.refundRatePct) + " refund rate"} tone={metrics.orders.refundRatePct > 5 ? "warn" : "default"} />
         </div>
 
         <h2 style={{ marginBottom: 0 }}>Funnel</h2>
@@ -161,9 +167,9 @@ export default async function AdminMetricsPage({
 
         <h2 style={{ marginBottom: 0 }}>Fulfillment queue</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-          <Tile label="Pending assembly" value={String(metrics.fulfillment.pendingAssembly)} sub="Preprocessing → PDF ready" />
-          <Tile label="Awaiting Lulu" value={String(metrics.fulfillment.awaitingPrintSubmission)} tone={metrics.fulfillment.awaitingPrintSubmission > 5 ? "warn" : "default"} />
-          <Tile label="In production" value={String(metrics.fulfillment.inProduction)} sub="Submitted + printing" />
+          <Tile liveId="fulfillment-pending" label="Pending assembly" value={String(metrics.fulfillment.pendingAssembly)} sub="Preprocessing → PDF ready" />
+          <Tile liveId="fulfillment-awaiting-lulu" label="Awaiting Lulu" value={String(metrics.fulfillment.awaitingPrintSubmission)} tone={metrics.fulfillment.awaitingPrintSubmission > 5 ? "warn" : "default"} />
+          <Tile liveId="fulfillment-in-prod" label="In production" value={String(metrics.fulfillment.inProduction)} sub="Submitted + printing" />
           <Tile label="Shipped" value={String(metrics.fulfillment.shipped)} />
           <Tile label="Delivered" value={String(metrics.fulfillment.delivered)} tone="good" />
         </div>
