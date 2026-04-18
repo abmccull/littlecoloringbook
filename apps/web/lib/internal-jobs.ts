@@ -52,6 +52,7 @@ const internalJobPathByName: Record<InternalJobName, string> = {
   "submit-lulu": "/api/internal/jobs/submit-lulu",
   "sync-lulu-status": "/api/internal/jobs/sync-lulu-status",
   "batch-submit-lulu": "/api/internal/jobs/batch-submit-lulu",
+  "process-capi-event": "/api/internal/jobs/process-capi-event",
 };
 
 export async function dispatchInternalJob<TResponse>(input: {

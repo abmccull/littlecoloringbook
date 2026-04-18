@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@littlecolorbook/db": "file:../db",
+    "@littlecolorbook/meta": "file:../meta",
     "@littlecolorbook/pipeline": "file:../pipeline",
     "@littlecolorbook/shared": "file:../shared"
   },

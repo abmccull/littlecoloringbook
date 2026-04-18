@@ -50,6 +50,12 @@
       ],
       "@littlecolorbook/pdf-templates/*": [
         "packages/pdf-templates/src/*"
+      ],
+      "@littlecolorbook/meta": [
+        "packages/meta/src/index.ts"
+      ],
+      "@littlecolorbook/meta/*": [
+        "packages/meta/src/*"
       ]
     }
   }

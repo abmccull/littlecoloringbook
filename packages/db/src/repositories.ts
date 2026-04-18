@@ -3123,6 +3123,13 @@ export async function insertCapiEvent(input: InsertCapiEventInput) {
   return record;
 }
 
+export async function getCapiEventById(id: string) {
+  if (!isDatabaseConfigured()) return null;
+  return getDatabase().query.capiEvents.findFirst({
+    where: eq(capiEvents.id, id),
+  });
+}
+
 export async function getCapiEventByEventId(eventId: string) {
   if (!isDatabaseConfigured()) return null;
   return getDatabase().query.capiEvents.findFirst({

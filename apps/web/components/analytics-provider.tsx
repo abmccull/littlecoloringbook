@@ -7,6 +7,7 @@ import posthog from "posthog-js";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { buyerJourneyStageMeta, type BuyerJourneyStage } from "../lib/buyer-journey";
+import { initPixel, trackEvent as trackPixelEvent } from "../lib/pixel";
 
 declare global {
   interface Window {
@@ -45,6 +46,8 @@ export function trackEvent(eventName: string, properties: Record<string, unknown
   if (window.posthog) {
     window.posthog.capture(eventName, properties);
   }
+
+  trackPixelEvent(eventName, properties);
 
   debugAnalytics(eventName, properties);
 }
@@ -107,6 +110,8 @@ function trackPageview(pathname: string, search: string) {
     });
   }
 
+  trackPixelEvent("PageView");
+
   debugAnalytics("page_view", properties);
 }
 
@@ -115,6 +120,8 @@ export function AnalyticsProvider() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    initPixel();
+
     if (!posthogKey || posthogInitialized) {
       return;
     }

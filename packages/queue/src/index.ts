@@ -1,7 +1,7 @@
 import IORedis from "ioredis";
 import { Queue, Worker, type JobsOptions, type Processor } from "bullmq";
 
-export type InternalJobName = "process-sample" | "process-paid-order" | "submit-lulu" | "sync-lulu-status" | "batch-submit-lulu";
+export type InternalJobName = "process-sample" | "process-paid-order" | "submit-lulu" | "sync-lulu-status" | "batch-submit-lulu" | "process-capi-event";
 
 export type ProcessSamplePayload = {
   orderId: string;
@@ -38,12 +38,17 @@ export type BatchSubmitLuluPayload = {
   dryRun?: boolean;
 };
 
+export type ProcessCapiEventPayload = {
+  capiEventId: string;
+};
+
 export type InternalJobPayloadMap = {
   "process-sample": ProcessSamplePayload;
   "process-paid-order": ProcessPaidOrderPayload;
   "submit-lulu": SubmitLuluPayload;
   "sync-lulu-status": SyncLuluStatusPayload;
   "batch-submit-lulu": BatchSubmitLuluPayload;
+  "process-capi-event": ProcessCapiEventPayload;
 };
 
 const queueNames: Record<InternalJobName, string> = {
@@ -52,6 +57,7 @@ const queueNames: Record<InternalJobName, string> = {
   "submit-lulu": "print-submit",
   "sync-lulu-status": "lulu-sync",
   "batch-submit-lulu": "lulu-batch",
+  "process-capi-event": "capi-events",
 };
 
 const defaultJobOptions: Record<InternalJobName, JobsOptions> = {
@@ -89,6 +95,13 @@ const defaultJobOptions: Record<InternalJobName, JobsOptions> = {
     removeOnComplete: 100,
     removeOnFail: 200,
     priority: 8,
+  },
+  "process-capi-event": {
+    attempts: 5,
+    backoff: { type: "exponential", delay: 10_000 },
+    removeOnComplete: 500,
+    removeOnFail: 1000,
+    priority: 4,
   },
 };
 
@@ -182,6 +195,12 @@ export function createInternalJobWorker<TName extends InternalJobName>(
   return new Worker(getInternalQueueName(jobName), processor, {
     connection: getWorkerConnection(),
     concurrency,
+  });
+}
+
+export async function enqueueCapiEvent(capiEventId: string) {
+  return enqueueInternalJob("process-capi-event", { capiEventId }, {
+    jobId: `capi:${capiEventId}`,
   });
 }
 

@@ -293,18 +293,20 @@ export class GraphClient {
     errorCode?: number;
     errorSubcode?: number;
   }) {
-    recordMetaApiCall({
-      id: params.id,
-      method: params.method,
-      endpoint: params.endpoint,
-      payloadHash: params.payloadHash ?? null,
-      responseStatus: params.responseStatus ?? null,
-      responseExcerpt: params.responseExcerpt ?? null,
-      bucUsagePercent: params.bucUsagePercent ?? null,
-      durationMs: params.durationMs ?? null,
-      errorCode: params.errorCode ?? null,
-      errorSubcode: params.errorSubcode ?? null,
-    }).catch((err: unknown) => {
+    Promise.resolve(
+      recordMetaApiCall({
+        id: params.id,
+        method: params.method,
+        endpoint: params.endpoint,
+        payloadHash: params.payloadHash ?? null,
+        responseStatus: params.responseStatus ?? null,
+        responseExcerpt: params.responseExcerpt ?? null,
+        bucUsagePercent: params.bucUsagePercent ?? null,
+        durationMs: params.durationMs ?? null,
+        errorCode: params.errorCode ?? null,
+        errorSubcode: params.errorSubcode ?? null,
+      }),
+    ).catch((err: unknown) => {
       console.error("[GraphClient] failed to record API call", err);
     });
   }
