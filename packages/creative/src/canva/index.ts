@@ -1,3 +1,3 @@
-export * from "./types.js";
-export * from "./oauth.js";
-export * from "./client.js";
+export * from "./types";
+export * from "./oauth";
+export * from "./client";

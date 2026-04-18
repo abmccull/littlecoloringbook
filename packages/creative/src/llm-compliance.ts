@@ -18,7 +18,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicEnv } from "@littlecolorbook/shared/env";
-import type { ComplianceReport, ComplianceIssue } from "./types.js";
+import type { ComplianceReport, ComplianceIssue } from "./types";
 
 // ─── Public constants ─────────────────────────────────────────────────────────
 

@@ -19,7 +19,7 @@ import ffmpeg from "fluent-ffmpeg";
 // @ffmpeg-installer/ffmpeg provides a bundled static binary.
 // Use process.env.FFMPEG_BINARY_PATH override first (Railway may provide a better path).
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import { VideoGenerationError } from "../types.js";
+import { VideoGenerationError } from "../types";
 
 // ─── ffmpeg binary resolution ─────────────────────────────────────────────────
 

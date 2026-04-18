@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateTags, tagsToTagsJson } from "../tagging.js";
+import { validateTags, tagsToTagsJson } from "../tagging";
 
 describe("validateTags", () => {
   it("returns ok for fully valid tags from the taxonomy", () => {

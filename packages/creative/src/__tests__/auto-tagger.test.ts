@@ -46,9 +46,9 @@ import {
   makeAutoTaggerSystemPrompt,
   _tagCacheForTests,
   _resetAutoTaggerClientForTests,
-} from "../auto-tagger.js";
+} from "../auto-tagger";
 import { downloadObject } from "@littlecolorbook/shared/storage";
-import { TAGGER_VERSION } from "../semantic-tags.js";
+import { TAGGER_VERSION } from "../semantic-tags";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

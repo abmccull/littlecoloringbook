@@ -1,4 +1,4 @@
-import { CanvaError } from "./types.js";
+import { CanvaError } from "./types";
 
 // ─── In-memory token cache ────────────────────────────────────────────────────
 

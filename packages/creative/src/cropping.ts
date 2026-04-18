@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import type { CropKey } from "./types.js";
+import type { CropKey } from "./types";
 
 // Target pixel dimensions per aspect ratio
 const CROP_SPECS: Record<

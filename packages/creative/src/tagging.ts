@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
-import type { CreativeAssetTagsJson } from "./types.js";
+import type { CreativeAssetTagsJson } from "./types";
 
 type Taxonomy = {
   personas: Array<{ id: string }>;

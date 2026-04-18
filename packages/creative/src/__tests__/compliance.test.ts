@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scanText, POLICY_VERSION } from "../compliance.js";
+import { scanText, POLICY_VERSION } from "../compliance";
 
 describe("scanText — compliance scanner", () => {
   // ─── Passed (clean copy) ────────────────────────────────────────────────────

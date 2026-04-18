@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import type { ComplianceReport, ComplianceIssue } from "./types.js";
-import { scanComplianceWithLlm, COMBINED_POLICY_VERSION, type ComplianceScanInput } from "./llm-compliance.js";
+import type { ComplianceReport, ComplianceIssue } from "./types";
+import { scanComplianceWithLlm, COMBINED_POLICY_VERSION, type ComplianceScanInput } from "./llm-compliance";
 
 export const POLICY_VERSION = "2026-04-a";
 
@@ -181,7 +181,7 @@ const RULES: RuleEntry[] = [
 
 // ComplianceScanInput is defined in llm-compliance.ts and re-exported from
 // there. The regex-layer functions here accept the same shape.
-export type { ComplianceScanInput } from "./llm-compliance.js";
+export type { ComplianceScanInput } from "./llm-compliance";
 
 // ─── LRU cache (in-process, non-persistent) ───────────────────────────────────
 // Keyed by SHA-256 of the canonicalised input. Max 500 entries; evict oldest

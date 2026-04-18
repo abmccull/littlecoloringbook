@@ -8,6 +8,7 @@ const GROWTH_TABS: Array<{ href: string; label: string }> = [
   { href: "/admin/growth/inbox", label: "Inbox" },
   { href: "/admin/growth/proposals", label: "Proposals" },
   { href: "/admin/growth/journal", label: "Journal" },
+  { href: "/admin/growth/intelligence", label: "Intelligence" },
 ];
 
 export function GrowthNav() {

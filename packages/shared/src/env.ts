@@ -645,3 +645,24 @@ export function getFfmpegEnv(): FfmpegEnv {
     binaryPath: process.env.FFMPEG_BINARY_PATH ?? null,
   };
 }
+
+// ─── Phase 7c — Brief sampling mode ──────────────────────────────────────────
+// Controls which sampling strategy the daily brief generator uses by default.
+// Set to 'thompson' or 'hybrid' once enough performance data has accumulated.
+// Default: 'uniform' (safe for cold-start, zero-data state).
+
+export type BriefSamplingMode = "uniform" | "thompson" | "hybrid";
+
+const VALID_SAMPLING_MODES: BriefSamplingMode[] = ["uniform", "thompson", "hybrid"];
+
+export type BriefSamplingEnv = {
+  defaultSamplingMode: BriefSamplingMode;
+};
+
+export function getBriefSamplingEnv(): BriefSamplingEnv {
+  const raw = process.env.DEFAULT_BRIEF_SAMPLING_MODE ?? "uniform";
+  const mode = VALID_SAMPLING_MODES.includes(raw as BriefSamplingMode)
+    ? (raw as BriefSamplingMode)
+    : "uniform";
+  return { defaultSamplingMode: mode };
+}

@@ -26,8 +26,8 @@ import crypto from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicEnv } from "@littlecolorbook/shared/env";
 import { downloadObject } from "@littlecolorbook/shared/storage";
-import { SemanticTagsSchema, TAGGER_VERSION } from "./semantic-tags.js";
-import type { SemanticTags } from "./semantic-tags.js";
+import { SemanticTagsSchema, TAGGER_VERSION } from "./semantic-tags";
+import type { SemanticTags } from "./semantic-tags";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

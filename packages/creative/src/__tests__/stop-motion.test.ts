@@ -44,11 +44,11 @@ vi.mock("../video/ffmpeg.js", () => ({
   getFfmpegPath: vi.fn().mockReturnValue("/usr/bin/ffmpeg"),
 }));
 
-import { produceCreative } from "../orchestrator.js";
-import { renderColoringPageImage } from "../gemini.js";
+import { produceCreative } from "../orchestrator";
+import { renderColoringPageImage } from "../gemini";
 import { uploadObject } from "@littlecolorbook/shared/storage";
 import { insertCreativeBrief, insertCreativeAsset } from "@littlecolorbook/db/repositories";
-import { imageToMp4, crossfadeSequence } from "../video/ffmpeg.js";
+import { imageToMp4, crossfadeSequence } from "../video/ffmpeg";
 import type { MockInstance } from "vitest";
 
 const validStopMotionBrief = {

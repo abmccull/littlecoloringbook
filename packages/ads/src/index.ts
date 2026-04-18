@@ -4,7 +4,17 @@ export { createAd, updateAd, pauseAd, getAd } from "./ads";
 export { uploadAdImageRaw, createAdCreative, createAdCreativeFromPost } from "./creatives";
 export { fetchAdsInsights } from "./insights";
 export { createCustomAudience, createLookalikeAudience } from "./audiences";
-export { generateDailyBriefs } from "./brief-generator";
+export { generateDailyBriefs, buildBanditArmsFromPerformance } from "./brief-generator";
+export type { LearnedPriors, ElementPriorRow, SamplingMode } from "./brief-generator";
+export {
+  sampleBeta,
+  thompsonSample,
+  topK,
+  confidenceInterval95,
+  retirementCandidates,
+  hotStreakCandidates,
+} from "./thompson-sampling";
+export type { BanditArm } from "./thompson-sampling";
 export {
   evaluateKillRules,
   evaluateWinnerRules,

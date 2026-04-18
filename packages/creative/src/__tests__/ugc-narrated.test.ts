@@ -44,8 +44,8 @@ vi.mock("../video/ffmpeg.js", () => ({
   getFfmpegPath: vi.fn().mockReturnValue("/usr/bin/ffmpeg"),
 }));
 
-import { produceCreative } from "../orchestrator.js";
-import { renderColoringPageImage } from "../gemini.js";
+import { produceCreative } from "../orchestrator";
+import { renderColoringPageImage } from "../gemini";
 import { uploadObject } from "@littlecolorbook/shared/storage";
 import { insertCreativeBrief, insertCreativeAsset } from "@littlecolorbook/db/repositories";
 import {
@@ -53,8 +53,8 @@ import {
   overlayAudio,
   burnCaptions,
   probeDuration,
-} from "../video/ffmpeg.js";
-import { MissingClientError } from "../types.js";
+} from "../video/ffmpeg";
+import { MissingClientError } from "../types";
 
 // ─── Mock ElevenLabs client ───────────────────────────────────────────────────
 

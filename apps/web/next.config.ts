@@ -16,6 +16,16 @@ const nextConfig: NextConfig = {
     "@littlecolorbook/gamma",
     "@littlecolorbook/voiceover",
   ],
+  // Packages with native bindings or platform-conditional requires.
+  // Turbopack can't resolve @ffmpeg-installer's optional per-platform
+  // sub-packages; marking external so Next resolves at runtime instead.
+  serverExternalPackages: [
+    "@ffmpeg-installer/ffmpeg",
+    "fluent-ffmpeg",
+    "sharp",
+    "@anthropic-ai/sdk",
+    "@google-cloud/storage",
+  ],
 };
 
 const sentryOrg = process.env.SENTRY_ORG;

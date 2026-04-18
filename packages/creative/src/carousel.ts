@@ -25,14 +25,14 @@ import type {
   CarouselCardResult,
   ProduceResult,
   ComplianceReport,
-} from "./types.js";
-import { renderColoringPageImage } from "./gemini.js";
-import { deriveAspectCrops } from "./cropping.js";
-import { tagsToTagsJson } from "./tagging.js";
-import { CanvaClient } from "./canva/client.js";
-import { DEFAULT_CANVA_FIELD_MAPPING } from "./canva/types.js";
-import type { CanvaAutofillField } from "./canva/types.js";
-import type { ProduceCreativeOptions } from "./orchestrator.js";
+} from "./types";
+import { renderColoringPageImage } from "./gemini";
+import { deriveAspectCrops } from "./cropping";
+import { tagsToTagsJson } from "./tagging";
+import { CanvaClient } from "./canva/client";
+import { DEFAULT_CANVA_FIELD_MAPPING } from "./canva/types";
+import type { CanvaAutofillField } from "./canva/types";
+import type { ProduceCreativeOptions } from "./orchestrator";
 
 const GCS_BUCKET = "exports" as const;
 

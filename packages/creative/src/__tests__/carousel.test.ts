@@ -41,11 +41,11 @@ vi.mock("../cropping.js", () => ({
   }),
 }));
 
-import { produceCreative } from "../orchestrator.js";
-import { renderColoringPageImage } from "../gemini.js";
+import { produceCreative } from "../orchestrator";
+import { renderColoringPageImage } from "../gemini";
 import { uploadObject } from "@littlecolorbook/shared/storage";
 import { insertCreativeBrief, insertCreativeAsset } from "@littlecolorbook/db/repositories";
-import { deriveAspectCrops } from "../cropping.js";
+import { deriveAspectCrops } from "../cropping";
 
 // ─── Mock Canva client ────────────────────────────────────────────────────────
 

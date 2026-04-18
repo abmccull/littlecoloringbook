@@ -34,11 +34,11 @@ import {
   getCanvaAccessToken,
   clearCanvaTokenCache,
   setCanvaTokenCache,
-} from "../canva/oauth.js";
-import { CanvaClient } from "../canva/client.js";
-import { CanvaError } from "../canva/types.js";
-import { produceCreative } from "../orchestrator.js";
-import { renderColoringPageImage } from "../gemini.js";
+} from "../canva/oauth";
+import { CanvaClient } from "../canva/client";
+import { CanvaError } from "../canva/types";
+import { produceCreative } from "../orchestrator";
+import { renderColoringPageImage } from "../gemini";
 import { readFileSync } from "node:fs";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

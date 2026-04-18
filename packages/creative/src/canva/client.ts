@@ -1,11 +1,11 @@
-import { getCanvaAccessToken } from "./oauth.js";
+import { getCanvaAccessToken } from "./oauth";
 import type {
   CanvaAssetUploadResult,
   CanvaAutofillField,
   CanvaAutofillJobResult,
   CanvaExportJobResult,
-} from "./types.js";
-import { CanvaError } from "./types.js";
+} from "./types";
+import { CanvaError } from "./types";
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 

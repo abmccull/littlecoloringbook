@@ -34,9 +34,9 @@ vi.mock("node:fs", async (importOriginal) => {
   };
 });
 
-import { produceCreative } from "../orchestrator.js";
-import { ComplianceRejectedError, MissingClientError } from "../types.js";
-import { renderColoringPageImage } from "../gemini.js";
+import { produceCreative } from "../orchestrator";
+import { ComplianceRejectedError, MissingClientError } from "../types";
+import { renderColoringPageImage } from "../gemini";
 import { uploadObject } from "@littlecolorbook/shared/storage";
 import {
   insertCreativeBrief,

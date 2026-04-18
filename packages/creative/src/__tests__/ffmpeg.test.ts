@@ -84,7 +84,7 @@ import {
   overlayAudio,
   burnCaptions,
   splitToSubtitles,
-} from "../video/ffmpeg.js";
+} from "../video/ffmpeg";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

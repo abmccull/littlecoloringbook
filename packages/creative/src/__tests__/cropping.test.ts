@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import sharp from "sharp";
-import { deriveAspectCrops } from "../cropping.js";
-import type { CropKey } from "../types.js";
+import { deriveAspectCrops } from "../cropping";
+import type { CropKey } from "../types";
 
 // Synthetic 3:4 portrait fixture (400×533 px, pure white)
 async function makeFixturePng(width = 400, height = 533): Promise<Buffer> {

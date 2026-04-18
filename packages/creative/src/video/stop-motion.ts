@@ -16,11 +16,11 @@ import type { DeliveryMode } from "@littlecolorbook/shared";
 import { uploadObject } from "@littlecolorbook/shared/storage";
 import { insertCreativeBrief, insertCreativeAsset } from "@littlecolorbook/db/repositories";
 import type { InsertCreativeBriefInput } from "@littlecolorbook/db/repositories";
-import type { CreativeBriefParsed, ProduceResult, ComplianceReport } from "../types.js";
-import { renderColoringPageImage } from "../gemini.js";
-import { tagsToTagsJson } from "../tagging.js";
-import { imageToMp4, crossfadeSequence } from "./ffmpeg.js";
-import type { ProduceCreativeOptions } from "../orchestrator.js";
+import type { CreativeBriefParsed, ProduceResult, ComplianceReport } from "../types";
+import { renderColoringPageImage } from "../gemini";
+import { tagsToTagsJson } from "../tagging";
+import { imageToMp4, crossfadeSequence } from "./ffmpeg";
+import type { ProduceCreativeOptions } from "../orchestrator";
 
 const GCS_BUCKET = "exports" as const;
 

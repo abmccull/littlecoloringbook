@@ -23,18 +23,18 @@ import {
   type ComplianceReport,
   type CropKey,
   cropKeys,
-} from "./types.js";
-import { scanText } from "./compliance.js";
-import { renderColoringPageImage } from "./gemini.js";
-import { deriveAspectCrops } from "./cropping.js";
-import { tagsToTagsJson } from "./tagging.js";
-import { CanvaClient } from "./canva/client.js";
-import { DEFAULT_CANVA_FIELD_MAPPING } from "./canva/types.js";
-import type { CanvaAutofillField } from "./canva/types.js";
-import { produceCarouselImage } from "./carousel.js";
-import { produceStopMotionReveal } from "./video/stop-motion.js";
-import { produceSlideshowNarrationVideo } from "./video/slideshow-narration.js";
-import { produceUgcNarrated } from "./video/ugc-narrated.js";
+} from "./types";
+import { scanText } from "./compliance";
+import { renderColoringPageImage } from "./gemini";
+import { deriveAspectCrops } from "./cropping";
+import { tagsToTagsJson } from "./tagging";
+import { CanvaClient } from "./canva/client";
+import { DEFAULT_CANVA_FIELD_MAPPING } from "./canva/types";
+import type { CanvaAutofillField } from "./canva/types";
+import { produceCarouselImage } from "./carousel";
+import { produceStopMotionReveal } from "./video/stop-motion";
+import { produceSlideshowNarrationVideo } from "./video/slideshow-narration";
+import { produceUgcNarrated } from "./video/ugc-narrated";
 
 const GCS_BUCKET = "exports" as const;
 

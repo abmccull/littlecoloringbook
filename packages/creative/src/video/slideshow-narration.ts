@@ -16,16 +16,16 @@ import { insertCreativeBrief, insertCreativeAsset } from "@littlecolorbook/db/re
 import type { InsertCreativeBriefInput } from "@littlecolorbook/db/repositories";
 import type { GammaClient } from "@littlecolorbook/gamma";
 import type { ElevenLabsClient } from "@littlecolorbook/voiceover";
-import type { CreativeBriefParsed, ProduceResult, ComplianceReport } from "../types.js";
-import { tagsToTagsJson } from "../tagging.js";
+import type { CreativeBriefParsed, ProduceResult, ComplianceReport } from "../types";
+import { tagsToTagsJson } from "../tagging";
 import {
   imageToMp4,
   crossfadeSequence,
   overlayAudio,
   probeDuration,
   splitToSubtitles,
-} from "./ffmpeg.js";
-import type { ProduceCreativeOptions } from "../orchestrator.js";
+} from "./ffmpeg";
+import type { ProduceCreativeOptions } from "../orchestrator";
 
 const GCS_BUCKET = "exports" as const;
 

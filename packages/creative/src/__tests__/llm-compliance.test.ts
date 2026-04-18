@@ -32,8 +32,8 @@ vi.mock("@littlecolorbook/shared/env", () => ({
 
 // ─── Imports after mocks ──────────────────────────────────────────────────────
 
-import { scanWithLlm, _lruCacheForTests } from "../compliance.js";
-import { scanComplianceWithLlm, LLM_POLICY_VERSION, _resetClientForTests } from "../llm-compliance.js";
+import { scanWithLlm, _lruCacheForTests } from "../compliance";
+import { scanComplianceWithLlm, LLM_POLICY_VERSION, _resetClientForTests } from "../llm-compliance";
 import { getAnthropicEnv } from "@littlecolorbook/shared/env";
 import type { MockInstance } from "vitest";
 
