@@ -10,6 +10,7 @@
     "dev": "npm run dev --workspace @littlecolorbook/web",
     "dev:web": "npm run dev --workspace @littlecolorbook/web",
     "dev:worker": "npm run dev --workspace @littlecolorbook/worker",
+    "start": "npm run start --workspace @littlecolorbook/worker",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:generate": "drizzle-kit generate",
