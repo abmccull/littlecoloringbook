@@ -348,7 +348,8 @@ Also: `failed`, `support_required`, `refunded`
 | `WORKER_CONCURRENCY_PROCESS_PAID_ORDER` | Worker concurrency for paid order jobs (default: 1) |
 | `WORKER_CONCURRENCY_SUBMIT_LULU` | Worker concurrency for Lulu submissions (default: 1) |
 | `CRON_SECRET` | Secret for authenticated cron job endpoints |
-| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog analytics project key |
+| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog analytics project key for the browser client |
+| `POSTHOG_API_KEY` | PostHog project key for server-side capture/identify calls |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics measurement ID |
 | `COLORING_ENGINE_*` | Legacy coloring engine config (not used in production Gemini path) |
 
@@ -487,7 +488,7 @@ All secrets are stored as environment variables. Never commit actual values. See
 | Google Cloud (Storage) | `GCS_PROJECT_ID`, `GCS_CLIENT_EMAIL`, `GCS_PRIVATE_KEY`, `GCS_BUCKET_UPLOADS`, `GCS_BUCKET_EXPORTS` | Service account credentials. Two buckets: one for raw uploads, one for generated exports. |
 | Resend (Email) | `RESEND_API_KEY` | Transactional email. From address: `hello@littlecolorbook.com`. |
 | Redis | `REDIS_URL` or `RAILWAY_REDIS_URL` | Used by BullMQ. Railway provides Redis; external Redis also supported. |
-| PostHog | `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | Product analytics. US cloud instance. |
+| PostHog | `NEXT_PUBLIC_POSTHOG_KEY`, `POSTHOG_API_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | Product analytics. US cloud instance. |
 | Google Analytics | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Web analytics. |
 | Vercel | Managed via Vercel dashboard | Project: `littlecolorbook`, Team: `team_dCOrrpLuYaV6tvTwJ3ursC29` |
 | Railway | Managed via Railway dashboard | Hosts the worker process and Redis |

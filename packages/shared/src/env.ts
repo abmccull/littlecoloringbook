@@ -347,6 +347,170 @@ export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 }
 
+// ─── Meta / Facebook env ─────────────────────────────────────────────────────
+// All keys are optional until Phase 0 provisioning is complete.
+// becomes required once Phase 0 assets are provisioned
+
+export type MetaEnv = {
+  appId: string | null;
+  appSecret: string | null;
+  systemUserToken: string | null;
+  businessId: string | null;
+  adAccountId: string | null;
+  pageId: string | null;
+  igUserId: string | null;
+  pixelId: string | null;
+  datasetId: string | null;
+  catalogId: string | null;
+  graphApiVersion: string;
+  webhookVerifyToken: string | null;
+  webhookAppSecret: string | null;
+  testEventCode: string | null;
+};
+
+const rawMetaEnvSchema = z.object({
+  META_APP_ID: z.string().optional(),
+  META_APP_SECRET: z.string().optional(),
+  META_SYSTEM_USER_TOKEN: z.string().optional(),
+  META_BUSINESS_ID: z.string().optional(),
+  META_AD_ACCOUNT_ID: z.string().optional(), // format: act_<numeric>
+  META_PAGE_ID: z.string().optional(),
+  META_IG_USER_ID: z.string().optional(),
+  META_PIXEL_ID: z.string().optional(),
+  META_DATASET_ID: z.string().optional(), // typically == META_PIXEL_ID but exposed separately
+  META_CATALOG_ID: z.string().optional(), // optional phase 6
+  META_GRAPH_API_VERSION: z.string().default("v22.0"),
+  META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  META_WEBHOOK_APP_SECRET: z.string().optional(),
+  META_TEST_EVENT_CODE: z.string().optional(), // optional, for CAPI test mode
+});
+
+export function getMetaEnv(): MetaEnv {
+  const parsed = rawMetaEnvSchema.parse({
+    META_APP_ID: process.env.META_APP_ID,
+    META_APP_SECRET: process.env.META_APP_SECRET,
+    META_SYSTEM_USER_TOKEN: process.env.META_SYSTEM_USER_TOKEN,
+    META_BUSINESS_ID: process.env.META_BUSINESS_ID,
+    META_AD_ACCOUNT_ID: process.env.META_AD_ACCOUNT_ID,
+    META_PAGE_ID: process.env.META_PAGE_ID,
+    META_IG_USER_ID: process.env.META_IG_USER_ID,
+    META_PIXEL_ID: process.env.META_PIXEL_ID,
+    META_DATASET_ID: process.env.META_DATASET_ID,
+    META_CATALOG_ID: process.env.META_CATALOG_ID,
+    META_GRAPH_API_VERSION: process.env.META_GRAPH_API_VERSION ?? "v22.0",
+    META_WEBHOOK_VERIFY_TOKEN: process.env.META_WEBHOOK_VERIFY_TOKEN,
+    META_WEBHOOK_APP_SECRET: process.env.META_WEBHOOK_APP_SECRET,
+    META_TEST_EVENT_CODE: process.env.META_TEST_EVENT_CODE,
+  });
+
+  return {
+    appId: parsed.META_APP_ID ?? null,
+    appSecret: parsed.META_APP_SECRET ?? null,
+    systemUserToken: parsed.META_SYSTEM_USER_TOKEN ?? null,
+    businessId: parsed.META_BUSINESS_ID ?? null,
+    adAccountId: parsed.META_AD_ACCOUNT_ID ?? null,
+    pageId: parsed.META_PAGE_ID ?? null,
+    igUserId: parsed.META_IG_USER_ID ?? null,
+    pixelId: parsed.META_PIXEL_ID ?? null,
+    datasetId: parsed.META_DATASET_ID ?? parsed.META_PIXEL_ID ?? null,
+    catalogId: parsed.META_CATALOG_ID ?? null,
+    graphApiVersion: parsed.META_GRAPH_API_VERSION,
+    webhookVerifyToken: parsed.META_WEBHOOK_VERIFY_TOKEN ?? null,
+    webhookAppSecret: parsed.META_WEBHOOK_APP_SECRET ?? null,
+    testEventCode: parsed.META_TEST_EVENT_CODE ?? null,
+  };
+}
+
+export function isMetaConfigured() {
+  return Boolean(
+    process.env.META_SYSTEM_USER_TOKEN &&
+      process.env.META_AD_ACCOUNT_ID &&
+      process.env.META_PIXEL_ID,
+  );
+}
+
+// ─── Canva env ────────────────────────────────────────────────────────────────
+// becomes required once Phase 0 assets are provisioned
+
+export type CanvaEnv = {
+  clientId: string | null;
+  clientSecret: string | null;
+  accessToken: string | null;
+};
+
+const rawCanvaEnvSchema = z.object({
+  CANVA_CLIENT_ID: z.string().optional(),
+  CANVA_CLIENT_SECRET: z.string().optional(),
+  CANVA_ACCESS_TOKEN: z.string().optional(),
+});
+
+export function getCanvaEnv(): CanvaEnv {
+  const parsed = rawCanvaEnvSchema.parse({
+    CANVA_CLIENT_ID: process.env.CANVA_CLIENT_ID,
+    CANVA_CLIENT_SECRET: process.env.CANVA_CLIENT_SECRET,
+    CANVA_ACCESS_TOKEN: process.env.CANVA_ACCESS_TOKEN,
+  });
+
+  return {
+    clientId: parsed.CANVA_CLIENT_ID ?? null,
+    clientSecret: parsed.CANVA_CLIENT_SECRET ?? null,
+    accessToken: parsed.CANVA_ACCESS_TOKEN ?? null,
+  };
+}
+
+// ─── Kling env ────────────────────────────────────────────────────────────────
+// becomes required once Phase 0 assets are provisioned
+
+export type KlingEnv = {
+  apiKey: string | null;
+  apiBaseUrl: string;
+};
+
+const rawKlingEnvSchema = z.object({
+  KLING_API_KEY: z.string().optional(),
+  KLING_API_BASE_URL: z.string().url().default("https://api.klingai.com"),
+});
+
+export function getKlingEnv(): KlingEnv {
+  const parsed = rawKlingEnvSchema.parse({
+    KLING_API_KEY: process.env.KLING_API_KEY,
+    KLING_API_BASE_URL: process.env.KLING_API_BASE_URL ?? "https://api.klingai.com",
+  });
+
+  return {
+    apiKey: parsed.KLING_API_KEY ?? null,
+    apiBaseUrl: parsed.KLING_API_BASE_URL.replace(/\/$/, ""),
+  };
+}
+
+// ─── Luma env ─────────────────────────────────────────────────────────────────
+// becomes required once Phase 0 assets are provisioned
+
+export type LumaEnvType = {
+  apiKey: string | null;
+};
+
+export function getLumaEnv(): LumaEnvType {
+  return {
+    apiKey: process.env.LUMA_API_KEY ?? null,
+  };
+}
+
+// ─── Agent control plane env ──────────────────────────────────────────────────
+// becomes required once Phase 0 assets are provisioned
+
+export type AgentEnv = {
+  apiKey: string | null;
+  approvalWebhook: string | null;
+};
+
+export function getAgentEnv(): AgentEnv {
+  return {
+    apiKey: process.env.AGENT_API_KEY ?? null,
+    approvalWebhook: process.env.AGENT_APPROVAL_WEBHOOK ?? null,
+  };
+}
+
 export function getStorageEnv(): StorageEnv {
   const parsed = rawStorageEnvSchema.parse(getRawStorageEnv());
 

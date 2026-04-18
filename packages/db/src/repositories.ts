@@ -52,7 +52,11 @@ import {
   ticketCategoryValues,
   ticketPriorityValues,
   ticketStatusValues,
+  capiEvents,
+  capiEventStatusValues,
+  metaApiCalls,
 } from "./schema";
+import type { CapiEventStatus } from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
 export type DeliveryMode = (typeof deliveryModeValues)[number];
@@ -2901,6 +2905,36 @@ export type DailyMetricsRow = {
 export async function getDailyRevenueSeries(window: MetricsWindow): Promise<DailyMetricsRow[]> {
   if (!isDatabaseConfigured()) return [];
   const db = getDatabase();
+
+  // Prefer pre-aggregated rollup when every day in the window is
+  // present. The nightly daily-metrics-rollup cron fills this table;
+  // today's row is refreshed on every cron tick. If the rollup is
+  // missing any day in the window (e.g. brand-new environment, cron
+  // hasn't run yet, or we pushed new migrations), fall through to
+  // the live query. This keeps the dashboard correct no matter what.
+  const startStr = window.start.toISOString().slice(0, 10);
+  const endStr = window.end.toISOString().slice(0, 10);
+  const rollupRows = (await db.execute(sql<DailyMetricsRow>`
+    SELECT
+      to_char(day, 'YYYY-MM-DD') AS day,
+      (revenue_cents - refunded_cents)::int AS revenue_cents,
+      paid_orders::int,
+      samples::int
+    FROM daily_metrics_rollup
+    WHERE day >= ${startStr}::date AND day <= ${endStr}::date
+    ORDER BY day ASC
+  `)) as unknown as DailyMetricsRow[];
+
+  const expectedDayCount =
+    Math.floor((window.end.getTime() - window.start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+
+  // Use rollup only if coverage looks complete (>= 90% of the window).
+  // That threshold lets the dashboard keep rendering during a slow
+  // rollup backfill without flipping back and forth between paths.
+  if (rollupRows.length >= expectedDayCount * 0.9 && rollupRows.length > 0) {
+    return rollupRows;
+  }
+
   const rows = await db.execute(sql<DailyMetricsRow>`
     SELECT
       to_char(date_trunc('day', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
@@ -3055,6 +3089,111 @@ export async function recomputeDailyRollup(dayIso: string): Promise<DailyRollupR
   `);
 
   return row;
+}
+
+/* ------------------------------------------------------------------
+ * Meta Growth System — CAPI + API call repositories
+ * ------------------------------------------------------------------ */
+
+export type InsertCapiEventInput = {
+  id: string;
+  eventId: string;
+  eventName: string;
+  eventTime: Date;
+  actionSource: string;
+  userDataFingerprint: string;
+  payloadJson: Record<string, unknown>;
+};
+
+export async function insertCapiEvent(input: InsertCapiEventInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const record = {
+    ...input,
+    status: "queued" as const,
+    metaEventsReceived: null as number | null,
+    metaTraceId: null as string | null,
+    errorMessage: null as string | null,
+    retryCount: 0,
+    sentAt: null as Date | null,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  await db.insert(capiEvents).values(record);
+  return record;
+}
+
+export async function getCapiEventByEventId(eventId: string) {
+  if (!isDatabaseConfigured()) return null;
+  return getDatabase().query.capiEvents.findFirst({
+    where: eq(capiEvents.eventId, eventId),
+  });
+}
+
+export async function updateCapiEventStatus(
+  id: string,
+  update: {
+    status: CapiEventStatus;
+    metaEventsReceived?: number | null;
+    metaTraceId?: string | null;
+    errorMessage?: string | null;
+    retryCount?: number;
+    sentAt?: Date | null;
+  },
+) {
+  if (!isDatabaseConfigured()) return;
+  await getDatabase()
+    .update(capiEvents)
+    .set({
+      status: update.status,
+      metaEventsReceived: update.metaEventsReceived ?? null,
+      metaTraceId: update.metaTraceId ?? null,
+      errorMessage: update.errorMessage ?? null,
+      retryCount: update.retryCount,
+      sentAt: update.sentAt ?? null,
+      updatedAt: now(),
+    })
+    .where(eq(capiEvents.id, id));
+}
+
+export type RecordMetaApiCallInput = {
+  id: string;
+  method: string;
+  endpoint: string;
+  payloadHash?: string | null;
+  responseStatus?: number | null;
+  responseExcerpt?: string | null;
+  bucUsagePercent?: number | null;
+  durationMs?: number | null;
+  errorCode?: number | null;
+  errorSubcode?: number | null;
+};
+
+export async function recordMetaApiCall(input: RecordMetaApiCallInput) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db.insert(metaApiCalls).values({
+    id: input.id,
+    method: input.method,
+    endpoint: input.endpoint,
+    payloadHash: input.payloadHash ?? null,
+    responseStatus: input.responseStatus ?? null,
+    responseExcerpt: input.responseExcerpt ?? null,
+    bucUsagePercent: input.bucUsagePercent ?? null,
+    durationMs: input.durationMs ?? null,
+    errorCode: input.errorCode ?? null,
+    errorSubcode: input.errorSubcode ?? null,
+    createdAt: now(),
+  });
+}
+
+export async function listRecentMetaApiCalls(limit = 100) {
+  if (!isDatabaseConfigured()) return [];
+  return getDatabase()
+    .select()
+    .from(metaApiCalls)
+    .orderBy(desc(metaApiCalls.createdAt))
+    .limit(limit);
 }
 
 export async function listDailyRollup(days = 90): Promise<DailyRollupRow[]> {

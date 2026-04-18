@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const orderTypeValues = ["sample", "pdf", "print"] as const;
 export const deliveryModeValues = ["sample", "pdf", "print"] as const;
@@ -618,6 +618,18 @@ export const tableNames = {
   ticketMessages: "ticket_messages",
   refunds: "refunds",
   adSpendEntries: "ad_spend_entries",
+  metaTokens: "meta_tokens",
+  metaAdAccounts: "meta_ad_accounts",
+  metaPages: "meta_pages",
+  metaInstagramAccounts: "meta_instagram_accounts",
+  metaPixels: "meta_pixels",
+  adCampaigns: "ad_campaigns",
+  adSets: "ad_sets",
+  ads: "ads",
+  adCreatives: "ad_creatives",
+  capiEvents: "capi_events",
+  metaWebhookEvents: "meta_webhook_events",
+  metaApiCalls: "meta_api_calls",
 } as const;
 
 export const adSpendPlatformValues = ["meta", "google", "tiktok", "youtube", "reddit", "other"] as const;
@@ -641,3 +653,267 @@ export const adSpendEntries = pgTable(
     platformIdx: index("ad_spend_entries_platform_idx").on(table.platform, table.spendDate),
   }),
 );
+
+// ─── Meta Growth System — Phase 1 ────────────────────────────────────────────
+
+export const capiEventStatusValues = ["queued", "sending", "sent", "failed"] as const;
+export const metaWebhookStatusValues = ["received", "processed", "failed"] as const;
+
+export const capiEventStatusEnum = pgEnum("capi_event_status", capiEventStatusValues);
+export const metaWebhookStatusEnum = pgEnum("meta_webhook_status", metaWebhookStatusValues);
+
+export type CapiEventStatus = (typeof capiEventStatusValues)[number];
+export type MetaWebhookStatus = (typeof metaWebhookStatusValues)[number];
+
+export const metaTokens = pgTable("meta_tokens", {
+  id: text("id").primaryKey(),
+  label: text("label").notNull(),
+  scopes: text("scopes").array().notNull().default(sql`'{}'`),
+  issuedAt: timestamp("issued_at", { withTimezone: true }).defaultNow().notNull(),
+  rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+  encryptedToken: text("encrypted_token").notNull().default(""),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const metaAdAccounts = pgTable(
+  "meta_ad_accounts",
+  {
+    id: text("id").primaryKey(),
+    metaId: text("meta_id").notNull(),
+    name: text("name").notNull(),
+    currency: text("currency").notNull(),
+    timezone: text("timezone").notNull(),
+    status: text("status").notNull(),
+    businessId: text("business_id").notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaIdUnique: uniqueIndex("meta_ad_accounts_meta_id_unique").on(table.metaId),
+  }),
+);
+
+export const metaPages = pgTable(
+  "meta_pages",
+  {
+    id: text("id").primaryKey(),
+    metaId: text("meta_id").notNull(),
+    name: text("name").notNull(),
+    username: text("username"),
+    categoryText: text("category_text"),
+    igUserId: text("ig_user_id"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaIdUnique: uniqueIndex("meta_pages_meta_id_unique").on(table.metaId),
+  }),
+);
+
+export const metaInstagramAccounts = pgTable(
+  "meta_instagram_accounts",
+  {
+    id: text("id").primaryKey(),
+    metaId: text("meta_id").notNull(),
+    username: text("username").notNull(),
+    name: text("name"),
+    profilePictureUrl: text("profile_picture_url"),
+    linkedPageMetaId: text("linked_page_meta_id"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaIdUnique: uniqueIndex("meta_instagram_accounts_meta_id_unique").on(table.metaId),
+  }),
+);
+
+export const metaPixels = pgTable(
+  "meta_pixels",
+  {
+    id: text("id").primaryKey(),
+    metaId: text("meta_id").notNull(),
+    name: text("name").notNull(),
+    datasetId: text("dataset_id").notNull(),
+    lastEmqScore: numeric("last_emq_score", { precision: 3, scale: 1 }),
+    lastEmqCheckedAt: timestamp("last_emq_checked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaIdUnique: uniqueIndex("meta_pixels_meta_id_unique").on(table.metaId),
+  }),
+);
+
+export const adCampaigns = pgTable(
+  "ad_campaigns",
+  {
+    id: text("id").primaryKey(),
+    metaId: text("meta_id").notNull(),
+    name: text("name").notNull(),
+    objective: text("objective").notNull(),
+    status: text("status").notNull(),
+    specialAdCategories: text("special_ad_categories").array().notNull().default(sql`'{}'`),
+    adAccountId: text("ad_account_id").notNull().references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaIdUnique: uniqueIndex("ad_campaigns_meta_id_unique").on(table.metaId),
+    adAccountIdx: index("ad_campaigns_ad_account_idx").on(table.adAccountId),
+  }),
+);
+
+export const adSets = pgTable(
+  "ad_sets",
+  {
+    id: text("id").primaryKey(),
+    metaId: text("meta_id").notNull(),
+    name: text("name").notNull(),
+    campaignId: text("campaign_id").notNull().references(() => adCampaigns.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    dailyBudgetCents: integer("daily_budget_cents"),
+    lifetimeBudgetCents: integer("lifetime_budget_cents"),
+    optimizationGoal: text("optimization_goal").notNull(),
+    billingEvent: text("billing_event"),
+    startTime: timestamp("start_time", { withTimezone: true }),
+    endTime: timestamp("end_time", { withTimezone: true }),
+    targetingJson: jsonb("targeting_json").$type<Record<string, unknown> | null>(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaIdUnique: uniqueIndex("ad_sets_meta_id_unique").on(table.metaId),
+    campaignIdx: index("ad_sets_campaign_idx").on(table.campaignId),
+  }),
+);
+
+export const ads = pgTable(
+  "ads",
+  {
+    id: text("id").primaryKey(),
+    metaId: text("meta_id").notNull(),
+    name: text("name").notNull(),
+    adSetId: text("ad_set_id").notNull().references(() => adSets.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    adCreativeMetaId: text("ad_creative_meta_id"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaIdUnique: uniqueIndex("ads_meta_id_unique").on(table.metaId),
+    adSetIdx: index("ads_ad_set_idx").on(table.adSetId),
+  }),
+);
+
+export const adCreatives = pgTable(
+  "ad_creatives",
+  {
+    id: text("id").primaryKey(),
+    metaId: text("meta_id").notNull(),
+    name: text("name"),
+    objectStoryId: text("object_story_id"),
+    briefRef: text("brief_ref"),
+    effectiveInstagramMediaId: text("effective_instagram_media_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    metaIdUnique: uniqueIndex("ad_creatives_meta_id_unique").on(table.metaId),
+  }),
+);
+
+export const capiEvents = pgTable(
+  "capi_events",
+  {
+    id: text("id").primaryKey(),
+    eventId: text("event_id").notNull(),
+    eventName: text("event_name").notNull(),
+    eventTime: timestamp("event_time", { withTimezone: true }).notNull(),
+    actionSource: text("action_source").notNull(),
+    userDataFingerprint: text("user_data_fingerprint").notNull(),
+    payloadJson: jsonb("payload_json").notNull().$type<Record<string, unknown>>(),
+    status: capiEventStatusEnum("status").notNull().default("queued"),
+    metaEventsReceived: integer("meta_events_received"),
+    metaTraceId: text("meta_trace_id"),
+    errorMessage: text("error_message"),
+    retryCount: integer("retry_count").notNull().default(0),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    eventIdUnique: uniqueIndex("capi_events_event_id_unique").on(table.eventId),
+    statusIdx: index("capi_events_status_idx").on(table.status),
+    eventNameIdx: index("capi_events_event_name_idx").on(table.eventName),
+    createdAtIdx: index("capi_events_created_at_idx").on(table.createdAt),
+  }),
+);
+
+export const metaWebhookEvents = pgTable(
+  "meta_webhook_events",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull().default("meta"),
+    topic: text("topic").notNull(),
+    objectType: text("object_type").notNull(),
+    payloadJson: jsonb("payload_json").notNull().$type<Record<string, unknown>>(),
+    signatureHeader: text("signature_header").notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    status: metaWebhookStatusEnum("status").notNull().default("received"),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index("meta_webhook_events_status_idx").on(table.status),
+    receivedAtIdx: index("meta_webhook_events_received_at_idx").on(table.receivedAt),
+  }),
+);
+
+export const metaApiCalls = pgTable(
+  "meta_api_calls",
+  {
+    id: text("id").primaryKey(),
+    method: text("method").notNull(),
+    endpoint: text("endpoint").notNull(),
+    payloadHash: text("payload_hash"),
+    responseStatus: integer("response_status"),
+    responseExcerpt: text("response_excerpt"),
+    bucUsagePercent: integer("buc_usage_percent"),
+    durationMs: integer("duration_ms"),
+    errorCode: integer("error_code"),
+    errorSubcode: integer("error_subcode"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("meta_api_calls_created_at_idx").on(table.createdAt),
+    endpointIdx: index("meta_api_calls_endpoint_idx").on(table.endpoint),
+  }),
+);
+
+export type MetaToken = typeof metaTokens.$inferSelect;
+export type NewMetaToken = typeof metaTokens.$inferInsert;
+export type MetaAdAccount = typeof metaAdAccounts.$inferSelect;
+export type NewMetaAdAccount = typeof metaAdAccounts.$inferInsert;
+export type MetaPage = typeof metaPages.$inferSelect;
+export type MetaInstagramAccount = typeof metaInstagramAccounts.$inferSelect;
+export type MetaPixel = typeof metaPixels.$inferSelect;
+export type AdCampaign = typeof adCampaigns.$inferSelect;
+export type NewAdCampaign = typeof adCampaigns.$inferInsert;
+export type AdSet = typeof adSets.$inferSelect;
+export type Ad = typeof ads.$inferSelect;
+export type AdCreative = typeof adCreatives.$inferSelect;
+export type CapiEvent = typeof capiEvents.$inferSelect;
+export type NewCapiEvent = typeof capiEvents.$inferInsert;
+export type MetaWebhookEvent = typeof metaWebhookEvents.$inferSelect;
+export type MetaApiCall = typeof metaApiCalls.$inferSelect;
+export type NewMetaApiCall = typeof metaApiCalls.$inferInsert;
