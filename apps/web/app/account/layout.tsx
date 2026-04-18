@@ -16,6 +16,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
           <Link className="topbar-link" href="/account/orders">
             Orders
           </Link>
+          <Link className="topbar-link" href="/account/tickets">
+            Support
+          </Link>
           <Link className="topbar-link" href="/account/settings">
             Settings
           </Link>

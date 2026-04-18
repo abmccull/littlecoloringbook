@@ -464,6 +464,76 @@ export const emailSequenceStates = pgTable(
   }),
 );
 
+export const ticketCategoryValues = [
+  "refund_request",
+  "print_quality",
+  "shipping_damage",
+  "shipping_delay",
+  "wrong_item",
+  "page_rerender",
+  "account_help",
+  "other",
+] as const;
+
+export const ticketStatusValues = [
+  "open",
+  "awaiting_customer",
+  "in_progress",
+  "resolved",
+  "closed",
+] as const;
+
+export const ticketPriorityValues = ["low", "normal", "high", "urgent"] as const;
+export const ticketAuthorValues = ["customer", "admin", "system"] as const;
+
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: text("id").primaryKey(),
+    customerId: text("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    orderId: text("order_id").references(() => orders.id, { onDelete: "set null" }),
+    category: text("category").notNull().$type<(typeof ticketCategoryValues)[number]>(),
+    status: text("status").default("open").notNull().$type<(typeof ticketStatusValues)[number]>(),
+    priority: text("priority").default("normal").notNull().$type<(typeof ticketPriorityValues)[number]>(),
+    subject: text("subject").notNull(),
+    summary: text("summary"),
+    assignedAdminEmail: text("assigned_admin_email"),
+    firstResponseDueAt: timestamp("first_response_due_at", { withTimezone: true }),
+    firstRespondedAt: timestamp("first_responded_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    customerIdx: index("tickets_customer_idx").on(table.customerId, table.createdAt),
+    orderIdx: index("tickets_order_idx").on(table.orderId),
+    openIdx: index("tickets_open_idx").on(table.status, table.firstResponseDueAt),
+  }),
+);
+
+export const ticketMessages = pgTable(
+  "ticket_messages",
+  {
+    id: text("id").primaryKey(),
+    ticketId: text("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    author: text("author").notNull().$type<(typeof ticketAuthorValues)[number]>(),
+    authorEmail: text("author_email"),
+    body: text("body").notNull(),
+    internal: boolean("internal").default(false).notNull(),
+    attachments: jsonb("attachments").$type<Array<Record<string, unknown>>>().default([]).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticketIdx: index("ticket_messages_ticket_idx").on(table.ticketId, table.createdAt),
+  }),
+);
+
 export const tableNames = {
   customers: "customers",
   orders: "orders",
@@ -483,4 +553,6 @@ export const tableNames = {
   broadcastSends: "broadcast_sends",
   emailSends: "email_sends",
   emailSequenceStates: "email_sequence_states",
+  tickets: "tickets",
+  ticketMessages: "ticket_messages",
 } as const;

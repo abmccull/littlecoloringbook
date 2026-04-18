@@ -6,6 +6,7 @@ import {
   getDatabase,
   isDatabaseConfigured,
   stopAllMarketingSequencesForCustomer,
+  updateEmailSendStatusByProviderId,
   updateMarketingConsent,
 } from "@littlecolorbook/db";
 import { removeContactFromAudience } from "../../../../lib/resend-audiences";
@@ -77,6 +78,39 @@ async function findCustomerByEmail(email: string) {
 
 async function handleEvent(event: ResendEvent) {
   const to = Array.isArray(event.data?.to) ? event.data!.to![0] : event.data?.to;
+  const emailId = event.data?.email_id ?? null;
+
+  // Per-event email_sends status updates via provider message id.
+  if (emailId) {
+    try {
+      switch (event.type) {
+        case "email.sent":
+          await updateEmailSendStatusByProviderId({ providerMessageId: emailId, status: "sent" });
+          break;
+        case "email.bounced":
+          await updateEmailSendStatusByProviderId({
+            providerMessageId: emailId,
+            status: "bounced",
+            error: "recipient_bounced",
+          });
+          break;
+        case "email.complained":
+          await updateEmailSendStatusByProviderId({
+            providerMessageId: emailId,
+            status: "complained",
+            error: "marked_as_spam",
+          });
+          break;
+        default:
+          // delivered / opened / clicked / delivery_delayed are tracked
+          // only at the aggregate (provider webhook log) level for now.
+          break;
+      }
+    } catch (error) {
+      console.error("resend webhook: email_sends update failed", error);
+    }
+  }
+
   if (!to) return { handled: false, reason: "no_recipient" };
 
   switch (event.type) {

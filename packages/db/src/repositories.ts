@@ -21,6 +21,8 @@ import {
   portalTokens,
   shippingQuotes,
   stripeWebhookEvents,
+  ticketMessages,
+  tickets,
   uploads,
   assets,
   emailEvents,
@@ -40,6 +42,10 @@ import {
   orderStatusValues,
   orderTypeValues,
   supportActionTypeValues,
+  ticketAuthorValues,
+  ticketCategoryValues,
+  ticketPriorityValues,
+  ticketStatusValues,
 } from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
@@ -2526,6 +2532,22 @@ export async function advanceSequenceState(input: {
     .where(eq(emailSequenceStates.id, input.stateId));
 }
 
+export async function updateEmailSendStatusByProviderId(input: {
+  providerMessageId: string;
+  status: EmailSendStatus;
+  error?: string | null;
+}) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  const patch: Record<string, unknown> = { status: input.status };
+  if (input.status === "sent") patch.sentAt = now();
+  if (input.error) patch.error = input.error;
+  await db
+    .update(emailSends)
+    .set(patch)
+    .where(eq(emailSends.providerMessageId, input.providerMessageId));
+}
+
 export async function recordSequenceSendAttempt(input: {
   customerId: string;
   orderId?: string | null;
@@ -2618,6 +2640,355 @@ export async function updateMarketingConsent(input: MarketingConsentUpdate) {
   await db.update(customers).set(patch).where(eq(customers.id, input.customerId));
   const updated = await db.query.customers.findFirst({ where: eq(customers.id, input.customerId) });
   return updated ?? null;
+}
+
+/* ------------------------------------------------------------------
+ * Tickets (Phase 2)
+ * ------------------------------------------------------------------ */
+
+export type TicketCategory = (typeof ticketCategoryValues)[number];
+export type TicketStatus = (typeof ticketStatusValues)[number];
+export type TicketPriority = (typeof ticketPriorityValues)[number];
+export type TicketAuthor = (typeof ticketAuthorValues)[number];
+
+const FIRST_RESPONSE_SLA_MS = 24 * 60 * 60 * 1000;
+
+export type TicketRow = {
+  id: string;
+  customerId: string;
+  orderId: string | null;
+  category: TicketCategory;
+  status: TicketStatus;
+  priority: TicketPriority;
+  subject: string;
+  summary: string | null;
+  assignedAdminEmail: string | null;
+  firstResponseDueAt: Date | null;
+  firstRespondedAt: Date | null;
+  resolvedAt: Date | null;
+  closedAt: Date | null;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type TicketMessageRow = {
+  id: string;
+  ticketId: string;
+  author: TicketAuthor;
+  authorEmail: string | null;
+  body: string;
+  internal: boolean;
+  attachments: Array<Record<string, unknown>>;
+  createdAt: Date;
+};
+
+export type OpenTicketInput = {
+  customerId: string;
+  orderId?: string | null;
+  category: TicketCategory;
+  subject: string;
+  body: string;
+  customerEmail?: string | null;
+  priority?: TicketPriority;
+  metadata?: Record<string, unknown>;
+};
+
+export async function openTicket(input: OpenTicketInput): Promise<{
+  ticket: TicketRow;
+  firstMessage: TicketMessageRow;
+} | null> {
+  if (!isDatabaseConfigured()) return null;
+
+  const db = getDatabase();
+  const createdAt = now();
+  const ticketRow = {
+    id: createId("tkt"),
+    customerId: input.customerId,
+    orderId: input.orderId ?? null,
+    category: input.category,
+    status: "open" as TicketStatus,
+    priority: input.priority ?? "normal",
+    subject: input.subject.trim().slice(0, 240),
+    summary: input.body.trim().slice(0, 400),
+    assignedAdminEmail: null,
+    firstResponseDueAt: new Date(createdAt.getTime() + FIRST_RESPONSE_SLA_MS),
+    firstRespondedAt: null,
+    resolvedAt: null,
+    closedAt: null,
+    metadata: input.metadata ?? {},
+    createdAt,
+    updatedAt: createdAt,
+  };
+  await db.insert(tickets).values(ticketRow);
+
+  const messageRow = {
+    id: createId("tmsg"),
+    ticketId: ticketRow.id,
+    author: "customer" as TicketAuthor,
+    authorEmail: input.customerEmail ?? null,
+    body: input.body,
+    internal: false,
+    attachments: [] as Array<Record<string, unknown>>,
+    createdAt,
+  };
+  await db.insert(ticketMessages).values(messageRow);
+
+  return { ticket: ticketRow as TicketRow, firstMessage: messageRow as TicketMessageRow };
+}
+
+export async function listTicketsForCustomer(customerId: string, limit = 50): Promise<TicketRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db
+    .select()
+    .from(tickets)
+    .where(eq(tickets.customerId, customerId))
+    .orderBy(desc(tickets.createdAt))
+    .limit(limit);
+  return rows as TicketRow[];
+}
+
+export async function getTicketForCustomer(input: {
+  ticketId: string;
+  customerId: string;
+}): Promise<{ ticket: TicketRow; messages: TicketMessageRow[] } | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const ticket = await db.query.tickets.findFirst({
+    where: and(eq(tickets.id, input.ticketId), eq(tickets.customerId, input.customerId)),
+  });
+  if (!ticket) return null;
+
+  const messages = await db
+    .select()
+    .from(ticketMessages)
+    .where(and(eq(ticketMessages.ticketId, ticket.id), eq(ticketMessages.internal, false)))
+    .orderBy(ticketMessages.createdAt);
+
+  return { ticket: ticket as TicketRow, messages: messages as TicketMessageRow[] };
+}
+
+export async function addTicketMessage(input: {
+  ticketId: string;
+  author: TicketAuthor;
+  authorEmail?: string | null;
+  body: string;
+  internal?: boolean;
+  attachments?: Array<Record<string, unknown>>;
+}): Promise<TicketMessageRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const createdAt = now();
+  const row = {
+    id: createId("tmsg"),
+    ticketId: input.ticketId,
+    author: input.author,
+    authorEmail: input.authorEmail ?? null,
+    body: input.body,
+    internal: input.internal ?? false,
+    attachments: input.attachments ?? [],
+    createdAt,
+  };
+  await db.insert(ticketMessages).values(row);
+
+  const patch: Record<string, unknown> = { updatedAt: createdAt };
+  if (input.author === "admin" && !input.internal) {
+    patch.firstRespondedAt = sql`COALESCE(${tickets.firstRespondedAt}, ${createdAt})`;
+    patch.status = "awaiting_customer";
+  } else if (input.author === "customer") {
+    patch.status = "open";
+  }
+  await db.update(tickets).set(patch).where(eq(tickets.id, input.ticketId));
+
+  return row as TicketMessageRow;
+}
+
+export async function setTicketStatus(input: {
+  ticketId: string;
+  status: TicketStatus;
+  actorEmail?: string | null;
+}): Promise<TicketRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const nowDate = now();
+  const patch: Record<string, unknown> = { status: input.status, updatedAt: nowDate };
+  if (input.status === "resolved") patch.resolvedAt = nowDate;
+  if (input.status === "closed") patch.closedAt = nowDate;
+  await db.update(tickets).set(patch).where(eq(tickets.id, input.ticketId));
+
+  const row = await db.query.tickets.findFirst({ where: eq(tickets.id, input.ticketId) });
+  return (row as TicketRow) ?? null;
+}
+
+export async function assignTicket(input: {
+  ticketId: string;
+  assignedAdminEmail: string;
+}): Promise<TicketRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  await db
+    .update(tickets)
+    .set({ assignedAdminEmail: input.assignedAdminEmail, updatedAt: now() })
+    .where(eq(tickets.id, input.ticketId));
+  const row = await db.query.tickets.findFirst({ where: eq(tickets.id, input.ticketId) });
+  return (row as TicketRow) ?? null;
+}
+
+export type AdminTicketRow = TicketRow & {
+  customerEmail: string;
+  customerFirstName: string | null;
+};
+
+export async function listAdminTicketInbox(
+  filter: { status?: TicketStatus; limit?: number } = {},
+): Promise<AdminTicketRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const limit = filter.limit ?? 100;
+
+  const whereClause = filter.status
+    ? eq(tickets.status, filter.status)
+    : inArray(tickets.status, ["open", "awaiting_customer", "in_progress"]);
+
+  const rows = await db
+    .select({
+      id: tickets.id,
+      customerId: tickets.customerId,
+      orderId: tickets.orderId,
+      category: tickets.category,
+      status: tickets.status,
+      priority: tickets.priority,
+      subject: tickets.subject,
+      summary: tickets.summary,
+      assignedAdminEmail: tickets.assignedAdminEmail,
+      firstResponseDueAt: tickets.firstResponseDueAt,
+      firstRespondedAt: tickets.firstRespondedAt,
+      resolvedAt: tickets.resolvedAt,
+      closedAt: tickets.closedAt,
+      metadata: tickets.metadata,
+      createdAt: tickets.createdAt,
+      updatedAt: tickets.updatedAt,
+      customerEmail: customers.email,
+      customerFirstName: customers.firstName,
+    })
+    .from(tickets)
+    .innerJoin(customers, eq(tickets.customerId, customers.id))
+    .where(whereClause)
+    .orderBy(tickets.firstResponseDueAt)
+    .limit(limit);
+
+  return rows.map((r) => ({
+    ...r,
+    metadata: (r.metadata as Record<string, unknown>) ?? {},
+  })) as AdminTicketRow[];
+}
+
+export async function getAdminTicketDetail(ticketId: string): Promise<
+  { ticket: AdminTicketRow; messages: TicketMessageRow[] } | null
+> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+
+  const joined = await db
+    .select({
+      id: tickets.id,
+      customerId: tickets.customerId,
+      orderId: tickets.orderId,
+      category: tickets.category,
+      status: tickets.status,
+      priority: tickets.priority,
+      subject: tickets.subject,
+      summary: tickets.summary,
+      assignedAdminEmail: tickets.assignedAdminEmail,
+      firstResponseDueAt: tickets.firstResponseDueAt,
+      firstRespondedAt: tickets.firstRespondedAt,
+      resolvedAt: tickets.resolvedAt,
+      closedAt: tickets.closedAt,
+      metadata: tickets.metadata,
+      createdAt: tickets.createdAt,
+      updatedAt: tickets.updatedAt,
+      customerEmail: customers.email,
+      customerFirstName: customers.firstName,
+    })
+    .from(tickets)
+    .innerJoin(customers, eq(tickets.customerId, customers.id))
+    .where(eq(tickets.id, ticketId))
+    .limit(1);
+
+  const row = joined[0];
+  if (!row) return null;
+
+  const messages = await db
+    .select()
+    .from(ticketMessages)
+    .where(eq(ticketMessages.ticketId, ticketId))
+    .orderBy(ticketMessages.createdAt);
+
+  return {
+    ticket: { ...row, metadata: (row.metadata as Record<string, unknown>) ?? {} } as AdminTicketRow,
+    messages: messages as TicketMessageRow[],
+  };
+}
+
+export async function listSlaBreachedTickets(limit = 50): Promise<AdminTicketRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const currentTime = now();
+
+  const rows = await db
+    .select({
+      id: tickets.id,
+      customerId: tickets.customerId,
+      orderId: tickets.orderId,
+      category: tickets.category,
+      status: tickets.status,
+      priority: tickets.priority,
+      subject: tickets.subject,
+      summary: tickets.summary,
+      assignedAdminEmail: tickets.assignedAdminEmail,
+      firstResponseDueAt: tickets.firstResponseDueAt,
+      firstRespondedAt: tickets.firstRespondedAt,
+      resolvedAt: tickets.resolvedAt,
+      closedAt: tickets.closedAt,
+      metadata: tickets.metadata,
+      createdAt: tickets.createdAt,
+      updatedAt: tickets.updatedAt,
+      customerEmail: customers.email,
+      customerFirstName: customers.firstName,
+    })
+    .from(tickets)
+    .innerJoin(customers, eq(tickets.customerId, customers.id))
+    .where(
+      and(
+        inArray(tickets.status, ["open", "in_progress"]),
+        isNotNull(tickets.firstResponseDueAt),
+      ),
+    )
+    .limit(limit);
+
+  return rows
+    .filter(
+      (r) =>
+        r.firstResponseDueAt &&
+        r.firstResponseDueAt <= currentTime &&
+        !r.firstRespondedAt &&
+        !(r.metadata as Record<string, unknown>)?.sla_breach_notified_at,
+    )
+    .map((r) => ({
+      ...r,
+      metadata: (r.metadata as Record<string, unknown>) ?? {},
+    })) as AdminTicketRow[];
+}
+
+export async function markTicketSlaBreachNotified(ticketId: string): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  const current = await db.query.tickets.findFirst({ where: eq(tickets.id, ticketId) });
+  if (!current) return;
+  const meta = (current.metadata as Record<string, unknown>) ?? {};
+  meta.sla_breach_notified_at = now().toISOString();
+  await db.update(tickets).set({ metadata: meta, updatedAt: now() }).where(eq(tickets.id, ticketId));
 }
 
 /* ------------------------------------------------------------------

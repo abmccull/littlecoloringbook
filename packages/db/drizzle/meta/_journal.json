@@ -64,6 +64,13 @@
       "when": 1776758400000,
       "tag": "0008_email_marketing",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776844800000,
+      "tag": "0009_tickets",
+      "breakpoints": true
     }
   ]
 }

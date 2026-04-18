@@ -62,13 +62,8 @@ export default async function AccountOrderDetailPage({
               Track shipment
             </a>
           ) : null}
-          <Link
-            aria-disabled
-            className="button button-secondary button-disabled"
-            href={`/account/orders/${summary.order.id}`}
-            title="Ticket creation lands in the next update"
-          >
-            Get help (coming soon)
+          <Link className="button button-secondary" href={`/account/orders/${summary.order.id}/tickets/new`}>
+            Get help with this order
           </Link>
         </div>
       </div>
