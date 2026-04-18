@@ -9,6 +9,7 @@ const LINKS: Array<{ href: string; label: string }> = [
   { href: "/admin/metrics/cohorts", label: "Cohorts" },
   { href: "/admin/metrics/attribution", label: "Attribution" },
   { href: "/admin/ads", label: "Ads" },
+  { href: "/admin/growth", label: "Growth" },
 ];
 
 export function AdminNav({ sessionEmail }: { sessionEmail: string | null }) {
