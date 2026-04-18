@@ -68,6 +68,12 @@
       ],
       "@littlecolorbook/ads/*": [
         "packages/ads/src/*"
+      ],
+      "@littlecolorbook/creative": [
+        "packages/creative/src/index.ts"
+      ],
+      "@littlecolorbook/creative/*": [
+        "packages/creative/src/*"
       ]
     }
   }

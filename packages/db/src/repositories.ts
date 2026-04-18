@@ -68,6 +68,8 @@ import {
   agentJournal,
   agentBaselines,
   creativeRequests,
+  creativeBriefs,
+  creativeAssets,
 } from "./schema";
 import type {
   CapiEventStatus,
@@ -77,6 +79,13 @@ import type {
   AgentProposalKind,
   AgentProposalStatus,
   AgentJournalEntryKind,
+  CreativeAssetSource,
+  CreativeAssetKind,
+  CreativeAssetComplianceStatus,
+  CreativeBriefKind,
+  CreativeAssetTagsJson,
+  NewCreativeBrief,
+  NewCreativeAsset,
 } from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
@@ -5110,4 +5119,216 @@ export async function insertCreativeRequest(input: { id: string; briefJson: Reco
     })
     .returning();
   return row ?? null;
+}
+
+// ─── Phase 2a — Creative Library ─────────────────────────────────────────────
+
+export type InsertCreativeBriefInput = {
+  id: string;
+  kind: CreativeBriefKind;
+  concept: string;
+  format: string;
+  hook: string;
+  body: string;
+  cta: string;
+  persona?: string | null;
+  occasion?: string | null;
+  offerCode?: string | null;
+  visualPrompt: string;
+  voiceFamily?: string | null;
+  briefVersion?: string;
+  deterministicSeed?: string | null;
+  createdBy?: string | null;
+};
+
+export async function insertCreativeBrief(input: InsertCreativeBriefInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .insert(creativeBriefs)
+    .values({
+      id: input.id,
+      kind: input.kind,
+      concept: input.concept,
+      format: input.format,
+      hook: input.hook,
+      body: input.body,
+      cta: input.cta,
+      persona: input.persona ?? null,
+      occasion: input.occasion ?? null,
+      offerCode: input.offerCode ?? null,
+      visualPrompt: input.visualPrompt,
+      voiceFamily: input.voiceFamily ?? null,
+      briefVersion: input.briefVersion ?? "2026-04-a",
+      deterministicSeed: input.deterministicSeed ?? null,
+      createdBy: input.createdBy ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export type InsertCreativeAssetInput = {
+  id: string;
+  briefId?: string | null;
+  source: CreativeAssetSource;
+  kind: CreativeAssetKind;
+  parentAssetId?: string | null;
+  gcsBucket: string;
+  gcsObject: string;
+  mimeType: string;
+  widthPx?: number | null;
+  heightPx?: number | null;
+  durationSeconds?: string | null;
+  tagsJson?: CreativeAssetTagsJson;
+  complianceStatus?: CreativeAssetComplianceStatus;
+  complianceCheckedAt?: Date | null;
+  complianceReportJson?: Record<string, unknown> | null;
+  consentSource?: string | null;
+  consentProof?: string | null;
+  createdBy?: string | null;
+};
+
+export async function insertCreativeAsset(input: InsertCreativeAssetInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .insert(creativeAssets)
+    .values({
+      id: input.id,
+      briefId: input.briefId ?? null,
+      source: input.source,
+      kind: input.kind,
+      parentAssetId: input.parentAssetId ?? null,
+      gcsBucket: input.gcsBucket,
+      gcsObject: input.gcsObject,
+      mimeType: input.mimeType,
+      widthPx: input.widthPx ?? null,
+      heightPx: input.heightPx ?? null,
+      durationSeconds: input.durationSeconds ?? null,
+      tagsJson: input.tagsJson ?? {},
+      complianceStatus: input.complianceStatus ?? "pending",
+      complianceCheckedAt: input.complianceCheckedAt ?? null,
+      complianceReportJson: input.complianceReportJson ?? null,
+      consentSource: input.consentSource ?? null,
+      consentProof: input.consentProof ?? null,
+      createdBy: input.createdBy ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .returning();
+  return row ?? null;
+}
+
+export type ListCreativeAssetsFilter = {
+  source?: CreativeAssetSource;
+  kind?: CreativeAssetKind;
+  complianceStatus?: CreativeAssetComplianceStatus;
+  tagsQuery?: Partial<CreativeAssetTagsJson>;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listCreativeAssets(filter: ListCreativeAssetsFilter = {}) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+
+  const conditions: ReturnType<typeof eq>[] = [];
+
+  if (filter.source) {
+    conditions.push(eq(creativeAssets.source, filter.source));
+  }
+  if (filter.kind) {
+    conditions.push(eq(creativeAssets.kind, filter.kind));
+  }
+  if (filter.complianceStatus) {
+    conditions.push(eq(creativeAssets.complianceStatus, filter.complianceStatus));
+  }
+  if (filter.tagsQuery && Object.keys(filter.tagsQuery).length > 0) {
+    conditions.push(
+      sql`${creativeAssets.tagsJson} @> ${JSON.stringify(filter.tagsQuery)}::jsonb` as ReturnType<typeof eq>,
+    );
+  }
+
+  const query = db
+    .select()
+    .from(creativeAssets)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(creativeAssets.createdAt))
+    .limit(filter.limit ?? 50)
+    .offset(filter.offset ?? 0);
+
+  return query;
+}
+
+export async function getCreativeAssetById(id: string) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .select()
+    .from(creativeAssets)
+    .where(eq(creativeAssets.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function getCreativeAssetCrops(parentId: string) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  return db
+    .select()
+    .from(creativeAssets)
+    .where(eq(creativeAssets.parentAssetId, parentId))
+    .orderBy(asc(creativeAssets.kind));
+}
+
+export async function updateCreativeAssetCompliance(input: {
+  id: string;
+  status: CreativeAssetComplianceStatus;
+  reportJson: Record<string, unknown> | null;
+}) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .update(creativeAssets)
+    .set({
+      complianceStatus: input.status,
+      complianceReportJson: input.reportJson,
+      complianceCheckedAt: now(),
+      updatedAt: now(),
+    })
+    .where(eq(creativeAssets.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
+export async function searchCreativeAssetsByTag(input: {
+  tag: { key: keyof CreativeAssetTagsJson; value: string };
+  limit?: number;
+}) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const tagFilter = { [input.tag.key]: input.tag.value };
+  return db
+    .select()
+    .from(creativeAssets)
+    .where(
+      sql`${creativeAssets.tagsJson} @> ${JSON.stringify(tagFilter)}::jsonb`,
+    )
+    .orderBy(desc(creativeAssets.createdAt))
+    .limit(input.limit ?? 50);
+}
+
+export async function countCreativeAssetsBySource() {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  return db
+    .select({
+      source: creativeAssets.source,
+      count: sql<number>`cast(count(*) as integer)`,
+    })
+    .from(creativeAssets)
+    .groupBy(creativeAssets.source)
+    .orderBy(desc(sql`count(*)`));
 }

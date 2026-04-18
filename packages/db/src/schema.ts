@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, doublePrecision, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const orderTypeValues = ["sample", "pdf", "print"] as const;
 export const deliveryModeValues = ["sample", "pdf", "print"] as const;
@@ -1195,3 +1195,122 @@ export type AgentBaseline = typeof agentBaselines.$inferSelect;
 export type NewAgentBaseline = typeof agentBaselines.$inferInsert;
 export type CreativeRequest = typeof creativeRequests.$inferSelect;
 export type NewCreativeRequest = typeof creativeRequests.$inferInsert;
+
+// ─── Phase 2a — Creative Library ─────────────────────────────────────────────
+
+export const creativeBriefKindValues = [
+  'static_image',
+  'carousel_image',
+  'stop_motion_reveal',
+  'ugc_narrated',
+] as const;
+
+export const creativeAssetSourceValues = [
+  'pipeline_test_batch',
+  'agent_generated',
+  'customer_sample',
+  'stock',
+  'manual_upload',
+] as const;
+
+export const creativeAssetKindValues = [
+  'hero_image',
+  'aspect_1x1',
+  'aspect_4x5',
+  'aspect_9x16',
+  'aspect_16x9',
+  'video',
+  'voiceover',
+  'composite',
+] as const;
+
+export const creativeAssetComplianceStatusValues = [
+  'pending',
+  'passed',
+  'warned',
+  'rejected',
+] as const;
+
+export const creativeBriefKindEnum = pgEnum("creative_brief_kind", creativeBriefKindValues);
+export const creativeAssetSourceEnum = pgEnum("creative_asset_source", creativeAssetSourceValues);
+export const creativeAssetKindEnum = pgEnum("creative_asset_kind", creativeAssetKindValues);
+export const creativeAssetComplianceStatusEnum = pgEnum("creative_asset_compliance_status", creativeAssetComplianceStatusValues);
+
+export type CreativeBriefKind = (typeof creativeBriefKindValues)[number];
+export type CreativeAssetSource = (typeof creativeAssetSourceValues)[number];
+export type CreativeAssetKind = (typeof creativeAssetKindValues)[number];
+export type CreativeAssetComplianceStatus = (typeof creativeAssetComplianceStatusValues)[number];
+
+export type CreativeAssetTagsJson = {
+  concept?: string;
+  format?: string;
+  persona?: string;
+  occasion?: string;
+  offer?: string;
+  hook_family?: string;
+  cta?: string;
+  visual_style?: string;
+  audience_tag?: string;
+};
+
+export const creativeBriefs = pgTable(
+  "creative_briefs",
+  {
+    id: text("id").primaryKey(),
+    kind: creativeBriefKindEnum("kind").notNull(),
+    concept: text("concept").notNull(),
+    format: text("format").notNull(),
+    hook: text("hook").notNull(),
+    body: text("body").notNull(),
+    cta: text("cta").notNull(),
+    persona: text("persona"),
+    occasion: text("occasion"),
+    offerCode: text("offer_code"),
+    visualPrompt: text("visual_prompt").notNull(),
+    voiceFamily: text("voice_family"),
+    briefVersion: text("brief_version").notNull().default("2026-04-a"),
+    deterministicSeed: text("deterministic_seed"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+);
+
+export const creativeAssets = pgTable(
+  "creative_assets",
+  {
+    id: text("id").primaryKey(),
+    briefId: text("brief_id").references(() => creativeBriefs.id, { onDelete: "set null" }),
+    source: creativeAssetSourceEnum("source").notNull(),
+    kind: creativeAssetKindEnum("kind").notNull(),
+    parentAssetId: text("parent_asset_id").references((): AnyPgColumn => creativeAssets.id, { onDelete: "cascade" }),
+    gcsBucket: text("gcs_bucket").notNull(),
+    gcsObject: text("gcs_object").notNull(),
+    mimeType: text("mime_type").notNull(),
+    widthPx: integer("width_px"),
+    heightPx: integer("height_px"),
+    durationSeconds: numeric("duration_seconds", { precision: 6, scale: 2 }),
+    tagsJson: jsonb("tags_json").notNull().default({}).$type<CreativeAssetTagsJson>(),
+    complianceStatus: creativeAssetComplianceStatusEnum("compliance_status").notNull().default("pending"),
+    complianceCheckedAt: timestamp("compliance_checked_at", { withTimezone: true }),
+    complianceReportJson: jsonb("compliance_report_json").$type<Record<string, unknown> | null>(),
+    consentSource: text("consent_source"),
+    consentProof: text("consent_proof"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    sourceIdx: index("creative_assets_source_idx").on(table.source),
+    kindIdx: index("creative_assets_kind_idx").on(table.kind),
+    briefIdIdx: index("creative_assets_brief_id_idx").on(table.briefId),
+    complianceStatusIdx: index("creative_assets_compliance_status_idx").on(table.complianceStatus),
+    parentAssetIdIdx: index("creative_assets_parent_asset_id_idx").on(table.parentAssetId),
+    sourceKindIdx: index("creative_assets_source_kind_idx").on(table.source, table.kind),
+  }),
+);
+
+export type CreativeBrief = typeof creativeBriefs.$inferSelect;
+export type NewCreativeBrief = typeof creativeBriefs.$inferInsert;
+export type CreativeAsset = typeof creativeAssets.$inferSelect;
+export type NewCreativeAsset = typeof creativeAssets.$inferInsert;
