@@ -20,18 +20,24 @@ export default async function SampleLimitReachedPage({ searchParams }: LimitReac
       </header>
 
       <section className="sample-frame">
-        <span className="pill pill-sun">Free sample</span>
-        <h1>Your free page is already on its way!</h1>
+        <span className="pill pill-sun">You've tried a sample</span>
+        <h1>Ready to build the full book?</h1>
         <p className="lede">
-          Ready to turn the rest of your photos into the full book?
+          You already used your free sample page. Turn 50 favorite photos into a spiral-bound keepsake your kid will actually color.
         </p>
+
+        <ul className="checklist">
+          <li>50 personalized pages from your camera roll</li>
+          <li>Print tonight or order the spiral-bound book</li>
+          <li>Ships in 3-5 days — birthdays, travel, keepsakes</li>
+        </ul>
 
         <div className="hero-actions">
           <Link
             className="button button-primary"
-            href="/create?offer=pdf-50&source=sample-limit-reached&acquisitionPath=sample_limit_upsell"
+            href={`/create?offer=pdf-50&source=sample-limit-reached&acquisitionPath=sample_limit_upsell${orderId ? `&sampleOrderId=${encodeURIComponent(orderId)}` : ""}`}
           >
-            Build My Family Memory Book
+            Build My Book
           </Link>
         </div>
 
