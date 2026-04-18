@@ -1,4 +1,6 @@
+import crypto from "node:crypto";
 import type { ComplianceReport, ComplianceIssue } from "./types.js";
+import { scanComplianceWithLlm, COMBINED_POLICY_VERSION, type ComplianceScanInput } from "./llm-compliance.js";
 
 export const POLICY_VERSION = "2026-04-a";
 
@@ -177,14 +179,92 @@ const RULES: RuleEntry[] = [
   },
 ];
 
-type ScanInput = {
-  caption?: string | null;
-  hook?: string | null;
-  body?: string | null;
-  cta?: string | null;
-  imageTagsOrAltText?: string | null;
-  landingPageUrl?: string | null;
+// ComplianceScanInput is defined in llm-compliance.ts and re-exported from
+// there. The regex-layer functions here accept the same shape.
+export type { ComplianceScanInput } from "./llm-compliance.js";
+
+// ─── LRU cache (in-process, non-persistent) ───────────────────────────────────
+// Keyed by SHA-256 of the canonicalised input. Max 500 entries; evict oldest
+// on overflow (insertion-order Map is LRU-friendly).
+
+const LRU_MAX = 500;
+const lruCache = new Map<string, ComplianceReport>();
+
+function lruGet(key: string): ComplianceReport | undefined {
+  const value = lruCache.get(key);
+  if (value === undefined) return undefined;
+  // Refresh LRU position
+  lruCache.delete(key);
+  lruCache.set(key, value);
+  return value;
+}
+
+function lruSet(key: string, value: ComplianceReport): void {
+  if (lruCache.has(key)) {
+    lruCache.delete(key);
+  } else if (lruCache.size >= LRU_MAX) {
+    // Evict oldest (first inserted) entry
+    const firstKey = lruCache.keys().next().value;
+    if (firstKey !== undefined) lruCache.delete(firstKey);
+  }
+  lruCache.set(key, value);
+}
+
+/** Canonical, stable string for cache keying. Keys sorted so field order doesn't matter. */
+function stableInputString(input: ComplianceScanInput): string {
+  const obj: Record<string, string | null | undefined> = {
+    caption: input.caption,
+    hook: input.hook,
+    body: input.body,
+    cta: input.cta,
+    imageTagsOrAltText: input.imageTagsOrAltText,
+    landingPageUrl: input.landingPageUrl,
+  };
+  return JSON.stringify(obj, Object.keys(obj).sort());
+}
+
+function sha256(text: string): string {
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+// ─── Report merge helpers ─────────────────────────────────────────────────────
+
+const STATUS_RANK: Record<ComplianceReport["status"], number> = {
+  passed: 0,
+  warned: 1,
+  rejected: 2,
 };
+
+function worstStatus(
+  a: ComplianceReport["status"],
+  b: ComplianceReport["status"],
+): ComplianceReport["status"] {
+  return STATUS_RANK[a] >= STATUS_RANK[b] ? a : b;
+}
+
+function dedupeIssues(issues: ComplianceIssue[]): ComplianceIssue[] {
+  const seen = new Set<string>();
+  return issues.filter((issue) => {
+    if (seen.has(issue.code)) return false;
+    seen.add(issue.code);
+    return true;
+  });
+}
+
+function mergeReports(regex: ComplianceReport, llm: ComplianceReport): ComplianceReport {
+  const warnings = dedupeIssues([...regex.warnings, ...llm.warnings]);
+  const errors = dedupeIssues([...regex.errors, ...llm.errors]);
+  const status = worstStatus(
+    worstStatus(regex.status, llm.status),
+    errors.length > 0 ? "rejected" : warnings.length > 0 ? "warned" : "passed",
+  );
+  return {
+    status,
+    warnings,
+    errors,
+    policyVersion: COMBINED_POLICY_VERSION,
+  };
+}
 
 function runRules(text: string): { warnings: ComplianceIssue[]; errors: ComplianceIssue[] } {
   const warnings: ComplianceIssue[] = [];
@@ -209,7 +289,12 @@ function runRules(text: string): { warnings: ComplianceIssue[]; errors: Complian
   return { warnings, errors };
 }
 
-export function scanText(input: ScanInput): ComplianceReport {
+// ─── Public alias kept for backward compat with existing callers ──────────────
+export function scanCompliance(input: ComplianceScanInput): ComplianceReport {
+  return scanText(input);
+}
+
+export function scanText(input: ComplianceScanInput): ComplianceReport {
   const combined = [
     input.caption,
     input.hook,
@@ -240,10 +325,50 @@ export function scanText(input: ScanInput): ComplianceReport {
   };
 }
 
-// Stub for future Phase 2c — today delegates to the regex scanner.
+/**
+ * Phase 2c — LLM-enhanced compliance scan.
+ *
+ * Strategy:
+ *  1. Run regex scanner first (free, instant).
+ *  2. If regex → rejected (hard error), fast-fail — skip the LLM entirely.
+ *  3. If regex → passed or warned, call Claude Haiku for a second-pass review.
+ *  4. Merge results (worst-of status, concatenated + deduped issues).
+ *  5. Cache merged result in-process (LRU 500) keyed by SHA-256 of input.
+ *  6. On LLM failure, fail open: return regex result + llm_unavailable warning.
+ *  7. If skipLlm or ANTHROPIC_API_KEY is absent, return regex result only.
+ */
 export async function scanWithLlm(
-  input: ScanInput,
-  _options?: { timeoutMs?: number },
+  input: ComplianceScanInput,
+  options?: { skipLlm?: boolean },
 ): Promise<ComplianceReport> {
-  return scanText(input);
+  const regex = scanCompliance(input);
+
+  // Fast-fail path: hard errors caught by regex, no need to spend on LLM
+  if (regex.status === "rejected" || options?.skipLlm) return regex;
+
+  // Cache lookup
+  const key = sha256(stableInputString(input));
+  const cached = lruGet(key);
+  if (cached !== undefined) return cached;
+
+  try {
+    const llm = await scanComplianceWithLlm(input);
+    const merged = mergeReports(regex, llm);
+    lruSet(key, merged);
+    return merged;
+  } catch (err) {
+    // Fail open — surface regex result but flag that LLM was unavailable
+    const message = err instanceof Error ? err.message : String(err);
+    const fallback: ComplianceReport = {
+      ...regex,
+      warnings: [
+        ...regex.warnings,
+        { code: "llm_unavailable", message },
+      ],
+    };
+    return fallback;
+  }
 }
+
+// Export cache internals for test introspection only
+export { lruCache as _lruCacheForTests };

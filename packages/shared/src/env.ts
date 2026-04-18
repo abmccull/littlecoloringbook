@@ -575,3 +575,37 @@ export function getLuluBasicAuthHeader() {
   const env = getLuluEnv();
   return `Basic ${Buffer.from(`${env.luluClientKey}:${env.luluClientSecret}`).toString("base64")}`;
 }
+
+// ─── Anthropic / Claude env ───────────────────────────────────────────────────
+// All keys are optional — if ANTHROPIC_API_KEY is absent, scanWithLlm falls
+// through to the regex-only result silently (no error thrown).
+
+export type AnthropicEnv = {
+  apiKey: string | null;
+  model: string;
+  llmComplianceTimeoutMs: number;
+};
+
+const rawAnthropicEnvSchema = z.object({
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5-20251001"),
+  CREATIVE_LLM_COMPLIANCE_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
+});
+
+export function getAnthropicEnv(): AnthropicEnv {
+  const parsed = rawAnthropicEnvSchema.parse({
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001",
+    CREATIVE_LLM_COMPLIANCE_TIMEOUT_MS: process.env.CREATIVE_LLM_COMPLIANCE_TIMEOUT_MS ?? "15000",
+  });
+
+  return {
+    apiKey: parsed.ANTHROPIC_API_KEY ?? null,
+    model: parsed.ANTHROPIC_MODEL,
+    llmComplianceTimeoutMs: parsed.CREATIVE_LLM_COMPLIANCE_TIMEOUT_MS,
+  };
+}
+
+export function isAnthropicConfigured() {
+  return Boolean(process.env.ANTHROPIC_API_KEY);
+}
