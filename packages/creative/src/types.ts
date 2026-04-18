@@ -84,6 +84,17 @@ export const carouselCardSchema = z.object({
 });
 export type CarouselCard = z.infer<typeof carouselCardSchema>;
 
+/** Phase 7a: element_ids shape stored on creative_briefs.element_ids */
+export const briefElementIdsSchema = z.object({
+  hook_id: z.string().optional(),
+  body_id: z.string().optional(),
+  cta_id: z.string().optional(),
+  visual_style_id: z.string().optional(),
+  mix_match_parent_brief_id: z.string().optional(),
+});
+
+export type BriefElementIds = z.infer<typeof briefElementIdsSchema>;
+
 export const creativeBriefInputSchema = z.object({
   kind: z.enum(creativeBriefKindValues),
   concept: z.string().min(1).max(200),
@@ -110,6 +121,13 @@ export const creativeBriefInputSchema = z.object({
   canvaFieldMapping: z
     .record(z.string(), z.enum(["hook", "body", "cta", "hero_image"]))
     .optional(),
+  // ─── Phase 7a: copy element IDs ────────────────────────────────────────────
+  /**
+   * When present, the orchestrator hydrates actual copy text from the DB using
+   * getCopyElementById. Inline hook/body/cta must still be provided as
+   * fallback values (used if element hydration fails or DB is unconfigured).
+   */
+  elementIds: briefElementIdsSchema.nullish(),
   // ─── carousel_image fields ──────────────────────────────────────────────────
   /** Number of cards in the carousel (3–10, default 5). */
   cardCount: z.number().int().min(3).max(10).optional().default(5),
@@ -147,6 +165,7 @@ export type CreativeBrief = {
   voiceFamily: string | null;
   briefVersion: string;
   deterministicSeed: string | null;
+  elementIds: BriefElementIds | null;
   createdBy: string | null;
   createdAt: Date;
   updatedAt: Date;

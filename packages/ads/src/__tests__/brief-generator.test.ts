@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { resolve } from "node:path";
-import { generateDailyBriefs } from "../brief-generator";
+import { generateDailyBriefs, sampleElementsForBrief } from "../brief-generator";
+import type { CopyElementPoolItem } from "../brief-generator";
 
 // Vitest's process.cwd() is the workspace package directory (packages/ads).
 // Go two levels up to reach the monorepo root where campaign-taxonomy.yaml lives.
@@ -106,5 +107,149 @@ describe("generateDailyBriefs", () => {
     const runB = generateDailyBriefs(opts);
 
     expect(runA.map((b) => b.slotKey)).toEqual(runB.map((b) => b.slotKey));
+  });
+
+  // ─── Phase 7a: elementOverrides ───────────────────────────────────────────
+
+  it("uses hook text from elementOverrides.hook when provided", () => {
+    const hookOverride = { id: "el_hook_test", text: "OVERRIDE HOOK TEXT" };
+    const briefs = generateDailyBriefs({
+      taxonomyYamlPath: TAXONOMY_PATH,
+      count: 3,
+      seed: "override-test",
+      date: "2026-05-06",
+      elementOverrides: { hook: hookOverride },
+    });
+
+    for (const brief of briefs) {
+      expect(brief.hook).toBe("OVERRIDE HOOK TEXT");
+    }
+  });
+
+  it("sets elementIds.hook_id when hook override is provided", () => {
+    const hookOverride = { id: "el_hook_test", text: "OVERRIDE HOOK TEXT" };
+    const briefs = generateDailyBriefs({
+      taxonomyYamlPath: TAXONOMY_PATH,
+      count: 2,
+      seed: "element-ids-test",
+      date: "2026-05-06",
+      elementOverrides: { hook: hookOverride },
+    });
+
+    for (const brief of briefs) {
+      expect(brief.elementIds?.hook_id).toBe("el_hook_test");
+    }
+  });
+
+  it("elementIds is null when no elementOverrides provided", () => {
+    const briefs = generateDailyBriefs({
+      taxonomyYamlPath: TAXONOMY_PATH,
+      count: 3,
+      seed: "no-overrides",
+      date: "2026-05-06",
+    });
+
+    for (const brief of briefs) {
+      expect(brief.elementIds).toBeNull();
+    }
+  });
+
+  it("uses body, cta, visual_style overrides independently", () => {
+    const briefs = generateDailyBriefs({
+      taxonomyYamlPath: TAXONOMY_PATH,
+      count: 2,
+      seed: "multi-override",
+      date: "2026-05-07",
+      elementOverrides: {
+        body: { id: "el_body_1", text: "CUSTOM BODY COPY" },
+        cta: { id: "el_cta_1", text: "CUSTOM CTA" },
+      },
+    });
+
+    for (const brief of briefs) {
+      expect(brief.body).toBe("CUSTOM BODY COPY");
+      expect(brief.cta).toBe("CUSTOM CTA");
+      expect(brief.elementIds?.body_id).toBe("el_body_1");
+      expect(brief.elementIds?.cta_id).toBe("el_cta_1");
+      // hook_id should be absent since no hook override
+      expect(brief.elementIds?.hook_id).toBeUndefined();
+    }
+  });
+});
+
+describe("sampleElementsForBrief", () => {
+  const hookPool: CopyElementPoolItem[] = [
+    { id: "h1", kind: "hook", text: "Hook A", audienceTag: "family" },
+    { id: "h2", kind: "hook", text: "Hook B", audienceTag: "family" },
+    { id: "h3", kind: "hook", text: "Hook C", audienceTag: "grandparent" },
+    { id: "h4", kind: "hook", text: "Hook D" },
+  ];
+
+  it("returns an element from the pool", () => {
+    const result = sampleElementsForBrief({
+      kind: "hook",
+      elementPool: hookPool,
+      seed: "test-seed-001",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("hook");
+    expect(hookPool.map((e) => e.id)).toContain(result?.id);
+  });
+
+  it("is deterministic — same seed produces same element", () => {
+    const opts = { kind: "hook" as const, elementPool: hookPool, seed: "determinism-test" };
+    const a = sampleElementsForBrief(opts);
+    const b = sampleElementsForBrief(opts);
+
+    expect(a?.id).toBe(b?.id);
+  });
+
+  it("prefers matching audienceTag when available", () => {
+    // Ask for grandparent audience — only h3 matches
+    const result = sampleElementsForBrief({
+      kind: "hook",
+      audienceTag: "grandparent",
+      elementPool: hookPool,
+      seed: "audience-test",
+    });
+
+    expect(result?.id).toBe("h3");
+  });
+
+  it("falls back to all same-kind when audienceTag finds no match", () => {
+    const result = sampleElementsForBrief({
+      kind: "hook",
+      audienceTag: "pets",
+      elementPool: hookPool,
+      seed: "fallback-test",
+    });
+
+    // No pet elements, should fall back to any hook
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("hook");
+  });
+
+  it("returns null when pool is empty", () => {
+    const result = sampleElementsForBrief({
+      kind: "hook",
+      elementPool: [],
+      seed: "empty-pool",
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when no elements of requested kind exist", () => {
+    const ctaOnlyPool: CopyElementPoolItem[] = [
+      { id: "c1", kind: "cta", text: "Shop Now" },
+    ];
+    const result = sampleElementsForBrief({
+      kind: "hook",
+      elementPool: ctaOnlyPool,
+      seed: "wrong-kind",
+    });
+
+    expect(result).toBeNull();
   });
 });

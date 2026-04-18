@@ -598,12 +598,16 @@ export function getLuluBasicAuthHeader() {
 export type AnthropicEnv = {
   apiKey: string | null;
   model: string;
+  /** Vision model override — defaults to claude-sonnet-4-5-20251022. */
+  visionModel: string;
   llmComplianceTimeoutMs: number;
 };
 
 const rawAnthropicEnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5-20251001"),
+  /** Optional override for the vision auto-tagger. Defaults to Sonnet. */
+  ANTHROPIC_MODEL_VISION: z.string().default("claude-sonnet-4-5-20251022"),
   CREATIVE_LLM_COMPLIANCE_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
 });
 
@@ -611,12 +615,14 @@ export function getAnthropicEnv(): AnthropicEnv {
   const parsed = rawAnthropicEnvSchema.parse({
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001",
+    ANTHROPIC_MODEL_VISION: process.env.ANTHROPIC_MODEL_VISION ?? "claude-sonnet-4-5-20251022",
     CREATIVE_LLM_COMPLIANCE_TIMEOUT_MS: process.env.CREATIVE_LLM_COMPLIANCE_TIMEOUT_MS ?? "15000",
   });
 
   return {
     apiKey: parsed.ANTHROPIC_API_KEY ?? null,
     model: parsed.ANTHROPIC_MODEL,
+    visionModel: parsed.ANTHROPIC_MODEL_VISION,
     llmComplianceTimeoutMs: parsed.CREATIVE_LLM_COMPLIANCE_TIMEOUT_MS,
   };
 }

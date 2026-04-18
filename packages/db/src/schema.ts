@@ -1188,6 +1188,11 @@ export const agentBaselines = pgTable(
   },
 );
 
+export type CreativeRequestResultJson = {
+  briefId: string;
+  assetIds: string[];
+};
+
 export const creativeRequests = pgTable(
   "creative_requests",
   {
@@ -1196,7 +1201,15 @@ export const creativeRequests = pgTable(
     status: creativeRequestStatusEnum("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
+    // ─── Migration 0025 additions ─────────────────────────────────────────────
+    resultJson: jsonb("result_json").$type<CreativeRequestResultJson | null>(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: text("last_error"),
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }),
   },
+  (table) => ({
+    statusCreatedAtIdx: index("creative_requests_status_created_at_idx").on(table.status, table.createdAt),
+  }),
 );
 
 export type AgentProposal = typeof agentProposals.$inferSelect;
@@ -1282,6 +1295,9 @@ export const creativeBriefs = pgTable(
     voiceFamily: text("voice_family"),
     briefVersion: text("brief_version").notNull().default("2026-04-a"),
     deterministicSeed: text("deterministic_seed"),
+    // Phase 7a: when present, element_ids take precedence over inline hook/body/cta text.
+    // Shape: { hook_id?, body_id?, cta_id?, visual_style_id?, mix_match_parent_brief_id? }
+    elementIds: jsonb("element_ids").$type<BriefElementIds | null>(),
     createdBy: text("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -1427,3 +1443,122 @@ export const dmKeywordResponses = pgTable(
 
 export type DmKeywordResponse = typeof dmKeywordResponses.$inferSelect;
 export type NewDmKeywordResponse = typeof dmKeywordResponses.$inferInsert;
+
+// ─── Phase 7b — Creative Semantic Tags (APPENDED) ────────────────────────────
+// Note: The two new columns (semantic_tags, semantic_tagged_at) are added to
+// the existing creativeAssets table via migration 0024. We extend the Drizzle
+// column definitions here and expose a typed SemanticTagsJson type. The
+// existing CreativeAsset / NewCreativeAsset inferred types pick up the new
+// columns automatically via schema inference after the migration is applied.
+//
+// IMPORTANT: To keep this append-only we cannot modify the creativeAssets
+// table literal above. Instead we extend the runtime schema here and re-export
+// augmented types. Consumers import CreativeAssetWithSemanticTags for the
+// full shape.
+
+/**
+ * Typed representation of the semantic_tags JSONB column on creative_assets.
+ * Mirrors SemanticTagsSchema in packages/creative/src/semantic-tags.ts —
+ * kept as a plain TS type here to avoid introducing a zod runtime dep in
+ * the DB package.
+ */
+export type CreativeAssetSemanticTags = {
+  scene_type?: "indoor" | "outdoor" | "studio" | "vehicle" | "mixed" | "unknown";
+  setting?: "home" | "park" | "beach" | "vacation" | "birthday" | "school" | "restaurant" | "other" | "unknown";
+  subject_types?: Array<
+    | "family"
+    | "couple"
+    | "adult_solo"
+    | "kid_solo"
+    | "kids_group"
+    | "toddler"
+    | "baby"
+    | "pet_dog"
+    | "pet_cat"
+    | "pet_other"
+    | "object_only"
+  >;
+  subject_count?: number;
+  props?: Array<
+    | "toy"
+    | "book"
+    | "food"
+    | "pet"
+    | "gift"
+    | "sports_equipment"
+    | "musical_instrument"
+    | "vehicle"
+    | "screen"
+    | "nature_object"
+    | "none"
+  >;
+  emotion?: "joyful" | "calm" | "playful" | "serious" | "surprised" | "affectionate" | "neutral" | "unknown";
+  pose?: "portrait" | "action" | "candid" | "posed" | "group_shot" | "unknown";
+  style?: {
+    line_weight?: "thin" | "medium" | "thick" | "mixed";
+    detail_level?: "minimal" | "simple" | "medium" | "detailed";
+    background?: "white" | "sparse" | "suggested" | "detailed";
+    subject_framing?: "close_up" | "medium" | "wide" | "full_scene";
+  };
+  complexity_score?: number;
+  child_recognition_risk?: "low" | "medium" | "high";
+  tagger_model?: string;
+  tagger_version?: string;
+};
+
+/**
+ * Full creative_assets row shape including the Phase 7b semantic tag columns.
+ * Use this type in auto-tagger.ts and retag scripts instead of the base
+ * CreativeAsset inferred type (which won't include the new columns until the
+ * Drizzle schema definition above is physically updated in a future cleanup).
+ */
+export type CreativeAssetWithSemanticTags = CreativeAsset & {
+  semanticTags: CreativeAssetSemanticTags;
+  semanticTaggedAt: Date | null;
+};
+
+// ─── Phase 7a — Copy Element Store ───────────────────────────────────────────
+
+export const copyElementKindValues = ['hook', 'body', 'cta', 'visual_style'] as const;
+export type CopyElementKind = (typeof copyElementKindValues)[number];
+export const copyElementKindEnum = pgEnum("copy_element_kind", copyElementKindValues);
+
+/** Freeform labels stored in tags_json on a copy element (tone, format_affinity, occasion, etc.) */
+export type CopyElementTagsJson = Record<string, string | boolean | number>;
+
+export const copyElements = pgTable(
+  "copy_elements",
+  {
+    id: text("id").primaryKey(),
+    kind: copyElementKindEnum("kind").notNull(),
+    text: text("text").notNull(),
+    label: text("label"),
+    brandVoiceScore: numeric("brand_voice_score", { precision: 5, scale: 3 }),
+    audienceTag: text("audience_tag"),
+    tagsJson: jsonb("tags_json").notNull().default({}).$type<CopyElementTagsJson>(),
+    usageCount: integer("usage_count").notNull().default(0),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    kindIdx: index("copy_elements_kind_idx").on(table.kind),
+    kindRetiredAtIdx: index("copy_elements_kind_retired_at_idx").on(table.kind, table.retiredAt),
+    audienceTagIdx: index("copy_elements_audience_tag_idx").on(table.audienceTag),
+  }),
+);
+
+export type CopyElement = typeof copyElements.$inferSelect;
+export type NewCopyElement = typeof copyElements.$inferInsert;
+
+/** Shape stored in creative_briefs.element_ids (nullable jsonb column) */
+export type BriefElementIds = {
+  hook_id?: string;
+  body_id?: string;
+  cta_id?: string;
+  visual_style_id?: string;
+  /** Set by mix-match endpoint for attribution tracing */
+  mix_match_parent_brief_id?: string;
+};

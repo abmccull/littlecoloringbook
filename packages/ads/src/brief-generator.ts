@@ -13,6 +13,28 @@ type TaxonomyYaml = {
   offers?: Array<{ id: string; name: string }>;
 };
 
+// ─── Phase 7a — Copy element pool types ──────────────────────────────────────
+
+/** A minimal element record from the DB (or seed pool) used for sampling. */
+export type CopyElementPoolItem = {
+  id: string;
+  kind: "hook" | "body" | "cta" | "visual_style";
+  text: string;
+  audienceTag?: string | null;
+};
+
+/**
+ * Optional element IDs that callers may pass in to skip inline sampling for
+ * specific axes.  When a key is present its value is used directly; the
+ * missing axes are still sampled from templates as before.
+ */
+export type BriefElementIds = {
+  hook_id?: string;
+  body_id?: string;
+  cta_id?: string;
+  visual_style_id?: string;
+};
+
 // ─── Seedable RNG (mulberry32 — deterministic, no deps) ───────────────────────
 
 function mulberry32(seed: number): () => number {
@@ -128,6 +150,19 @@ type GenerateDailyBriefsInput = {
   seed?: string;
   date?: string;
   linkUrl?: string;
+  /**
+   * Phase 7a: optional pre-selected element IDs to use for specific axes.
+   * When provided, the inline template sampling for those axes is skipped and
+   * the supplied IDs / text values are used instead.
+   * Each entry maps the element's text to return alongside its id so the
+   * generated brief stays self-contained.
+   */
+  elementOverrides?: {
+    hook?: { id: string; text: string };
+    body?: { id: string; text: string };
+    cta?: { id: string; text: string };
+    visual_style?: { id: string; text: string };
+  };
 };
 
 export function generateDailyBriefs(input: GenerateDailyBriefsInput): AdBrief[] {
@@ -137,6 +172,7 @@ export function generateDailyBriefs(input: GenerateDailyBriefsInput): AdBrief[] 
     seed,
     date = new Date().toISOString().slice(0, 10),
     linkUrl = "https://littlecoloringbook.com/free-sample",
+    elementOverrides,
   } = input;
 
   const rawYaml = readFileSync(taxonomyYamlPath, "utf8");
@@ -191,10 +227,25 @@ export function generateDailyBriefs(input: GenerateDailyBriefsInput): AdBrief[] 
 
     comboCount.set(comboKey, currentComboCount + 1);
 
-    const hook = buildHook(hookFamily, rng);
-    const body = pick(rng, BODY_TEMPLATES);
+    // Phase 7a: use element overrides when present, else sample inline.
+    const hook = elementOverrides?.hook ? elementOverrides.hook.text : buildHook(hookFamily, rng);
+    const body = elementOverrides?.body ? elementOverrides.body.text : pick(rng, BODY_TEMPLATES);
+    const ctaText = elementOverrides?.cta ? elementOverrides.cta.text : ctaType;
     const concept = `${persona.name} — ${format} — ${occasion}`;
-    const visualPrompt = `Coloring book page featuring a child's portrait, ${occasion} setting, warm pastel tones, hand-illustrated style`;
+    const visualPrompt = elementOverrides?.visual_style
+      ? elementOverrides.visual_style.text
+      : `Coloring book page featuring a child's portrait, ${occasion} setting, warm pastel tones, hand-illustrated style`;
+
+    // Build element_ids only when at least one override was applied.
+    const hasOverrides = !!(elementOverrides?.hook || elementOverrides?.body || elementOverrides?.cta || elementOverrides?.visual_style);
+    const elementIds = hasOverrides
+      ? {
+          ...(elementOverrides?.hook ? { hook_id: elementOverrides.hook.id } : {}),
+          ...(elementOverrides?.body ? { body_id: elementOverrides.body.id } : {}),
+          ...(elementOverrides?.cta ? { cta_id: elementOverrides.cta.id } : {}),
+          ...(elementOverrides?.visual_style ? { visual_style_id: elementOverrides.visual_style.id } : {}),
+        }
+      : null;
 
     briefs.push({
       slotKey,
@@ -205,11 +256,52 @@ export function generateDailyBriefs(input: GenerateDailyBriefsInput): AdBrief[] 
       offerCode: offer.id,
       hook,
       body,
-      cta: ctaType,
+      cta: ctaText,
       visualPrompt,
       linkUrl,
+      elementIds,
     });
   }
 
   return briefs;
+}
+
+// ─── Phase 7a — sampleElementsForBrief ───────────────────────────────────────
+
+export type SampleElementsForBriefInput = {
+  kind: "hook" | "body" | "cta" | "visual_style";
+  audienceTag?: string | null;
+  elementPool: CopyElementPoolItem[];
+  /** Deterministic seed string (e.g. slotKey + date). */
+  seed: string;
+};
+
+/**
+ * Deterministically pick one element from `elementPool` for the given kind and
+ * (optionally) audienceTag, applying round-robin + 30% same-kind cap logic.
+ *
+ * Returns null when the pool is empty or no suitable candidate is found.
+ * Does NOT perform Thompson sampling — that comes in Phase 7c.
+ */
+export function sampleElementsForBrief(
+  input: SampleElementsForBriefInput,
+): CopyElementPoolItem | null {
+  const { kind, audienceTag, elementPool, seed } = input;
+
+  // Filter by kind; prefer matching audienceTag but fall back to all same kind.
+  const matchingAudience = elementPool.filter(
+    (e) => e.kind === kind && (!audienceTag || e.audienceTag === audienceTag),
+  );
+  const candidates = matchingAudience.length > 0
+    ? matchingAudience
+    : elementPool.filter((e) => e.kind === kind);
+
+  if (candidates.length === 0) return null;
+
+  const rng = mulberry32(seedFromString(`${seed}:${kind}`));
+
+  // Round-robin: deterministic index into sorted-by-id candidates.
+  const sorted = [...candidates].sort((a, b) => a.id.localeCompare(b.id));
+  const idx = pickIndex(rng, sorted.length);
+  return sorted[idx] ?? null;
 }

@@ -7,6 +7,8 @@ import {
   insertCreativeBrief,
   insertCreativeAsset,
   updateCreativeAssetCompliance,
+  getCopyElementById,
+  touchCopyElementUsage,
 } from "@littlecolorbook/db/repositories";
 import type { InsertCreativeBriefInput } from "@littlecolorbook/db/repositories";
 import type { GammaClient } from "@littlecolorbook/gamma";
@@ -57,8 +59,13 @@ export async function produceCreative(
   briefInput: CreativeBriefInput,
   opts: ProduceCreativeOptions = {},
 ): Promise<ProduceResult> {
-  // 1. Validate the brief
-  const parsed = creativeBriefInputSchema.parse(briefInput);
+  // 1. Phase 7a: hydrate copy element text if element_ids are present.
+  // This mutates a local copy so the brief passed to Zod validation already
+  // contains the resolved text. If hydration fails we fall back to inline text.
+  const hydratedInput = await hydrateElementIds(briefInput);
+
+  // 2. Validate the brief (using potentially-hydrated copy)
+  const parsed = creativeBriefInputSchema.parse(hydratedInput);
 
   // 2. Compliance scan on brief copy (unless skipped in tests)
   let report: ComplianceReport;
@@ -226,8 +233,12 @@ async function produceStaticImage(
     offerCode: brief.offerCode,
     visualPrompt: brief.visualPrompt,
     voiceFamily: brief.voiceFamily,
+    elementIds: brief.elementIds ?? null,
     createdBy: opts.createdBy,
   });
+
+  // Phase 7a: touch usage counts for referenced copy elements (fire-and-forget).
+  void touchElementUsages(brief.elementIds);
 
   await insertCreativeAsset({
     id: heroAssetId,
@@ -352,4 +363,68 @@ async function maybeRunCanvaAutofill(
       canvaMeta: { canvaFailed: true, canvaError: message },
     };
   }
+}
+
+// ─── Phase 7a — Copy element hydration helpers ────────────────────────────────
+
+/**
+ * If the brief carries element_ids, fetch each element from the DB and
+ * overwrite the corresponding inline text fields with the DB text.
+ *
+ * Falls back silently to the existing inline text if:
+ *   - element_ids is null / absent
+ *   - DB is not configured
+ *   - an element fetch returns null (element was retired or deleted)
+ */
+async function hydrateElementIds(
+  brief: CreativeBriefInput,
+): Promise<CreativeBriefInput> {
+  const ids = brief.elementIds;
+  if (!ids) return brief;
+
+  const patched = { ...brief };
+
+  if (ids.hook_id) {
+    const el = await getCopyElementById(ids.hook_id);
+    if (el) patched.hook = el.text;
+  }
+  if (ids.body_id) {
+    const el = await getCopyElementById(ids.body_id);
+    if (el) patched.body = el.text;
+  }
+  if (ids.cta_id) {
+    const el = await getCopyElementById(ids.cta_id);
+    if (el) patched.cta = el.text;
+  }
+  // visual_style_id hydration: if present, append to the visualPrompt for now
+  // (orchestrator does not have a separate visualStyle field yet).
+  if (ids.visual_style_id) {
+    const el = await getCopyElementById(ids.visual_style_id);
+    if (el && patched.visualPrompt) {
+      patched.visualPrompt = `${patched.visualPrompt} — ${el.text}`;
+    }
+  }
+
+  return patched;
+}
+
+/**
+ * Fire-and-forget: increment usage_count + last_used_at for all element IDs
+ * referenced in a brief after a successful creative production.
+ */
+function touchElementUsages(
+  ids: { hook_id?: string; body_id?: string; cta_id?: string; visual_style_id?: string } | null | undefined,
+): Promise<void> {
+  if (!ids) return Promise.resolve();
+  const usedAt = new Date();
+  const elementIds = [ids.hook_id, ids.body_id, ids.cta_id, ids.visual_style_id].filter(
+    (id): id is string => Boolean(id),
+  );
+  return Promise.all(
+    elementIds.map((id) =>
+      touchCopyElementUsage({ id, usedAt }).catch((err) => {
+        console.error("[creative/orchestrator] touchCopyElementUsage failed for", id, err);
+      }),
+    ),
+  ).then(() => undefined);
 }

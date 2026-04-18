@@ -16,6 +16,9 @@ vi.mock("@littlecolorbook/db/repositories", () => ({
   insertCreativeBrief: vi.fn().mockResolvedValue({ id: "brief-id-mock" }),
   insertCreativeAsset: vi.fn().mockResolvedValue({ id: "asset-id-mock" }),
   updateCreativeAssetCompliance: vi.fn().mockResolvedValue(null),
+  // Phase 7a mocks
+  getCopyElementById: vi.fn().mockResolvedValue(null),
+  touchCopyElementUsage: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../gemini.js", () => ({
@@ -38,6 +41,8 @@ import { uploadObject } from "@littlecolorbook/shared/storage";
 import {
   insertCreativeBrief,
   insertCreativeAsset,
+  getCopyElementById,
+  touchCopyElementUsage,
 } from "@littlecolorbook/db/repositories";
 import { readFileSync } from "node:fs";
 
@@ -172,5 +177,113 @@ describe("produceCreative", () => {
 
     expect(result.complianceStatus).toBe("warned");
     expect(renderColoringPageImage).toHaveBeenCalledOnce();
+  });
+
+  // ─── Phase 7a: element_ids hydration ────────────────────────────────────────
+
+  it("hydrates hook text from DB when element_ids.hook_id is present", async () => {
+    const fakeBuffer = await makeTinyPngBuffer();
+    (readFileSync as unknown as MockInstance<() => Buffer>).mockReturnValue(fakeBuffer);
+    (renderColoringPageImage as unknown as MockInstance<() => Promise<unknown>>).mockResolvedValue({
+      buffer: fakeBuffer,
+      mimeType: "image/png",
+    });
+    // Mock getCopyElementById to return an element with specific text
+    (getCopyElementById as unknown as MockInstance<() => Promise<unknown>>).mockResolvedValueOnce({
+      id: "el_hook_001",
+      kind: "hook",
+      text: "HYDRATED HOOK TEXT",
+    });
+
+    const briefWithElementIds = {
+      ...validBrief,
+      hook: "FALLBACK INLINE HOOK",
+      elementIds: { hook_id: "el_hook_001" },
+    };
+
+    await produceCreative(briefWithElementIds, {
+      sourceImagePath: "/fake/source.png",
+      skipCompliance: true,
+    });
+
+    // insertCreativeBrief should have been called with hydrated hook text
+    expect(insertCreativeBrief).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hook: "HYDRATED HOOK TEXT",
+        elementIds: { hook_id: "el_hook_001" },
+      }),
+    );
+  });
+
+  it("falls back to inline text when getCopyElementById returns null", async () => {
+    const fakeBuffer = await makeTinyPngBuffer();
+    (readFileSync as unknown as MockInstance<() => Buffer>).mockReturnValue(fakeBuffer);
+    (renderColoringPageImage as unknown as MockInstance<() => Promise<unknown>>).mockResolvedValue({
+      buffer: fakeBuffer,
+      mimeType: "image/png",
+    });
+    // Return null — element not found
+    (getCopyElementById as unknown as MockInstance<() => Promise<unknown>>).mockResolvedValueOnce(null);
+
+    const briefWithElementIds = {
+      ...validBrief,
+      hook: "INLINE HOOK FALLBACK",
+      elementIds: { hook_id: "el_missing" },
+    };
+
+    await produceCreative(briefWithElementIds, {
+      sourceImagePath: "/fake/source.png",
+      skipCompliance: true,
+    });
+
+    // Should use the inline fallback hook since DB returned null
+    expect(insertCreativeBrief).toHaveBeenCalledWith(
+      expect.objectContaining({ hook: "INLINE HOOK FALLBACK" }),
+    );
+  });
+
+  it("calls touchCopyElementUsage for each referenced element after success", async () => {
+    const fakeBuffer = await makeTinyPngBuffer();
+    (readFileSync as unknown as MockInstance<() => Buffer>).mockReturnValue(fakeBuffer);
+    (renderColoringPageImage as unknown as MockInstance<() => Promise<unknown>>).mockResolvedValue({
+      buffer: fakeBuffer,
+      mimeType: "image/png",
+    });
+    (getCopyElementById as unknown as MockInstance<() => Promise<unknown>>)
+      .mockResolvedValueOnce({ id: "el_hook_001", kind: "hook", text: "Hydrated hook" })
+      .mockResolvedValueOnce({ id: "el_cta_001", kind: "cta", text: "Shop Now" });
+
+    const briefWithMultipleIds = {
+      ...validBrief,
+      elementIds: { hook_id: "el_hook_001", cta_id: "el_cta_001" },
+    };
+
+    await produceCreative(briefWithMultipleIds, {
+      sourceImagePath: "/fake/source.png",
+      skipCompliance: true,
+    });
+
+    // touchCopyElementUsage should have been invoked for each referenced ID
+    // (called asynchronously as fire-and-forget, so we wait a tick)
+    await new Promise((r) => setTimeout(r, 0));
+    expect(touchCopyElementUsage).toHaveBeenCalledWith(expect.objectContaining({ id: "el_hook_001" }));
+    expect(touchCopyElementUsage).toHaveBeenCalledWith(expect.objectContaining({ id: "el_cta_001" }));
+  });
+
+  it("does not call touchCopyElementUsage when elementIds is absent", async () => {
+    const fakeBuffer = await makeTinyPngBuffer();
+    (readFileSync as unknown as MockInstance<() => Buffer>).mockReturnValue(fakeBuffer);
+    (renderColoringPageImage as unknown as MockInstance<() => Promise<unknown>>).mockResolvedValue({
+      buffer: fakeBuffer,
+      mimeType: "image/png",
+    });
+
+    await produceCreative(validBrief, {
+      sourceImagePath: "/fake/source.png",
+      skipCompliance: true,
+    });
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(touchCopyElementUsage).not.toHaveBeenCalled();
   });
 });

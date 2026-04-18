@@ -5296,6 +5296,106 @@ export async function insertCreativeRequest(input: { id: string; briefJson: Reco
   return row ?? null;
 }
 
+// ─── Creative Request fulfillment helpers (Phase 4 close-loop) ────────────────
+
+export async function listPendingCreativeRequests({ limit }: { limit: number }) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  return db
+    .select()
+    .from(creativeRequests)
+    .where(eq(creativeRequests.status, "pending"))
+    .orderBy(asc(creativeRequests.createdAt))
+    .limit(limit);
+}
+
+export async function getCreativeRequestById(id: string) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .select()
+    .from(creativeRequests)
+    .where(eq(creativeRequests.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+export type ListCreativeRequestsInput = {
+  status?: "pending" | "fulfilled" | "rejected" | "all";
+  limit?: number;
+  offset?: number;
+};
+
+export async function listCreativeRequests({ status, limit = 50, offset = 0 }: ListCreativeRequestsInput) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const conditions = status && status !== "all" ? eq(creativeRequests.status, status) : undefined;
+  return db
+    .select()
+    .from(creativeRequests)
+    .where(conditions)
+    .orderBy(desc(creativeRequests.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function markCreativeRequestFulfilled(input: {
+  id: string;
+  briefId: string;
+  assetIds: string[];
+  fulfilledAt: Date;
+}) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .update(creativeRequests)
+    .set({
+      status: "fulfilled",
+      fulfilledAt: input.fulfilledAt,
+      resultJson: { briefId: input.briefId, assetIds: input.assetIds },
+      lastError: null,
+    })
+    .where(eq(creativeRequests.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
+export async function markCreativeRequestRejected(input: {
+  id: string;
+  reason: string;
+  rejectedAt: Date;
+}) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .update(creativeRequests)
+    .set({
+      status: "rejected",
+      rejectedAt: input.rejectedAt,
+      lastError: input.reason,
+    })
+    .where(eq(creativeRequests.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
+export async function incrementCreativeRequestAttempts(input: {
+  id: string;
+  lastError: string;
+}) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .update(creativeRequests)
+    .set({
+      attemptCount: sql<number>`${creativeRequests.attemptCount} + 1`,
+      lastError: input.lastError,
+    })
+    .where(eq(creativeRequests.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
 // ─── Phase 2a — Creative Library ─────────────────────────────────────────────
 
 export type InsertCreativeBriefInput = {
@@ -5313,6 +5413,8 @@ export type InsertCreativeBriefInput = {
   voiceFamily?: string | null;
   briefVersion?: string;
   deterministicSeed?: string | null;
+  /** Phase 7a: copy element IDs — shape { hook_id?, body_id?, cta_id?, visual_style_id? } */
+  elementIds?: BriefElementIds | null;
   createdBy?: string | null;
 };
 
@@ -5336,6 +5438,7 @@ export async function insertCreativeBrief(input: InsertCreativeBriefInput) {
       voiceFamily: input.voiceFamily ?? null,
       briefVersion: input.briefVersion ?? "2026-04-a",
       deterministicSeed: input.deterministicSeed ?? null,
+      elementIds: input.elementIds ?? null,
       createdBy: input.createdBy ?? null,
       createdAt: now(),
       updatedAt: now(),
@@ -6057,3 +6160,609 @@ export async function insertBackfilledOrganicPost(input: InsertBackfilledOrganic
   return row ?? null;
 }
 
+// ─── Phase 7a — Copy Element Store (APPEND) ──────────────────────────────────
+// Additional imports needed for Phase 7a (appended to avoid merge conflicts).
+import {
+  copyElements,
+  copyElementKindValues,
+} from "./schema";
+import type {
+  CopyElement,
+  NewCopyElement,
+  CopyElementKind,
+  BriefElementIds,
+} from "./schema";
+
+// Re-export kinds for convenience
+export { copyElementKindValues };
+export type { CopyElement, CopyElementKind, BriefElementIds };
+
+// ─── Wilson score lower bound ─────────────────────────────────────────────────
+/**
+ * Wilson score lower bound for a binomial proportion.
+ * Used to produce a conservative confidence estimate for (purchases / clicks).
+ * z = 1.96 gives 95% confidence interval lower bound.
+ */
+export function wilsonLowerBound(successes: number, trials: number, z = 1.96): number {
+  if (trials <= 0) return 0;
+  const pHat = successes / trials;
+  const z2 = z * z;
+  const numerator = pHat + z2 / (2 * trials) - z * Math.sqrt((pHat * (1 - pHat) + z2 / (4 * trials)) / trials);
+  const denominator = 1 + z2 / trials;
+  return Math.max(0, numerator / denominator);
+}
+
+// ─── CRUD helpers ─────────────────────────────────────────────────────────────
+
+export type InsertCopyElementInput = {
+  id: string;
+  kind: CopyElementKind;
+  text: string;
+  label?: string | null;
+  audienceTag?: string | null;
+  tagsJson?: Record<string, string | boolean | number>;
+  createdBy?: string | null;
+};
+
+export async function insertCopyElement(input: InsertCopyElementInput): Promise<CopyElement | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const ts = now();
+  const [row] = await db
+    .insert(copyElements)
+    .values({
+      id: input.id,
+      kind: input.kind,
+      text: input.text,
+      label: input.label ?? null,
+      audienceTag: input.audienceTag ?? null,
+      tagsJson: input.tagsJson ?? {},
+      usageCount: 0,
+      lastUsedAt: null,
+      retiredAt: null,
+      createdBy: input.createdBy ?? null,
+      createdAt: ts,
+      updatedAt: ts,
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function getCopyElementById(id: string): Promise<CopyElement | null> {
+  if (!isDatabaseConfigured()) return null;
+  const row = await getDatabase().query.copyElements.findFirst({
+    where: eq(copyElements.id, id),
+  });
+  return row ?? null;
+}
+
+export type ListCopyElementsInput = {
+  kind?: CopyElementKind;
+  audienceTag?: string;
+  /** If false (default), only non-retired elements. If true, include retired. */
+  retired?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listCopyElements(input: ListCopyElementsInput = {}): Promise<CopyElement[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const conditions = [
+    ...(input.kind ? [eq(copyElements.kind, input.kind)] : []),
+    ...(input.audienceTag ? [eq(copyElements.audienceTag, input.audienceTag)] : []),
+    ...(!input.retired ? [sql`${copyElements.retiredAt} IS NULL`] : []),
+  ];
+
+  return db
+    .select()
+    .from(copyElements)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(copyElements.usageCount), asc(copyElements.createdAt))
+    .limit(input.limit ?? 100)
+    .offset(input.offset ?? 0);
+}
+
+export type SearchCopyElementsByTextInput = {
+  kind?: CopyElementKind;
+  query: string;
+  limit?: number;
+};
+
+export async function searchCopyElementsByText(
+  input: SearchCopyElementsByTextInput,
+): Promise<CopyElement[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const escapedQuery = `%${input.query.replace(/[%_\\]/g, "\\$&")}%`;
+  const conditions = [
+    sql`${copyElements.text} ILIKE ${escapedQuery}`,
+    sql`${copyElements.retiredAt} IS NULL`,
+    ...(input.kind ? [eq(copyElements.kind, input.kind)] : []),
+  ];
+  return db
+    .select()
+    .from(copyElements)
+    .where(and(...conditions))
+    .orderBy(desc(copyElements.usageCount))
+    .limit(input.limit ?? 20);
+}
+
+export async function touchCopyElementUsage(input: {
+  id: string;
+  usedAt: Date;
+}): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(copyElements)
+    .set({
+      usageCount: sql`${copyElements.usageCount} + 1`,
+      lastUsedAt: input.usedAt,
+      updatedAt: now(),
+    })
+    .where(eq(copyElements.id, input.id));
+}
+
+export async function retireCopyElement(id: string): Promise<CopyElement | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .update(copyElements)
+    .set({ retiredAt: now(), updatedAt: now() })
+    .where(eq(copyElements.id, id))
+    .returning();
+  return row ?? null;
+}
+
+// ─── Performance attribution ──────────────────────────────────────────────────
+
+export type GetElementPerformanceInput = {
+  /** Specific element IDs to query. Omit to query all for the given kind. */
+  elementIds?: string[];
+  /** Filter by element kind (required when elementIds is omitted). */
+  kind?: CopyElementKind;
+  dateFrom: string; // YYYY-MM-DD
+  dateTo: string;   // YYYY-MM-DD
+};
+
+export type ElementPerformanceRow = {
+  elementId: string;
+  kind: CopyElementKind;
+  totalSpendCents: number;
+  totalPurchases: number;
+  totalRevenueCents: number;
+  avgCtr: number;
+  avgRoas: number;
+  avgCpaCents: number;
+  adCount: number;
+  avgHookRate: number;
+  confidenceLowerBound: number;
+};
+
+/**
+ * Aggregate ad_daily_metrics for each copy element.
+ *
+ * Join path:
+ *   copy_elements
+ *     ← creative_briefs.element_ids (jsonb containment: element_ids @> {kind_key: elementId})
+ *     ← ad_creatives.brief_ref = creative_briefs.id
+ *     ← ads.ad_creative_meta_id = ad_creatives.meta_id
+ *     ← ad_daily_metrics.entity_meta_id = ads.meta_id
+ *
+ * The jsonb containment filter uses sql tagged templates — never string concatenation.
+ */
+export async function getElementPerformance(
+  input: GetElementPerformanceInput,
+): Promise<ElementPerformanceRow[]> {
+  if (!isDatabaseConfigured()) return [];
+  if (!input.elementIds?.length && !input.kind) {
+    throw new Error("getElementPerformance: provide elementIds or kind");
+  }
+
+  const db = getDatabase();
+
+  // Build the list of (elementId, kind) pairs to evaluate
+  let targetElements: Array<{ id: string; kind: CopyElementKind }> = [];
+
+  if (input.elementIds?.length) {
+    // Fetch element rows to get their kinds
+    const rows = await db
+      .select({ id: copyElements.id, kind: copyElements.kind })
+      .from(copyElements)
+      .where(inArray(copyElements.id, input.elementIds));
+    targetElements = rows as Array<{ id: string; kind: CopyElementKind }>;
+  } else if (input.kind) {
+    const rows = await db
+      .select({ id: copyElements.id, kind: copyElements.kind })
+      .from(copyElements)
+      .where(and(eq(copyElements.kind, input.kind), sql`${copyElements.retiredAt} IS NULL`));
+    targetElements = rows as Array<{ id: string; kind: CopyElementKind }>;
+  }
+
+  if (targetElements.length === 0) return [];
+
+  // Map CopyElementKind → jsonb key in element_ids
+  const kindToJsonbKey: Record<CopyElementKind, string> = {
+    hook: "hook_id",
+    body: "body_id",
+    cta: "cta_id",
+    visual_style: "visual_style_id",
+  };
+
+  const results: ElementPerformanceRow[] = [];
+
+  for (const el of targetElements) {
+    const jsonbKey = kindToJsonbKey[el.kind];
+
+    // jsonb containment filter: creative_briefs.element_ids @> jsonb_build_object(key, id)
+    // Using sql tagged template — no string concatenation of user data.
+    const containsFilter = sql`
+      ${creativeBriefs.elementIds} @> jsonb_build_object(${jsonbKey}::text, ${el.id}::text)
+    `;
+
+    const row = await db
+      .select({
+        adCount: sql<number>`cast(count(distinct ${ads.id}) as integer)`,
+        totalSpendCents: sql<number>`cast(coalesce(sum(${adDailyMetrics.spendCents}), 0) as integer)`,
+        totalPurchases: sql<number>`cast(coalesce(sum(${adDailyMetrics.purchases}), 0) as integer)`,
+        totalRevenueCents: sql<number>`cast(coalesce(sum(${adDailyMetrics.revenueCents}), 0) as integer)`,
+        totalClicks: sql<number>`cast(coalesce(sum(${adDailyMetrics.clicks}), 0) as integer)`,
+        avgCtr: sql<number>`coalesce(avg(cast(${adDailyMetrics.ctr} as float)), 0)`,
+        avgRoas: sql<number>`coalesce(avg(cast(${adDailyMetrics.roas} as float)), 0)`,
+        avgCpaCents: sql<number>`coalesce(avg(${adDailyMetrics.cpaCents}), 0)`,
+        avgHookRate: sql<number>`coalesce(avg(cast(${adDailyMetrics.hookRate} as float)), 0)`,
+      })
+      .from(copyElements)
+      .innerJoin(creativeBriefs, containsFilter)
+      .innerJoin(adCreatives, eq(adCreatives.briefRef, creativeBriefs.id))
+      .innerJoin(ads, eq(ads.adCreativeMetaId, adCreatives.metaId))
+      .innerJoin(
+        adDailyMetrics,
+        and(
+          eq(adDailyMetrics.entityMetaId, ads.metaId),
+          gte(adDailyMetrics.date, input.dateFrom),
+          lte(adDailyMetrics.date, input.dateTo),
+        ),
+      )
+      .where(eq(copyElements.id, el.id));
+
+    const r = row[0];
+    if (!r) {
+      results.push({
+        elementId: el.id,
+        kind: el.kind,
+        totalSpendCents: 0,
+        totalPurchases: 0,
+        totalRevenueCents: 0,
+        avgCtr: 0,
+        avgRoas: 0,
+        avgCpaCents: 0,
+        adCount: 0,
+        avgHookRate: 0,
+        confidenceLowerBound: 0,
+      });
+      continue;
+    }
+
+    const totalClicks = r.totalClicks ?? 0;
+    const totalPurchases = r.totalPurchases ?? 0;
+    const confidenceLowerBound = wilsonLowerBound(totalPurchases, totalClicks);
+
+    results.push({
+      elementId: el.id,
+      kind: el.kind,
+      totalSpendCents: r.totalSpendCents ?? 0,
+      totalPurchases,
+      totalRevenueCents: r.totalRevenueCents ?? 0,
+      avgCtr: r.avgCtr ?? 0,
+      avgRoas: r.avgRoas ?? 0,
+      avgCpaCents: Math.round(r.avgCpaCents ?? 0),
+      adCount: r.adCount ?? 0,
+      avgHookRate: r.avgHookRate ?? 0,
+      confidenceLowerBound,
+    });
+  }
+
+  return results;
+}
+
+// ─── Phase 7b — Semantic Tag Helpers (APPENDED) ───────────────────────────────
+
+import type { CreativeAssetSemanticTags } from "./schema";
+
+/**
+ * Persist semantic tags after the auto-tagger has run.
+ * Called by autoTagAndPersist in @littlecolorbook/creative.
+ */
+export async function updateCreativeAssetSemanticTags(input: {
+  id: string;
+  semanticTags: CreativeAssetSemanticTags;
+  taggedAt: Date;
+}) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  // The semantic_tags / semantic_tagged_at columns were added via ALTER TABLE
+  // in migration 0024. The Drizzle pgTable() literal hasn't been updated yet
+  // (that's a future cleanup PR). We use a raw SQL update so we can reference
+  // the new column names directly.
+  const rows = await db.execute(sql`
+    UPDATE creative_assets
+       SET semantic_tags      = ${JSON.stringify(input.semanticTags)}::jsonb,
+           semantic_tagged_at = ${input.taggedAt.toISOString()}::timestamptz,
+           updated_at         = now()
+     WHERE id = ${input.id}
+     RETURNING id, semantic_tags, semantic_tagged_at, updated_at
+  `);
+  const row = (rows as unknown as Array<Record<string, unknown>>)[0] ?? null;
+  return row;
+}
+
+/**
+ * List creative_assets where semantic_tagged_at IS NULL (untagged rows).
+ * Ordered oldest-first so the backfill script processes in insertion order.
+ */
+export async function listUntaggedCreativeAssets(input: {
+  limit?: number;
+}): Promise<Array<{ id: string; gcsBucket: string; gcsObject: string; mimeType: string; tagsJson: CreativeAssetTagsJson }>> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  // semantic_tagged_at is not yet in the Drizzle column map, so use raw SQL.
+  const rows = await db.execute(sql`
+    SELECT id, gcs_bucket, gcs_object, mime_type, tags_json
+      FROM creative_assets
+     WHERE semantic_tagged_at IS NULL
+     ORDER BY created_at ASC
+     LIMIT ${input.limit ?? 100}
+  `);
+  return (rows as unknown as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row["id"]),
+    gcsBucket: String(row["gcs_bucket"]),
+    gcsObject: String(row["gcs_object"]),
+    mimeType: String(row["mime_type"]),
+    tagsJson: (row["tags_json"] as CreativeAssetTagsJson) ?? {},
+  }));
+}
+
+/**
+ * Find assets whose semantic_tags JSONB contains all the supplied key/value
+ * pairs (PostgreSQL @> containment operator). Uses the GIN index from
+ * migration 0024.
+ */
+export async function searchCreativeAssetsBySemanticTag(input: {
+  filter: Partial<CreativeAssetSemanticTags>;
+  limit?: number;
+}) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const filterJson = JSON.stringify(input.filter);
+  return db
+    .select()
+    .from(creativeAssets)
+    .where(sql`semantic_tags @> ${filterJson}::jsonb`)
+    .orderBy(desc(creativeAssets.createdAt))
+    .limit(input.limit ?? 50);
+}
+
+// ─── Tag Performance types ────────────────────────────────────────────────────
+
+export type TagPerformanceResult = {
+  tagKey: string;
+  tagValue: string;
+  adCount: number;
+  totalSpendCents: number;
+  totalPurchases: number;
+  avgCtr: number | null;
+  avgRoas: number | null;
+  avgCpaCents: number | null;
+  avgHookRate: number | null;
+};
+
+/**
+ * Aggregate ad performance metrics for all ads whose linked creative_assets
+ * have a specific semantic tag key+value.
+ *
+ * Join chain:
+ *   ad_daily_metrics (entityMetaId=ads.metaId)
+ *   → ads (adCreativeMetaId=ad_creatives.metaId)
+ *   → ad_creatives (briefRef=creative_briefs.id)
+ *   → creative_briefs (id=creative_assets.briefId)
+ *   → creative_assets filtered by semantic_tags @> '{"tagKey":"tagValue"}'
+ */
+export async function getTagPerformance(input: {
+  tagKey: string;
+  tagValue: string;
+  dateFrom: string; // ISO date YYYY-MM-DD
+  dateTo: string;
+}): Promise<TagPerformanceResult> {
+  if (!isDatabaseConfigured()) {
+    return {
+      tagKey: input.tagKey,
+      tagValue: input.tagValue,
+      adCount: 0,
+      totalSpendCents: 0,
+      totalPurchases: 0,
+      avgCtr: null,
+      avgRoas: null,
+      avgCpaCents: null,
+      avgHookRate: null,
+    };
+  }
+  const db = getDatabase();
+  const filterJson = JSON.stringify({ [input.tagKey]: input.tagValue });
+
+  const rows = await db.execute(sql`
+    SELECT
+      COUNT(DISTINCT adm.entity_meta_id)::int      AS ad_count,
+      COALESCE(SUM(adm.spend_cents), 0)::int       AS total_spend_cents,
+      COALESCE(SUM(adm.purchases), 0)::int         AS total_purchases,
+      AVG(adm.ctr::float)                          AS avg_ctr,
+      AVG(adm.roas::float)                         AS avg_roas,
+      AVG(adm.cpa_cents::float)                    AS avg_cpa_cents,
+      AVG(adm.hook_rate::float)                    AS avg_hook_rate
+    FROM ad_daily_metrics adm
+    JOIN ads                ON ads.meta_id              = adm.entity_meta_id
+    JOIN ad_creatives       ON ad_creatives.meta_id     = ads.ad_creative_meta_id
+    JOIN creative_briefs    ON creative_briefs.id       = ad_creatives.brief_ref
+    JOIN creative_assets    ON creative_assets.brief_id = creative_briefs.id
+    WHERE adm.date BETWEEN ${input.dateFrom} AND ${input.dateTo}
+      AND creative_assets.semantic_tags @> ${filterJson}::jsonb
+  `);
+
+  const row = (rows as unknown as Array<Record<string, unknown>>)[0] ?? {};
+
+  return {
+    tagKey: input.tagKey,
+    tagValue: input.tagValue,
+    adCount: Number(row["ad_count"] ?? 0),
+    totalSpendCents: Number(row["total_spend_cents"] ?? 0),
+    totalPurchases: Number(row["total_purchases"] ?? 0),
+    avgCtr: row["avg_ctr"] != null ? Number(row["avg_ctr"]) : null,
+    avgRoas: row["avg_roas"] != null ? Number(row["avg_roas"]) : null,
+    avgCpaCents: row["avg_cpa_cents"] != null ? Number(row["avg_cpa_cents"]) : null,
+    avgHookRate: row["avg_hook_rate"] != null ? Number(row["avg_hook_rate"]) : null,
+  };
+}
+
+/**
+ * Like getTagPerformance but accepts a multi-key filter so you can query
+ * e.g. { scene_type: 'outdoor', emotion: 'joyful' }.
+ */
+export async function getTagComboPerformance(input: {
+  filter: Partial<CreativeAssetSemanticTags>;
+  dateFrom: string;
+  dateTo: string;
+}): Promise<TagPerformanceResult> {
+  if (!isDatabaseConfigured()) {
+    return {
+      tagKey: JSON.stringify(input.filter),
+      tagValue: "",
+      adCount: 0,
+      totalSpendCents: 0,
+      totalPurchases: 0,
+      avgCtr: null,
+      avgRoas: null,
+      avgCpaCents: null,
+      avgHookRate: null,
+    };
+  }
+  const db = getDatabase();
+  const filterJson = JSON.stringify(input.filter);
+
+  const rows = await db.execute(sql`
+    SELECT
+      COUNT(DISTINCT adm.entity_meta_id)::int      AS ad_count,
+      COALESCE(SUM(adm.spend_cents), 0)::int       AS total_spend_cents,
+      COALESCE(SUM(adm.purchases), 0)::int         AS total_purchases,
+      AVG(adm.ctr::float)                          AS avg_ctr,
+      AVG(adm.roas::float)                         AS avg_roas,
+      AVG(adm.cpa_cents::float)                    AS avg_cpa_cents,
+      AVG(adm.hook_rate::float)                    AS avg_hook_rate
+    FROM ad_daily_metrics adm
+    JOIN ads                ON ads.meta_id              = adm.entity_meta_id
+    JOIN ad_creatives       ON ad_creatives.meta_id     = ads.ad_creative_meta_id
+    JOIN creative_briefs    ON creative_briefs.id       = ad_creatives.brief_ref
+    JOIN creative_assets    ON creative_assets.brief_id = creative_briefs.id
+    WHERE adm.date BETWEEN ${input.dateFrom} AND ${input.dateTo}
+      AND creative_assets.semantic_tags @> ${filterJson}::jsonb
+  `);
+
+  const row = (rows as unknown as Array<Record<string, unknown>>)[0] ?? {};
+
+  return {
+    tagKey: JSON.stringify(input.filter),
+    tagValue: "",
+    adCount: Number(row["ad_count"] ?? 0),
+    totalSpendCents: Number(row["total_spend_cents"] ?? 0),
+    totalPurchases: Number(row["total_purchases"] ?? 0),
+    avgCtr: row["avg_ctr"] != null ? Number(row["avg_ctr"]) : null,
+    avgRoas: row["avg_roas"] != null ? Number(row["avg_roas"]) : null,
+    avgCpaCents: row["avg_cpa_cents"] != null ? Number(row["avg_cpa_cents"]) : null,
+    avgHookRate: row["avg_hook_rate"] != null ? Number(row["avg_hook_rate"]) : null,
+  };
+}
+
+export type TopTagComboResult = TagPerformanceResult & {
+  tagFingerprint: string;
+};
+
+/**
+ * Scan all distinct semantic tag combinations appearing in ad_daily_metrics
+ * within the window, compute performance per combo, and return the top N by
+ * the chosen metric.
+ *
+ * Uses a CTE that groups by the canonical JSON text of semantic_tags. This is
+ * an expensive scan — only call from admin/reporting contexts, never hot paths.
+ *
+ * For cpa_cents: lower is better (ASC). For roas/ctr: higher is better (DESC).
+ */
+export async function listTopPerformingTagCombos(input: {
+  dateFrom: string;
+  dateTo: string;
+  metric: "roas" | "cpa_cents" | "ctr";
+  limit?: number;
+}): Promise<TopTagComboResult[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const limitVal = input.limit ?? 20;
+
+  // We cannot interpolate the ORDER BY direction from input.metric as a raw
+  // string (SQL injection risk), so we use a fixed mapping here.
+  const orderClause =
+    input.metric === "cpa_cents"
+      ? "avg_cpa_cents ASC NULLS LAST"
+      : input.metric === "roas"
+        ? "avg_roas DESC NULLS LAST"
+        : "avg_ctr DESC NULLS LAST";
+
+  // We embed the metric name only from a known-safe enum above.
+  const rows = await db.execute(sql`
+    WITH tagged_ads AS (
+      SELECT
+        adm.entity_meta_id,
+        adm.spend_cents,
+        adm.purchases,
+        adm.ctr,
+        adm.roas,
+        adm.cpa_cents,
+        adm.hook_rate,
+        ca.semantic_tags::text AS tag_fingerprint
+      FROM ad_daily_metrics adm
+      JOIN ads             ON ads.meta_id             = adm.entity_meta_id
+      JOIN ad_creatives    ON ad_creatives.meta_id    = ads.ad_creative_meta_id
+      JOIN creative_briefs ON creative_briefs.id      = ad_creatives.brief_ref
+      JOIN creative_assets ca ON ca.brief_id          = creative_briefs.id
+      WHERE adm.date BETWEEN ${input.dateFrom} AND ${input.dateTo}
+        AND ca.semantic_tags <> '{}'::jsonb
+    ),
+    grouped AS (
+      SELECT
+        tag_fingerprint,
+        COUNT(DISTINCT entity_meta_id)::int           AS ad_count,
+        COALESCE(SUM(spend_cents), 0)::int            AS total_spend_cents,
+        COALESCE(SUM(purchases), 0)::int              AS total_purchases,
+        AVG(ctr::float)                               AS avg_ctr,
+        AVG(roas::float)                              AS avg_roas,
+        AVG(cpa_cents::float)                         AS avg_cpa_cents,
+        AVG(hook_rate::float)                         AS avg_hook_rate
+      FROM tagged_ads
+      GROUP BY tag_fingerprint
+    )
+    SELECT * FROM grouped
+    ORDER BY ${sql.raw(orderClause)}
+    LIMIT ${limitVal}
+  `);
+
+  return (rows as unknown as Array<Record<string, unknown>>).map((row) => ({
+    tagKey: "combo",
+    tagValue: "",
+    tagFingerprint: String(row["tag_fingerprint"] ?? ""),
+    adCount: Number(row["ad_count"] ?? 0),
+    totalSpendCents: Number(row["total_spend_cents"] ?? 0),
+    totalPurchases: Number(row["total_purchases"] ?? 0),
+    avgCtr: row["avg_ctr"] != null ? Number(row["avg_ctr"]) : null,
+    avgRoas: row["avg_roas"] != null ? Number(row["avg_roas"]) : null,
+    avgCpaCents: row["avg_cpa_cents"] != null ? Number(row["avg_cpa_cents"]) : null,
+    avgHookRate: row["avg_hook_rate"] != null ? Number(row["avg_hook_rate"]) : null,
+  }));
+}

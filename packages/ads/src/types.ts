@@ -111,6 +111,16 @@ export type AdBrief = {
   visualPrompt: string;
   imageAssetIds?: string[];
   linkUrl: string;
+  /**
+   * Phase 7a: present when specific copy elements were referenced for one or
+   * more axes. Null / absent means legacy inline text was used for all axes.
+   */
+  elementIds?: {
+    hook_id?: string;
+    body_id?: string;
+    cta_id?: string;
+    visual_style_id?: string;
+  } | null;
 };
 
 // Returned from Meta Graph API campaign/adset/ad create calls.
