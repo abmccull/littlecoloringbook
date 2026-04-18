@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authorizeInternalJobRequest } from "../../../../lib/internal-jobs";
 import {
   hasRecentBroadcast,
+  nextUtcWeekdayAt,
   recordBroadcastDraft,
   selectThursdayGallery,
 } from "../../../../lib/newsletter-curator";
@@ -20,13 +21,10 @@ function getFromAddress() {
   return process.env.RESEND_FROM_EMAIL ?? "hello@littlecolorbook.com";
 }
 
-function nextThursdayMorningUtc(): Date {
-  // Target 13:00 UTC (~9am ET / 8am CT / 6am PT).
-  const now = new Date();
-  const target = new Date(now);
-  target.setUTCHours(13, 0, 0, 0);
-  if (target.getTime() <= now.getTime()) target.setUTCDate(target.getUTCDate() + 1);
-  return target;
+function thursdayBroadcastAt(): Date {
+  // Target Thursday 13:00 UTC (~9am ET / 8am CT / 6am PT). Cron fires
+  // Wednesday so we have a ~24h admin review window.
+  return nextUtcWeekdayAt({ dayOfWeek: 4, hourUtc: 13, minLeadHours: 20 });
 }
 
 export async function GET(request: NextRequest) {
@@ -55,7 +53,7 @@ export async function GET(request: NextRequest) {
   });
 
   let resendBroadcastId: string | null = null;
-  let scheduledFor = nextThursdayMorningUtc();
+  let scheduledFor = thursdayBroadcastAt();
 
   if (isResendAudiencesConfigured()) {
     try {

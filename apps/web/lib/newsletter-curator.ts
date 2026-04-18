@@ -29,6 +29,32 @@ function createId(prefix: string) {
   return `${prefix}_${rand}`;
 }
 
+/**
+ * Next UTC date at the given day-of-week (0=Sun, 6=Sat) and hour where
+ * the returned timestamp is at least `minLeadHours` in the future.
+ */
+export function nextUtcWeekdayAt({
+  dayOfWeek,
+  hourUtc,
+  minLeadHours,
+}: {
+  dayOfWeek: number;
+  hourUtc: number;
+  minLeadHours: number;
+}): Date {
+  const now = new Date();
+  const candidate = new Date(now);
+  candidate.setUTCHours(hourUtc, 0, 0, 0);
+  // Move forward to the next matching day-of-week
+  const dayDiff = (dayOfWeek - candidate.getUTCDay() + 7) % 7;
+  if (dayDiff > 0) candidate.setUTCDate(candidate.getUTCDate() + dayDiff);
+  // If still not far enough ahead, jump a week
+  while (candidate.getTime() - now.getTime() < minLeadHours * 60 * 60 * 1000) {
+    candidate.setUTCDate(candidate.getUTCDate() + 7);
+  }
+  return candidate;
+}
+
 export type FamilyFeatureCandidate = {
   orderId: string;
   customerId: string;

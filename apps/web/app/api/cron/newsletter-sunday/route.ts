@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeInternalJobRequest } from "../../../../lib/internal-jobs";
-import { hasRecentBroadcast, recordBroadcastDraft, selectSundayFamily } from "../../../../lib/newsletter-curator";
+import {
+  hasRecentBroadcast,
+  nextUtcWeekdayAt,
+  recordBroadcastDraft,
+  selectSundayFamily,
+} from "../../../../lib/newsletter-curator";
 import { renderSundayShowOff } from "../../../../lib/newsletter-render";
 import { createBroadcast } from "../../../../lib/resend-broadcasts";
 import { isResendAudiencesConfigured } from "../../../../lib/resend-audiences";
@@ -16,13 +21,10 @@ function getFromAddress() {
   return process.env.RESEND_FROM_EMAIL ?? "hello@littlecolorbook.com";
 }
 
-function nextSundayEveningUtc(): Date {
-  // Run at Sunday 6pm Eastern = 10pm / 11pm UTC. We'll target 22:00 UTC.
-  const now = new Date();
-  const target = new Date(now);
-  target.setUTCHours(22, 0, 0, 0);
-  if (target.getTime() <= now.getTime()) target.setUTCDate(target.getUTCDate() + 1);
-  return target;
+function sundayBroadcastAt(): Date {
+  // Target Sunday 22:00 UTC (~6pm Eastern). Cron fires Saturday, so we
+  // have a ~24-32h admin review window to approve or cancel.
+  return nextUtcWeekdayAt({ dayOfWeek: 0, hourUtc: 22, minLeadHours: 20 });
 }
 
 export async function GET(request: NextRequest) {
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
   });
 
   let resendBroadcastId: string | null = null;
-  let scheduledFor = nextSundayEveningUtc();
+  let scheduledFor = sundayBroadcastAt();
 
   if (isResendAudiencesConfigured()) {
     try {

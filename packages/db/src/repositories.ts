@@ -10,6 +10,7 @@ import {
 } from "@littlecolorbook/shared";
 import { getDatabase, isDatabaseConfigured } from "./client";
 import {
+  broadcastSends,
   customers,
   customerUserLinks,
   emailSends,
@@ -2617,6 +2618,48 @@ export async function updateMarketingConsent(input: MarketingConsentUpdate) {
   await db.update(customers).set(patch).where(eq(customers.id, input.customerId));
   const updated = await db.query.customers.findFirst({ where: eq(customers.id, input.customerId) });
   return updated ?? null;
+}
+
+/* ------------------------------------------------------------------
+ * Broadcast review + control (admin preview workflow)
+ * ------------------------------------------------------------------ */
+
+export async function listRecentBroadcasts(limit = 25) {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db
+    .select()
+    .from(broadcastSends)
+    .orderBy(desc(broadcastSends.createdAt))
+    .limit(limit);
+  return rows;
+}
+
+export async function getBroadcastById(id: string) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const row = await db.query.broadcastSends.findFirst({
+    where: eq(broadcastSends.id, id),
+  });
+  return row ?? null;
+}
+
+export async function markBroadcastStatus(input: {
+  id: string;
+  status: "drafted" | "scheduled" | "sending" | "sent" | "failed" | "cancelled";
+  error?: string | null;
+}) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(broadcastSends)
+    .set({
+      status: input.status,
+      error: input.error ?? null,
+      updatedAt: now(),
+      sentAt: input.status === "sent" ? now() : undefined,
+    })
+    .where(eq(broadcastSends.id, input.id));
 }
 
 /* ------------------------------------------------------------------

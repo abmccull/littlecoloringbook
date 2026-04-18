@@ -8,11 +8,11 @@
     },
     {
       "path": "/api/cron/newsletter-sunday",
-      "schedule": "0 14 * * 0"
+      "schedule": "0 14 * * 6"
     },
     {
       "path": "/api/cron/newsletter-thursday",
-      "schedule": "0 13 * * 4"
+      "schedule": "0 13 * * 3"
     },
     {
       "path": "/api/cron/email-sequences",
