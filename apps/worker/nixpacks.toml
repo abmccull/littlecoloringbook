@@ -1,0 +1,15 @@
+# Railway nixpacks config for @littlecolorbook/worker.
+# The worker lives in a monorepo so install runs at the repo root
+# to hoist workspace deps, then start runs from apps/worker.
+
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = ["cd ../.. && npm ci --workspaces --include-workspace-root"]
+
+[phases.build]
+cmds = ["echo skip-build-use-tsx"]
+
+[start]
+cmd = "cd ../.. && npm run start --workspace @littlecolorbook/worker"

@@ -4,7 +4,17 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@littlecolorbook/db": "file:../../packages/db",
+    "@littlecolorbook/jobs": "file:../../packages/jobs",
+    "@littlecolorbook/meta": "file:../../packages/meta",
+    "@littlecolorbook/queue": "file:../../packages/queue",
+    "@littlecolorbook/shared": "file:../../packages/shared",
+    "bullmq": "^5.56.0",
+    "tsx": "^4.19.2"
   }
 }
