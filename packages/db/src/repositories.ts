@@ -57,6 +57,10 @@ import {
   metaApiCalls,
   organicPosts,
   organicPostMetrics,
+  adCampaigns,
+  adSets,
+  ads,
+  adCreatives,
 } from "./schema";
 import type { CapiEventStatus, OrganicPostStatus, OrganicPostPlatform, OrganicPostFormat } from "./schema";
 
@@ -4349,4 +4353,221 @@ export async function markStripeWebhookProcessed(input: {
       ...(input.orderId ? { orderId: input.orderId } : {}),
     })
     .where(eq(stripeWebhookEvents.stripeEventId, input.stripeEventId));
+}
+
+/* ------------------------------------------------------------------
+ * Phase 3c — Paid Ad Orchestration: local mirrors
+ * ------------------------------------------------------------------ */
+
+export type UpsertAdCampaignInput = {
+  metaId: string;
+  name: string;
+  objective: string;
+  status: string;
+  specialAdCategories?: string[];
+  adAccountId: string;
+};
+
+export async function upsertAdCampaign(input: UpsertAdCampaignInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const id = crypto.randomUUID();
+  const [row] = await db
+    .insert(adCampaigns)
+    .values({
+      id,
+      metaId: input.metaId,
+      name: input.name,
+      objective: input.objective,
+      status: input.status,
+      specialAdCategories: input.specialAdCategories ?? [],
+      adAccountId: input.adAccountId,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .onConflictDoUpdate({
+      target: adCampaigns.metaId,
+      set: {
+        name: input.name,
+        objective: input.objective,
+        status: input.status,
+        specialAdCategories: input.specialAdCategories ?? [],
+        updatedAt: now(),
+      },
+    })
+    .returning();
+  return row ?? null;
+}
+
+export type UpsertAdSetInput = {
+  metaId: string;
+  campaignId: string;
+  name: string;
+  status: string;
+  dailyBudgetCents?: number | null;
+  lifetimeBudgetCents?: number | null;
+  optimizationGoal: string;
+  billingEvent?: string | null;
+  targetingJson?: Record<string, unknown> | null;
+  startTime?: Date | null;
+  endTime?: Date | null;
+};
+
+export async function upsertAdSet(input: UpsertAdSetInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const id = crypto.randomUUID();
+  const [row] = await db
+    .insert(adSets)
+    .values({
+      id,
+      metaId: input.metaId,
+      campaignId: input.campaignId,
+      name: input.name,
+      status: input.status,
+      dailyBudgetCents: input.dailyBudgetCents ?? null,
+      lifetimeBudgetCents: input.lifetimeBudgetCents ?? null,
+      optimizationGoal: input.optimizationGoal,
+      billingEvent: input.billingEvent ?? null,
+      targetingJson: input.targetingJson ?? null,
+      startTime: input.startTime ?? null,
+      endTime: input.endTime ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .onConflictDoUpdate({
+      target: adSets.metaId,
+      set: {
+        name: input.name,
+        status: input.status,
+        dailyBudgetCents: input.dailyBudgetCents ?? null,
+        lifetimeBudgetCents: input.lifetimeBudgetCents ?? null,
+        optimizationGoal: input.optimizationGoal,
+        billingEvent: input.billingEvent ?? null,
+        targetingJson: input.targetingJson ?? null,
+        startTime: input.startTime ?? null,
+        endTime: input.endTime ?? null,
+        updatedAt: now(),
+      },
+    })
+    .returning();
+  return row ?? null;
+}
+
+export type UpsertAdInput = {
+  metaId: string;
+  adSetId: string;
+  name: string;
+  status: string;
+  adCreativeMetaId?: string | null;
+};
+
+export async function upsertAd(input: UpsertAdInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const id = crypto.randomUUID();
+  const [row] = await db
+    .insert(ads)
+    .values({
+      id,
+      metaId: input.metaId,
+      adSetId: input.adSetId,
+      name: input.name,
+      status: input.status,
+      adCreativeMetaId: input.adCreativeMetaId ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .onConflictDoUpdate({
+      target: ads.metaId,
+      set: {
+        name: input.name,
+        status: input.status,
+        adCreativeMetaId: input.adCreativeMetaId ?? null,
+        updatedAt: now(),
+      },
+    })
+    .returning();
+  return row ?? null;
+}
+
+export type UpsertAdCreativeInput = {
+  metaId: string;
+  name?: string | null;
+  objectStoryId?: string | null;
+  briefRef?: string | null;
+  effectiveInstagramMediaId?: string | null;
+};
+
+export async function upsertAdCreative(input: UpsertAdCreativeInput) {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const id = crypto.randomUUID();
+  const [row] = await db
+    .insert(adCreatives)
+    .values({
+      id,
+      metaId: input.metaId,
+      name: input.name ?? null,
+      objectStoryId: input.objectStoryId ?? null,
+      briefRef: input.briefRef ?? null,
+      effectiveInstagramMediaId: input.effectiveInstagramMediaId ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .onConflictDoUpdate({
+      target: adCreatives.metaId,
+      set: {
+        name: input.name ?? null,
+        objectStoryId: input.objectStoryId ?? null,
+        briefRef: input.briefRef ?? null,
+        effectiveInstagramMediaId: input.effectiveInstagramMediaId ?? null,
+        updatedAt: now(),
+      },
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function listAdsByStatus(input: { status: string; limit?: number; offset?: number }) {
+  if (!isDatabaseConfigured()) return [];
+  return getDatabase()
+    .select()
+    .from(ads)
+    .where(eq(ads.status, input.status))
+    .orderBy(desc(ads.createdAt))
+    .limit(input.limit ?? 50)
+    .offset(input.offset ?? 0);
+}
+
+export async function getAdByMetaId(metaId: string) {
+  if (!isDatabaseConfigured()) return null;
+  return (
+    getDatabase().query.ads.findFirst({ where: eq(ads.metaId, metaId) }) ?? null
+  );
+}
+
+type EntityType = "campaign" | "adset" | "ad";
+
+export async function markEntitySynced(input: { entityType: EntityType; metaId: string }) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  const syncedAt = now();
+
+  if (input.entityType === "campaign") {
+    await db
+      .update(adCampaigns)
+      .set({ lastSyncedAt: syncedAt })
+      .where(eq(adCampaigns.metaId, input.metaId));
+  } else if (input.entityType === "adset") {
+    await db
+      .update(adSets)
+      .set({ lastSyncedAt: syncedAt })
+      .where(eq(adSets.metaId, input.metaId));
+  } else {
+    await db
+      .update(ads)
+      .set({ lastSyncedAt: syncedAt })
+      .where(eq(ads.metaId, input.metaId));
+  }
 }

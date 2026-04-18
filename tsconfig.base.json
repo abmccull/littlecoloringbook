@@ -62,6 +62,12 @@
       ],
       "@littlecolorbook/social/*": [
         "packages/social/src/*"
+      ],
+      "@littlecolorbook/ads": [
+        "packages/ads/src/index.ts"
+      ],
+      "@littlecolorbook/ads/*": [
+        "packages/ads/src/*"
       ]
     }
   }
