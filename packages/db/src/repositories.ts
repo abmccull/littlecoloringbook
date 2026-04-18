@@ -3027,6 +3027,95 @@ export async function countNewPayingCustomers(window: MetricsWindow): Promise<nu
 }
 
 /* ------------------------------------------------------------------
+ * Cohort analysis (12-month LTV by acquisition month)
+ * ------------------------------------------------------------------ */
+
+export type CohortCell = {
+  cohort_month: string;   // YYYY-MM-01
+  months_since: number;
+  net_cents: number;
+  active_customers: number;
+};
+
+export type CohortSize = {
+  cohort_month: string;
+  customer_count: number;
+};
+
+/**
+ * Revenue contribution per (acquisition-month cohort, months-since
+ * first purchase). Goes back 24 months; only months-since 0..11 are
+ * returned (one year of data per cohort). The caller pivots this
+ * into a table for display.
+ */
+export async function getCohortRevenueMatrix(
+  maxMonthsSince = 11,
+  lookbackMonths = 24,
+): Promise<{ cells: CohortCell[]; sizes: CohortSize[] }> {
+  if (!isDatabaseConfigured()) return { cells: [], sizes: [] };
+  const db = getDatabase();
+
+  const cellsRaw = await db.execute(sql<CohortCell>`
+    WITH first_paid AS (
+      SELECT
+        customer_id,
+        MIN(created_at) AS first_at,
+        date_trunc('month', MIN(created_at) AT TIME ZONE 'UTC') AS cohort_month
+      FROM orders
+      WHERE status NOT IN ('draft', 'awaiting_payment', 'failed')
+        AND order_type != 'sample'
+        AND customer_id IS NOT NULL
+      GROUP BY customer_id
+    ),
+    recent_cohorts AS (
+      SELECT * FROM first_paid
+      WHERE cohort_month >= date_trunc('month', NOW() AT TIME ZONE 'UTC') - (${lookbackMonths}::int * INTERVAL '1 month')
+    )
+    SELECT
+      to_char(rc.cohort_month, 'YYYY-MM-DD') AS cohort_month,
+      (
+        EXTRACT(YEAR FROM AGE(date_trunc('month', o.created_at AT TIME ZONE 'UTC'), rc.cohort_month))::int * 12
+        + EXTRACT(MONTH FROM AGE(date_trunc('month', o.created_at AT TIME ZONE 'UTC'), rc.cohort_month))::int
+      )::int AS months_since,
+      COALESCE(SUM(o.total_cents - COALESCE(o.refunded_cents, 0))::int, 0) AS net_cents,
+      COUNT(DISTINCT o.customer_id)::int AS active_customers
+    FROM recent_cohorts rc
+    INNER JOIN orders o ON o.customer_id = rc.customer_id
+    WHERE o.status NOT IN ('draft', 'awaiting_payment', 'failed')
+      AND o.order_type != 'sample'
+    GROUP BY rc.cohort_month, months_since
+    HAVING (
+        EXTRACT(YEAR FROM AGE(date_trunc('month', o.created_at AT TIME ZONE 'UTC'), rc.cohort_month))::int * 12
+        + EXTRACT(MONTH FROM AGE(date_trunc('month', o.created_at AT TIME ZONE 'UTC'), rc.cohort_month))::int
+      ) <= ${maxMonthsSince}
+    ORDER BY rc.cohort_month DESC, months_since ASC
+  `);
+
+  const sizesRaw = await db.execute(sql<CohortSize>`
+    WITH first_paid AS (
+      SELECT
+        customer_id,
+        date_trunc('month', MIN(created_at) AT TIME ZONE 'UTC') AS cohort_month
+      FROM orders
+      WHERE status NOT IN ('draft', 'awaiting_payment', 'failed')
+        AND order_type != 'sample'
+        AND customer_id IS NOT NULL
+      GROUP BY customer_id
+    )
+    SELECT to_char(cohort_month, 'YYYY-MM-DD') AS cohort_month, COUNT(*)::int AS customer_count
+    FROM first_paid
+    WHERE cohort_month >= date_trunc('month', NOW() AT TIME ZONE 'UTC') - (${lookbackMonths}::int * INTERVAL '1 month')
+    GROUP BY cohort_month
+    ORDER BY cohort_month DESC
+  `);
+
+  return {
+    cells: cellsRaw as unknown as CohortCell[],
+    sizes: sizesRaw as unknown as CohortSize[],
+  };
+}
+
+/* ------------------------------------------------------------------
  * Refunds (Phase 3)
  * ------------------------------------------------------------------ */
 

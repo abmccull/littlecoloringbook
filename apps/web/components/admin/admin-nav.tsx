@@ -6,6 +6,7 @@ const LINKS: Array<{ href: string; label: string }> = [
   { href: "/admin/refunds", label: "Refunds" },
   { href: "/admin/broadcasts", label: "Broadcasts" },
   { href: "/admin/metrics", label: "Metrics" },
+  { href: "/admin/metrics/cohorts", label: "Cohorts" },
   { href: "/admin/ads", label: "Ads" },
 ];
 

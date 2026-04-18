@@ -146,7 +146,7 @@ export default async function AdminMetricsPage({
           <Tile label="New paying customers" value={String(metrics.unit.newPayingCustomers)} />
           <Tile label="CAC" value={metrics.unit.cacCents > 0 ? formatMoney(metrics.unit.cacCents) : "—"} sub="ad spend / new paying" />
           <Tile label="Cost per sample" value={metrics.funnel.samplesCreated > 0 ? formatMoney(metrics.unit.costPerSampleCents) : "—"} sub="ad + Gemini" />
-          <Tile label="LTV (in window)" value={metrics.retention.payingCustomers > 0 ? formatMoney(metrics.retention.ltvCents) : "—"} />
+          <Tile label="LTV (in window)" value={metrics.retention.payingCustomers > 0 ? formatMoney(metrics.retention.ltvCents) : "—"} sub="12-month view → Cohorts" />
           <Tile label="Repeat rate" value={formatPct(metrics.retention.repeatOrderRatePct)} />
         </div>
 
