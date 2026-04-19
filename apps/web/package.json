@@ -29,7 +29,9 @@
     "@littlecolorbook/ads": "file:../../packages/ads",
     "@littlecolorbook/creative": "file:../../packages/creative",
     "@littlecolorbook/gamma": "file:../../packages/gamma",
-    "@littlecolorbook/voiceover": "file:../../packages/voiceover"
+    "@littlecolorbook/voiceover": "file:../../packages/voiceover",
+    "bullmq": "^5.58.5",
+    "ioredis": "^5.8.0"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",

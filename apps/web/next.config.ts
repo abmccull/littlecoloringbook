@@ -25,6 +25,8 @@ const nextConfig: NextConfig = {
     "sharp",
     "@anthropic-ai/sdk",
     "@google-cloud/storage",
+    "bullmq",
+    "ioredis",
   ],
 };
 
