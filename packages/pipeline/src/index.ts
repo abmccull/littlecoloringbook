@@ -22,7 +22,7 @@ export const qaChecklist = [
   "kid-friendly-detail-level",
 ] as const;
 
-export const pipelinePromptVersion = "2026-04-12.a";
+export const pipelinePromptVersion = "2026-04-19.a";
 export const pipelineCleanupVersion = "2026-04-12.a";
 
 export type PipelineJobKind = "sample" | "full_book";
@@ -76,12 +76,12 @@ const MAX_RENDER_ATTEMPTS = 2;
 const DEFAULT_ASPECT_RATIO = "3:4";
 
 const compositionGoals = [
-  "crop closer on the main subjects and remove distant background detail",
-  "keep faces large and readable with simple clothing shapes and strong outer contours",
-  "reduce the scene to the clearest interaction and the biggest recognizable forms",
-  "leave generous white space around the subjects and keep props minimal",
-  "simplify the environment into one or two large grounding shapes at most",
-  "favor a clean portrait composition over preserving every object from the photo",
+  "include the surrounding scene — plants, animals, buildings, furniture, props — as clean colorable line-art shapes around the subjects",
+  "keep faces large and readable while rendering the full environment behind them with trees, sky, or architecture simplified into colorable outlines",
+  "translate the whole photographed moment into line art — subjects plus their pets, nearby objects, landscape, and interior details",
+  "layer the original setting (landscape, room, street, park) behind the subjects as a richly detailed but clean colorable backdrop",
+  "capture environmental storytelling by outlining contextual props, weather, flora, and small details from the original photo",
+  "preserve the scene's sense of place with recognizable architectural or natural features drawn as simplified but detailed line art",
 ];
 
 export type PlannedGenerationPage = {
@@ -547,29 +547,31 @@ export function buildColoringPrompt(input: {
 
   const retryLine =
     input.attempt > 0
-      ? "The previous result was not premium enough. Remove more background, use fewer but cleaner closed contours, enlarge the faces, and eliminate sketchy fragments or noise."
+      ? "The previous result was not premium enough. Tighten the closed contours, enlarge and clarify the faces, and keep the scene's environmental details (plants, animals, buildings, props) intact rather than stripping them away."
       : null;
 
   return [
-    "Convert the provided photo into a premium black-and-white children's coloring book page.",
+    "Convert the provided photo into a premium black-and-white children's coloring book page with rich environmental detail.",
     personalization,
     `Composition goal: ${getCompositionGoal(input.jobKind, input.pageNumber)}.`,
     "Preserve the subject's pose, expression, clothing, hair, and overall identity from the original photo.",
+    "Stay faithful to the real setting in the photo — render the actual plants, animals, buildings, landscape, furniture, and props the subjects are with, not generic substitutes.",
     input.jobKind === "sample"
-      ? "Optimize for the strongest single sellable page, even if that means simplifying or removing more of the original scene."
-      : "Keep the page consistent with a premium keepsake book rather than a novelty sketch.",
+      ? "Optimize for the strongest single sellable page by crafting a rich, story-filled scene the child will want to spend time coloring."
+      : "Keep the page consistent with a premium keepsake book full of contextual detail rather than an empty portrait sketch.",
     "Use smooth, continuous, closed black contours with medium-thick, consistent line weight.",
-    "Faces must stay readable with a few clean lines. Keep the eyes, nose, mouth, hair shape, and clothing silhouette recognizable without adding texture.",
-    "Use a pure white background or at most one or two large simple grounding shapes.",
+    "Faces must stay readable with clean lines. Keep the eyes, nose, mouth, hair shape, and clothing silhouette recognizable without adding texture.",
+    "Render the surrounding scene — plants, trees, animals, buildings, sky, furniture, props — as clean simplified line-art shapes. The background should feel like a real illustrated environment, not a blank page.",
+    "Include plenty of interesting, colorable details (foliage, clouds, bricks, patterns on clothing, small critters, toys, signage shapes) so there is lots for a child to engage with across the whole page.",
     "Do not add color, gray shading, crosshatching, halftones, stippling, sketch texture, speech bubbles, captions, borders, or text.",
-    "Do not leave disconnected stray marks, floating fragments, or tiny noisy details anywhere on the page.",
-    "Do not fill dark clothing, shadows, or hair with solid black. Convert dark regions into open outline shapes a child can color.",
-    "Keep the image open, simple, friendly, and easy for a child to color, with large colorable areas and clear silhouettes.",
-    "If the photo contains multiple people, enlarge and simplify the primary one to three subjects so each face reads clearly at coloring-book scale.",
+    "Keep every mark intentional and connected to a scene element — avoid random floating fragments or sketchy noise, but do not strip away real environmental details.",
+    "Do not fill dark clothing, shadows, hair, foliage, or background elements with solid black. Convert dark regions into open outline shapes a child can color.",
+    "Keep the image friendly and easy for a child to color: large colorable areas for faces and subjects, with smaller detail work filling the scene around them.",
+    "If the photo contains multiple people, enlarge the primary one to three subjects so each face reads clearly at coloring-book scale, then fit the wider scene around them.",
     "Compose the artwork vertically for an 8.5 x 11 coloring page with generous outer margins and trim-safe spacing.",
     input.deliveryMode === "print"
-      ? "The page must hold up in print. Favor crisp outlines, simple backgrounds, larger shapes, and stable line weight over photo-realistic detail."
-      : "The page should look clean on screen and be easy to print at home.",
+      ? "The page must hold up in print. Favor crisp outlines and stable line weight over fine photographic texture, while keeping the scene's environmental details legible."
+      : "The page should look clean on screen and be easy to print at home while preserving the full scene.",
     `Reference photo label: ${input.sourceLabel}.`,
     retryLine,
     "Return only the finished coloring page image.",
