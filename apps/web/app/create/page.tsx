@@ -64,7 +64,7 @@ export default async function CreatePage({
             <BookMockupBlock
               badge="Choose the value tier"
               coverSrc={proofAssets.kidPhoto}
-              pageSrc={proofAssets.kidPage}
+              pageSrc={proofAssets.geminiFamilyPage}
               title="Pick the size by how full the memory stack feels."
               copy="30 keeps it lighter. 50 feels fuller. 100 is the best-value keepsake when the camera roll is already packed."
             />

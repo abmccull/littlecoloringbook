@@ -4,11 +4,23 @@ import { BrandLogo } from "../../../components/brand-logo";
 type LimitReachedPageProps = {
   searchParams: Promise<{
     orderId?: string;
+    email?: string;
   }>;
 };
 
 export default async function SampleLimitReachedPage({ searchParams }: LimitReachedPageProps) {
-  const { orderId } = await searchParams;
+  const { orderId, email } = await searchParams;
+
+  const buildHref = (() => {
+    const params = new URLSearchParams({
+      offer: "pdf-50",
+      source: "sample-limit-reached",
+      acquisitionPath: "sample_limit_upsell",
+    });
+    if (orderId) params.set("sampleOrderId", orderId);
+    if (email) params.set("email", email);
+    return `/create?${params.toString()}`;
+  })();
 
   return (
     <main>
@@ -33,10 +45,7 @@ export default async function SampleLimitReachedPage({ searchParams }: LimitReac
         </ul>
 
         <div className="hero-actions">
-          <Link
-            className="button button-primary"
-            href={`/create?offer=pdf-50&source=sample-limit-reached&acquisitionPath=sample_limit_upsell${orderId ? `&sampleOrderId=${encodeURIComponent(orderId)}` : ""}`}
-          >
+          <Link className="button button-primary" href={buildHref}>
             Build My Book
           </Link>
         </div>
