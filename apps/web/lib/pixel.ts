@@ -1,5 +1,6 @@
 declare global {
   interface Window {
+    _fbq?: Window["fbq"];
     fbq?: (
       command: string,
       eventName: string,
@@ -18,18 +19,33 @@ export function initPixel(): void {
   if (!pixelId) return;
   if (window.fbq) return;
 
-  // Standard Meta pixel base code injected at runtime.
-  const n = function (...args: unknown[]) {
-    (n as unknown as { q?: unknown[] }).q = (n as unknown as { q?: unknown[] }).q ?? [];
-    (n as unknown as { q: unknown[] }).q.push(args);
-  } as unknown as Window["fbq"];
+  type FbqStub = Window["fbq"] & {
+    callMethod?: (...args: unknown[]) => void;
+    loaded?: boolean;
+    push?: Window["fbq"];
+    queue?: unknown[][];
+    version?: string;
+  };
 
-  Object.assign(n as object, {
-    callMethod: n,
-    queue: [],
-    version: "2.0",
-    loaded: true,
-  });
+  // Mirror Meta's expected bootstrap contract so fbevents.js can drain the queue.
+  const n = function (...args: unknown[]) {
+    if (n.callMethod) {
+      n.callMethod(...args);
+      return;
+    }
+
+    n.queue = n.queue ?? [];
+    n.queue.push(args);
+  } as FbqStub;
+
+  if (!window._fbq) {
+    window._fbq = n;
+  }
+
+  n.push = n;
+  n.loaded = true;
+  n.version = "2.0";
+  n.queue = [];
 
   window.fbq = n;
 
