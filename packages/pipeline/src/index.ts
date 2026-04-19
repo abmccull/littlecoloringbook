@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import sharp from "sharp";
+import { assertColoringPageQC, type ColoringPageQcResult } from "./coloring-page-qc";
 import { estimateInteriorPageCount, normalizeCoverStyle, type CoverStyleCode, type DeliveryMode } from "@littlecolorbook/shared";
 import { getColoringEngineEnv } from "@littlecolorbook/shared/env";
 import { downloadObject } from "@littlecolorbook/shared/storage";
@@ -22,7 +23,7 @@ export const qaChecklist = [
   "kid-friendly-detail-level",
 ] as const;
 
-export const pipelinePromptVersion = "2026-04-19.b";
+export const pipelinePromptVersion = "2026-04-19.d";
 export const pipelineCleanupVersion = "2026-04-12.a";
 
 export type PipelineJobKind = "sample" | "full_book";
@@ -70,18 +71,23 @@ const PRINT_COVER_PAGE = {
   height: 810,
 };
 
-const PRIMARY_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
-const FALLBACK_IMAGE_MODEL = "gemini-3-pro-image-preview";
-const MAX_RENDER_ATTEMPTS = 2;
+const TIER_1_MODEL = "gemini-2.5-flash-image";
+const TIER_2_MODEL = "gemini-3.1-flash-image-preview";
+const TIER_3_MODEL = "gemini-3-pro-image-preview";
+const ESCALATION_LADDER = [TIER_1_MODEL, TIER_2_MODEL, TIER_3_MODEL] as const;
+
+const PRIMARY_IMAGE_MODEL = TIER_1_MODEL;
+const FALLBACK_IMAGE_MODEL = TIER_3_MODEL;
+const MAX_RENDER_ATTEMPTS = 3;
 const DEFAULT_ASPECT_RATIO = "3:4";
 
 const compositionGoals = [
-  "include the surrounding scene — plants, animals, buildings, furniture, props — as clean colorable line-art shapes around the subjects",
-  "keep faces large and readable while rendering the full environment behind them with trees, sky, or architecture simplified into colorable outlines",
-  "translate the whole photographed moment into line art — subjects plus their pets, nearby objects, landscape, and interior details",
-  "layer the original setting (landscape, room, street, park) behind the subjects as a richly detailed but clean colorable backdrop",
-  "capture environmental storytelling by outlining contextual props, weather, flora, and small details from the original photo",
-  "preserve the scene's sense of place with recognizable architectural or natural features drawn as simplified but detailed line art",
+  "if the photo shows a real environment around the subjects, include it — plants, animals, buildings, furniture, props — as clean colorable line-art shapes; if the background is plain, studio, or blurred, keep it minimal and let the subject stand on clean paper",
+  "keep faces large and readable; when the photo includes a real setting, render the scene behind them as simplified colorable outlines; when the background is a studio backdrop or bokeh, leave it empty",
+  "translate only what is actually visible in the photograph into line art — subjects plus any real pets, nearby objects, landscape, or interior details that are genuinely present, nothing invented",
+  "when the original setting is visible (landscape, room, street, park), layer it behind the subjects as a clean colorable backdrop; when the original background is plain or out-of-focus, preserve that simplicity",
+  "when the photo contains real contextual props, weather, flora, or small details, outline them faithfully; do not add environmental storytelling that is not in the source image",
+  "preserve the real sense of place from the photo — recognizable architectural or natural features if they exist, or a clean studio-style presentation if the source is a portrait",
 ];
 
 export type PlannedGenerationPage = {
@@ -533,50 +539,67 @@ function getFallbackModel(primaryModel: string) {
   return process.env.GEMINI_IMAGE_FALLBACK_MODEL ?? (primaryModel === FALLBACK_IMAGE_MODEL ? PRIMARY_IMAGE_MODEL : FALLBACK_IMAGE_MODEL);
 }
 
+function getEscalationModel(primaryModel: string, attempt: number): string {
+  if (attempt === 0) return primaryModel;
+  const envOverride = process.env[`GEMINI_IMAGE_ATTEMPT_${attempt}_MODEL`];
+  if (envOverride) return envOverride;
+  const primaryIdx = (ESCALATION_LADDER as readonly string[]).indexOf(primaryModel);
+  if (primaryIdx === -1) {
+    return TIER_3_MODEL;
+  }
+  const targetIdx = Math.min(primaryIdx + attempt, ESCALATION_LADDER.length - 1);
+  return ESCALATION_LADDER[targetIdx];
+}
+
 export function buildColoringPrompt(input: {
   attempt: number;
   childFirstName?: string | null;
   deliveryMode: DeliveryMode;
   jobKind: PipelineJobKind;
   pageNumber: number;
+  qcCorrection?: string | null;
   sourceLabel: string;
 }) {
   const personalization = input.childFirstName
     ? `Make the page feel personalized for ${input.childFirstName}, while keeping the real people or pets from the photo recognizable.`
     : "Keep the real people or pets from the photo recognizable.";
 
-  const retryLine =
-    input.attempt > 0
-      ? "The previous result was not premium enough. Tighten the closed contours, enlarge and clarify the faces, and keep the scene's environmental details (plants, animals, buildings, props) intact rather than stripping them away."
+  const retryLine = input.qcCorrection
+    ? `RETRY CORRECTION — the previous attempt failed automated QC. ${input.qcCorrection} Fix these specific issues in this attempt.`
+    : input.attempt > 0
+      ? "The previous result was not premium enough. Tighten the closed contours, enlarge and clarify the faces, and only include environmental details that are actually visible in the source photo — do not invent a scene that isn't there."
       : null;
 
   return [
-    "Convert the provided photo into a premium black-and-white children's coloring book page with rich environmental detail.",
-    "Priority order — spend ink in this order: (1) recognizable, expressive faces with clearly drawn eyes (including pupils and brows), nose, mouth, and hair; (2) subject bodies, clothing, and pose; (3) the full surrounding scene with environmental details; (4) overall clean closed contours with consistent line weight. Never let scenery compete with facial features.",
+    "OUTPUT CONTRACT — this is the single most important instruction. The output must be a pure black-and-white line drawing on white paper, suitable for a child to color with crayons. The output is NOT a photo, NOT a sketch, NOT a pencil drawing, NOT a filtered photograph. The output contains only: (1) black ink outline strokes and (2) white paper. Nothing else.",
+    "HARD RULES — all four must hold or the page is rejected:",
+    "  RULE 1 (NO COLOR): The image must be monochrome. No hues, no tints, no colored backgrounds, no blue, green, red, yellow, brown, or any color whatsoever. Only black and white pixels.",
+    "  RULE 2 (NO GRAY FILL): No gray shading, no tonal wash, no halftones, no stippling, no crosshatching anywhere on the page. No area may be filled with gray, tan, beige, or any mid-tone. Faces, skin, hair, fur, muzzles, clothing, and backgrounds must remain clean white paper between black outline strokes. Suggest tonality with outline detail only, never with fill.",
+    "  RULE 3 (NO SOLID BLACK FILLS): No region of the image may be filled solid black — not T-shirts, not dark fur patches, not dark eye masks, not dark clothing, not dark furniture, not dark backgrounds, not dark foliage. Even when the source photo shows a region as nearly black, break it into open colorable shapes bounded by black outlines. A child must be able to color every single region of the page.",
+    "  RULE 4 (LINE ART ONLY): The output must read as clean coloring-book line art, not as a photo-sketch or pencil-rendering of the photograph. Every mark is a deliberate black contour stroke. No photographic texture, no soft gradients, no smudges, no sketchy hatching.",
+    "Now, within those hard rules, make the page:",
+    "Priority order — spend ink in this order: (1) recognizable, expressive faces with clearly drawn eyes (including pupils and brows), nose, mouth, and hair; (2) subject bodies, clothing, and pose; (3) any environmental details that actually exist in the source photo; (4) overall clean closed contours with consistent line weight. Never let scenery compete with facial features.",
     personalization,
     `Composition goal: ${getCompositionGoal(input.jobKind, input.pageNumber)}.`,
     "Preserve the subject's pose, expression, clothing, hair, and overall identity from the original photo.",
-    "Faces are the highest-priority element. Draw every face with enough line detail to be clearly recognizable and expressive, with pupils inside the eyes, a readable nose, and a readable mouth. Do not let environmental detail flatten or overwhelm facial features.",
-    "Stay faithful to the real setting in the photo — render the actual plants, animals, buildings, landscape, furniture, and props the subjects are with, not generic substitutes.",
+    "Faces are the highest-priority element. Draw every face with enough line detail to be clearly recognizable and expressive, with pupils inside the eyes, a readable nose, and a readable mouth.",
+    "Do not hallucinate backgrounds. Render only the environmental details that are actually visible in the source photo. If the source background is plain, solid-color, studio-lit, paper backdrop, blurred bokeh, or otherwise minimal, keep the background empty or near-empty in the coloring page. Do NOT invent plants, trees, grass, vegetation, buildings, furniture, props, weather, clouds, landscapes, rooms, or any scene elements that do not appear in the original photograph. A studio portrait should produce a studio-style coloring page with a clean empty background, not a fabricated outdoor or indoor scene.",
+    "When the photo does show a real setting (landscape, room, street, park, backyard, beach, etc.), render it faithfully as clean simplified line-art shapes — the actual plants, animals, buildings, landscape, furniture, and props the subjects are with, not generic substitutes.",
     input.jobKind === "sample"
-      ? "Optimize for the strongest single sellable page by crafting a rich, story-filled scene the child will want to spend time coloring."
-      : "Keep the page consistent with a premium keepsake book full of contextual detail rather than an empty portrait sketch.",
+      ? "Optimize for the strongest single sellable page the child will want to spend time coloring."
+      : "Keep the page consistent with a premium keepsake book.",
     "Use smooth, continuous, closed black contours with medium-thick, consistent line weight.",
-    "Render the surrounding scene — plants, trees, animals, buildings, sky, furniture, props — as clean simplified line-art shapes. The background should feel like a real illustrated environment, not a blank page.",
-    "Include plenty of interesting, colorable details (foliage, clouds, bricks, patterns on clothing, small critters, toys, signage shapes) so there is lots for a child to engage with across the whole page.",
-    "Do not add color, gray shading, crosshatching, halftones, stippling, sketch texture, speech bubbles, captions, borders, or text.",
-    "Keep every mark intentional and connected to a scene element — avoid random floating fragments or sketchy noise, but do not strip away real environmental details.",
-    "Never fill any region solid black — not dark fur, dark clothing, dark crates, dark furniture, dark foliage, or dark backgrounds. Even when the source photo shows a region as nearly black, break it into open colorable shapes with interior outlines so a child can color every area of the page.",
-    "Avoid dense hatching or heavy shadow blocks in hair, fur, or clothing. Suggest dark tonality with a few clean outline strokes only.",
-    "Keep the image friendly and easy for a child to color: large colorable areas for faces and subjects, with smaller detail work filling the scene around them.",
-    "If the photo contains multiple people, enlarge the primary one to three subjects so each face reads clearly at coloring-book scale, then fit the wider scene around them.",
+    "Include interesting, colorable details on elements that are actually in the photo (clothing patterns, visible toys, real foliage if the subject is outdoors, etc.) — but never fabricate details that aren't there.",
+    "Keep every mark intentional and connected to something real in the source photo — avoid random floating fragments, invented decoration, or sketchy noise.",
+    "Keep the image friendly and easy for a child to color: large colorable areas for faces and subjects.",
+    "If the photo contains multiple people, enlarge the primary one to three subjects so each face reads clearly at coloring-book scale.",
     "Compose the artwork vertically for an 8.5 x 11 coloring page with generous outer margins and trim-safe spacing.",
     input.deliveryMode === "print"
-      ? "The page must hold up in print. Favor crisp outlines and stable line weight over fine photographic texture, while keeping the scene's environmental details legible."
-      : "The page should look clean on screen and be easy to print at home while preserving the full scene.",
+      ? "The page must hold up in print. Favor crisp outlines and stable line weight over fine photographic texture."
+      : "The page should look clean on screen and be easy to print at home.",
     `Reference photo label: ${input.sourceLabel}.`,
     retryLine,
-    "Return only the finished coloring page image.",
+    "Return only the finished coloring page image — monochrome line art, no fill, no color, no solid black regions.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -1163,15 +1186,19 @@ async function renderImageWithGeminiWithRetries(input: {
   source: RenderingSource;
 }) {
   let lastError: Error | null = null;
+  let lastQc: ColoringPageQcResult | null = null;
+  let lastRendered: Awaited<ReturnType<typeof renderImageWithGemini>> | null = null;
+  let qcCorrection: string | null = null;
 
   for (let attempt = 0; attempt < MAX_RENDER_ATTEMPTS; attempt += 1) {
-    const model = attempt === 0 ? input.primaryModel : getFallbackModel(input.primaryModel);
+    const model = getEscalationModel(input.primaryModel, attempt);
     const prompt = buildColoringPrompt({
       attempt,
       childFirstName: input.childFirstName,
       deliveryMode: input.deliveryMode,
       jobKind: input.jobKind,
       pageNumber: input.pageNumber,
+      qcCorrection,
       sourceLabel: input.source.fileName,
     });
 
@@ -1185,14 +1212,37 @@ async function renderImageWithGeminiWithRetries(input: {
         prompt,
         sourceBuffer: input.source.buffer,
       });
+      lastRendered = rendered;
 
-      return {
-        ...rendered,
-        renderAttempts: attempt + 1,
-      };
+      let qc: ColoringPageQcResult | null = null;
+      try {
+        qc = await assertColoringPageQC(rendered.buffer);
+      } catch {
+        qc = null;
+      }
+      lastQc = qc;
+
+      if (!qc || qc.ok) {
+        return {
+          ...rendered,
+          renderAttempts: attempt + 1,
+          qcResult: qc,
+        };
+      }
+
+      qcCorrection = qc.correctionLine;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error("Unknown Gemini generation error.");
+      qcCorrection = null;
     }
+  }
+
+  if (lastRendered) {
+    return {
+      ...lastRendered,
+      renderAttempts: MAX_RENDER_ATTEMPTS,
+      qcResult: lastQc,
+    };
   }
 
   throw lastError ?? new Error(`Failed to generate page ${input.pageNumber}.`);
