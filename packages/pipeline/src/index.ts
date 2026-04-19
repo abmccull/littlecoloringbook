@@ -22,7 +22,7 @@ export const qaChecklist = [
   "kid-friendly-detail-level",
 ] as const;
 
-export const pipelinePromptVersion = "2026-04-19.a";
+export const pipelinePromptVersion = "2026-04-19.b";
 export const pipelineCleanupVersion = "2026-04-12.a";
 
 export type PipelineJobKind = "sample" | "full_book";
@@ -552,20 +552,22 @@ export function buildColoringPrompt(input: {
 
   return [
     "Convert the provided photo into a premium black-and-white children's coloring book page with rich environmental detail.",
+    "Priority order — spend ink in this order: (1) recognizable, expressive faces with clearly drawn eyes (including pupils and brows), nose, mouth, and hair; (2) subject bodies, clothing, and pose; (3) the full surrounding scene with environmental details; (4) overall clean closed contours with consistent line weight. Never let scenery compete with facial features.",
     personalization,
     `Composition goal: ${getCompositionGoal(input.jobKind, input.pageNumber)}.`,
     "Preserve the subject's pose, expression, clothing, hair, and overall identity from the original photo.",
+    "Faces are the highest-priority element. Draw every face with enough line detail to be clearly recognizable and expressive, with pupils inside the eyes, a readable nose, and a readable mouth. Do not let environmental detail flatten or overwhelm facial features.",
     "Stay faithful to the real setting in the photo — render the actual plants, animals, buildings, landscape, furniture, and props the subjects are with, not generic substitutes.",
     input.jobKind === "sample"
       ? "Optimize for the strongest single sellable page by crafting a rich, story-filled scene the child will want to spend time coloring."
       : "Keep the page consistent with a premium keepsake book full of contextual detail rather than an empty portrait sketch.",
     "Use smooth, continuous, closed black contours with medium-thick, consistent line weight.",
-    "Faces must stay readable with clean lines. Keep the eyes, nose, mouth, hair shape, and clothing silhouette recognizable without adding texture.",
     "Render the surrounding scene — plants, trees, animals, buildings, sky, furniture, props — as clean simplified line-art shapes. The background should feel like a real illustrated environment, not a blank page.",
     "Include plenty of interesting, colorable details (foliage, clouds, bricks, patterns on clothing, small critters, toys, signage shapes) so there is lots for a child to engage with across the whole page.",
     "Do not add color, gray shading, crosshatching, halftones, stippling, sketch texture, speech bubbles, captions, borders, or text.",
     "Keep every mark intentional and connected to a scene element — avoid random floating fragments or sketchy noise, but do not strip away real environmental details.",
-    "Do not fill dark clothing, shadows, hair, foliage, or background elements with solid black. Convert dark regions into open outline shapes a child can color.",
+    "Never fill any region solid black — not dark fur, dark clothing, dark crates, dark furniture, dark foliage, or dark backgrounds. Even when the source photo shows a region as nearly black, break it into open colorable shapes with interior outlines so a child can color every area of the page.",
+    "Avoid dense hatching or heavy shadow blocks in hair, fur, or clothing. Suggest dark tonality with a few clean outline strokes only.",
     "Keep the image friendly and easy for a child to color: large colorable areas for faces and subjects, with smaller detail work filling the scene around them.",
     "If the photo contains multiple people, enlarge the primary one to three subjects so each face reads clearly at coloring-book scale, then fit the wider scene around them.",
     "Compose the artwork vertically for an 8.5 x 11 coloring page with generous outer margins and trim-safe spacing.",
