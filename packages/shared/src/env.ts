@@ -358,6 +358,7 @@ export type MetaEnv = {
   businessId: string | null;
   adAccountId: string | null;
   pageId: string | null;
+  pageAccessToken: string | null;
   igUserId: string | null;
   pixelId: string | null;
   datasetId: string | null;
@@ -375,6 +376,7 @@ const rawMetaEnvSchema = z.object({
   META_BUSINESS_ID: z.string().optional(),
   META_AD_ACCOUNT_ID: z.string().optional(), // format: act_<numeric>
   META_PAGE_ID: z.string().optional(),
+  META_PAGE_ACCESS_TOKEN: z.string().optional(),
   META_IG_USER_ID: z.string().optional(),
   META_PIXEL_ID: z.string().optional(),
   META_DATASET_ID: z.string().optional(), // typically == META_PIXEL_ID but exposed separately
@@ -393,6 +395,7 @@ export function getMetaEnv(): MetaEnv {
     META_BUSINESS_ID: process.env.META_BUSINESS_ID,
     META_AD_ACCOUNT_ID: process.env.META_AD_ACCOUNT_ID,
     META_PAGE_ID: process.env.META_PAGE_ID,
+    META_PAGE_ACCESS_TOKEN: process.env.META_PAGE_ACCESS_TOKEN,
     META_IG_USER_ID: process.env.META_IG_USER_ID,
     META_PIXEL_ID: process.env.META_PIXEL_ID,
     META_DATASET_ID: process.env.META_DATASET_ID,
@@ -410,6 +413,7 @@ export function getMetaEnv(): MetaEnv {
     businessId: parsed.META_BUSINESS_ID ?? null,
     adAccountId: parsed.META_AD_ACCOUNT_ID ?? null,
     pageId: parsed.META_PAGE_ID ?? null,
+    pageAccessToken: parsed.META_PAGE_ACCESS_TOKEN ?? null,
     igUserId: parsed.META_IG_USER_ID ?? null,
     pixelId: parsed.META_PIXEL_ID ?? null,
     datasetId: parsed.META_DATASET_ID ?? parsed.META_PIXEL_ID ?? null,

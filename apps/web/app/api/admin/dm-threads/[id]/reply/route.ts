@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
+import { getMetaEnv } from "@littlecolorbook/shared/env";
 import { authorizeInternalJobRequest } from "../../../../../../lib/internal-jobs";
 import {
   getDmThreadById,
@@ -86,8 +87,9 @@ export async function POST(
     );
   }
 
-  const pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN;
-  const pageId = process.env.META_PAGE_ID;
+  const metaEnv = getMetaEnv();
+  const pageAccessToken = metaEnv.pageAccessToken;
+  const pageId = metaEnv.pageId;
 
   if (!pageAccessToken || !pageId) {
     return NextResponse.json(

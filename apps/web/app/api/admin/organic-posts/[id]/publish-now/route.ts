@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMetaEnv } from "@littlecolorbook/shared/env";
 import { authorizeInternalJobRequest } from "../../../../../../lib/internal-jobs";
 import { getOrganicPostById, updateOrganicPostStatus } from "@littlecolorbook/db";
 import { publishFbPagePhoto } from "@littlecolorbook/social";
@@ -26,8 +27,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: { code: "CANCELED", message: "Cannot publish a canceled post" } }, { status: 422 });
   }
 
-  const pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN;
-  const pageId = process.env.META_PAGE_ID;
+  const metaEnv = getMetaEnv();
+  const pageAccessToken = metaEnv.pageAccessToken;
+  const pageId = metaEnv.pageId;
 
   if (!pageAccessToken || !pageId) {
     return NextResponse.json({ error: { code: "CONFIGURATION_ERROR", message: "META_PAGE_ACCESS_TOKEN and META_PAGE_ID must be configured" } }, { status: 503 });
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       accessToken: pageAccessToken,
       imagePath: post.imageAssetIds[0],
       caption: post.caption,
-      apiVersion: process.env.META_GRAPH_API_VERSION ?? "v22.0",
+      apiVersion: metaEnv.graphApiVersion,
     });
 
     await updateOrganicPostStatus(id, "published", {

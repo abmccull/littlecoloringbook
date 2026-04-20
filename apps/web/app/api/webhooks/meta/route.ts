@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
+import { getMetaEnv } from "@littlecolorbook/shared/env";
 import {
   insertMetaWebhookEvent,
   markMetaWebhookEventProcessed,
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  const verifyToken = getMetaEnv().webhookVerifyToken;
   if (!verifyToken) {
     console.error("META_WEBHOOK_VERIFY_TOKEN is not configured");
     return new NextResponse("Server configuration error", { status: 500 });
@@ -86,7 +87,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const webhookId = `mwh_${contentHash}`;
 
   if (!isDatabaseConfigured()) {
-    // Dev/test: skip DB work, process events in-memory only
+    // Dev/test: acknowledge the webhook but skip processing because the
+    // downstream idempotency and reply flow depends on the DB backing store.
     console.warn("meta webhook: DATABASE_URL not configured, skipping DB recording");
     return NextResponse.json({ received: true, count: 0, mode: "no-db" });
   }
@@ -186,8 +188,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
             // Send the reply — only Messenger is fully implemented; IG is stubbed.
             if (event.platform === "fb_messenger") {
-              const pageToken = process.env.META_PAGE_ACCESS_TOKEN;
-              const pageId = process.env.META_PAGE_ID ?? event.pageId;
+              const metaEnv = getMetaEnv();
+              const pageToken = metaEnv.pageAccessToken;
+              const pageId = metaEnv.pageId ?? event.pageId;
               if (!pageToken || !pageId) {
                 console.warn("meta webhook auto-reply: META_PAGE_ACCESS_TOKEN or META_PAGE_ID not configured");
                 return;

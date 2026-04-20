@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMetaEnv } from "@littlecolorbook/shared/env";
 import { authorizeInternalJobRequest } from "../../../../lib/internal-jobs";
 import { listDueOrganicPosts, updateOrganicPostStatus } from "@littlecolorbook/db";
 import { publishFbPagePhoto } from "@littlecolorbook/social";
@@ -16,9 +17,10 @@ export async function GET(request: NextRequest) {
   const unauthorized = authorizeInternalJobRequest(request);
   if (unauthorized) return unauthorized;
 
-  const pageAccessToken = process.env.META_PAGE_ACCESS_TOKEN ?? null;
-  const pageId = process.env.META_PAGE_ID ?? null;
-  const apiVersion = process.env.META_GRAPH_API_VERSION ?? "v22.0";
+  const metaEnv = getMetaEnv();
+  const pageAccessToken = metaEnv.pageAccessToken;
+  const pageId = metaEnv.pageId;
+  const apiVersion = metaEnv.graphApiVersion;
 
   const nowUnix = Math.floor(Date.now() / 1000);
   const duePosts = await listDueOrganicPosts({ nowUnix, limit: BATCH_LIMIT });
