@@ -11,6 +11,12 @@ type SampleCreateResponse = {
   processingUrl?: string;
   blocked?: boolean;
   reason?: string;
+  blockedBy?: Array<"email" | "visitor" | "ip">;
+  limits?: {
+    email: number;
+    visitor: number;
+    ip: number;
+  };
   existingOrderId?: string | null;
 };
 
@@ -46,13 +52,15 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
       const payload = (await response.json()) as SampleCreateResponse;
 
       if (response.status === 429 && payload.blocked) {
-        // User already used their free sample — send them to the
-        // dedicated "you've tried a sample" page so they understand why
-        // they're being pushed toward the full book instead of a new
-        // generation. That page CTAs into /create.
         const limitUrl = new URL("/sample/limit-reached", window.location.origin);
         if (payload.existingOrderId) limitUrl.searchParams.set("orderId", payload.existingOrderId);
         if (email) limitUrl.searchParams.set("email", email);
+        if (payload.blockedBy?.length) {
+          limitUrl.searchParams.set("blockedBy", payload.blockedBy.join(","));
+        }
+        if (payload.limits?.ip) {
+          limitUrl.searchParams.set("ipLimit", String(payload.limits.ip));
+        }
         router.push(limitUrl.pathname + limitUrl.search);
         return;
       }
@@ -124,8 +132,9 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
       <div className="surface sample-start-benefit">
         <span className="pill pill-sky">What you get</span>
         <h3>See your photo become a coloring page in 90 seconds.</h3>
-        <p className="muted">
-          We'll email you the finished page so you never lose it.
+        <p className="muted">We'll email you the finished page so you never lose it.</p>
+        <p className="mini-note">
+          Free sample policy: 1 sample per email, 1 sample per browser, up to 4 samples per household/network.
         </p>
       </div>
 

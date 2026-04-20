@@ -9,6 +9,8 @@ import {
   isDatabaseConfigured,
 } from "@littlecolorbook/db";
 import { readAttributionSnapshot } from "../../../lib/attribution-cookies";
+import { extractClientIp } from "../../../lib/request-ip";
+import { evaluateSampleLimit } from "../../../lib/sample-limits";
 
 const createSampleSchema = z.object({
   email: z.string().email(),
@@ -21,14 +23,6 @@ const createSampleSchema = z.object({
   utmContent: z.string().trim().optional(),
   utmTerm: z.string().trim().optional(),
 });
-
-function extractClientIp(request: NextRequest): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown"
-  );
-}
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -51,21 +45,32 @@ export async function POST(request: NextRequest) {
   const attribution = readAttributionSnapshot(request);
   const clientIp = extractClientIp(request);
 
-  // Rate limit checks — one free sample per person, ever
+  // Abuse protection: 1 sample per email, 1 per browser, capped per IP.
   const [emailCount, visitorCount, ipCount] = await Promise.all([
     countSamplesByEmail(parsed.data.email),
     attribution.visitorId ? countSamplesByVisitor(attribution.visitorId) : Promise.resolve(0),
     clientIp !== "unknown" ? countSamplesByIp(clientIp) : Promise.resolve(0),
   ]);
 
-  const isBlocked = emailCount >= 1 || visitorCount >= 1 || ipCount >= 2;
+  const limitEvaluation = evaluateSampleLimit({
+    email: parsed.data.email,
+    visitorId: attribution.visitorId,
+    clientIp,
+    counts: {
+      emailCount,
+      visitorCount,
+      ipCount,
+    },
+  });
 
-  if (isBlocked) {
+  if (limitEvaluation.blocked) {
     const existingOrderId = await findExistingSampleOrderId(parsed.data.email);
     return NextResponse.json(
       {
         blocked: true,
         reason: "sample_limit_reached",
+        blockedBy: limitEvaluation.blockedBy,
+        limits: limitEvaluation.limits,
         existingOrderId: existingOrderId ?? null,
       },
       { status: 429 },
