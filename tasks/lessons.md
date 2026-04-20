@@ -82,6 +82,29 @@ The `git stash --keep-index` technique is the single-step version of the audit �
 
 ---
 
+## 2026-04-20 — Two migrations in the repo were never applied to prod; every `orders` query 500ed
+
+**Mistake:** Shipped code that depends on migrations `0026_order_occasions.sql` and `0027_order_feature_consent.sql`. `0026` was an untracked file on disk — committed to nobody's branch, applied to nobody's DB. `0027` was committed but the "apply to prod" step was never run. Result: production Neon was missing `orders.occasion`, `orders.occasion_context`, `orders.feature_consent`, `orders.feature_consent_at`, `orders.feature_ingested_at`. Drizzle's `db.select().from(orders)` auto-generates a SELECT of all schema columns — Postgres errored on every query, web route crashed before writing JSON, client saw `Failed to execute 'json' on 'Response': Unexpected end of JSON input`. The entire sample-submission funnel was broken in production. Was about to turn on paid ads.
+
+**Reality:** There is no migration tracking table on this project. `drizzle-kit db:push` is the intended path but fails in non-TTY. The ad-hoc `apply-migration-NNNN.mjs` scripts are one-offs and easy to forget. A migration file existing in the repo ≠ the migration being applied to prod. A migration file being UNTRACKED means it doesn't exist for CI, teammates, or Vercel — only for the local tree that made it.
+
+**Rule for future:**
+
+1. **When I create a new `.sql` migration file, the same turn must do all three:**
+   a. `git add` the file (never leave a migration untracked, ever)
+   b. Apply it to prod (via the `apply-migration-NNNN.mjs` pattern — Neon serverless, idempotent SQL)
+   c. Verify by querying `information_schema.columns` for the new columns
+
+2. **Before claiming any funnel is "ready for ads," run a live `curl` against the canonical production domain** for the critical POST endpoints and inspect the response body is valid JSON. A 200 OR a 400/422 with a JSON error body is fine; an empty body with any status code is broken.
+
+3. **When a production endpoint returns an empty body + non-2xx status, always check `information_schema.columns` on every table touched by that endpoint** against `packages/db/src/schema.ts`. The Drizzle-schema-vs-Postgres-columns diff is the single highest-leverage diagnostic for "Failed query: select...".
+
+4. **Do not trust that "committed migration" means "applied migration."** They are independent state. The presence of `packages/db/drizzle/NNNN.sql` in git says the code expects it; only an `information_schema` query says the DB has it.
+
+5. Adding a proper `_drizzle_migrations` tracking table + an idempotent `npm run migrate:apply:prod` is the real fix. Until that exists, the apply-script-per-migration + verify-columns ritual is mandatory.
+
+---
+
 ## How to use this file
 
 - Read at the start of any session touching paid ads, unit economics, or brand voice for this project
