@@ -138,6 +138,14 @@ export const creativeBriefInputSchema = z.object({
    * [source photo | coloring page] before applying text overlays.
    */
   sourcePhotoUrl: z.string().url().nullish(),
+  /**
+   * Pre-rendered hero image URL. When set, the orchestrator skips the
+   * Gemini render step entirely and uses this image as the base for
+   * the compositor. Used to recycle vetted coloring pages from the
+   * seed library or previously-consented customer samples — zero
+   * per-ad image-gen cost.
+   */
+  heroImageUrl: z.string().url().nullish(),
   // ─── Phase 7a: copy element IDs ────────────────────────────────────────────
   /**
    * When present, the orchestrator hydrates actual copy text from the DB using

@@ -14,6 +14,7 @@ import { readAttributionSnapshot } from "../../../lib/attribution-cookies";
 import { extractClientIp } from "../../../lib/request-ip";
 import { getSampleIpWindowStart, getSampleResumeUrl } from "../../../lib/sample-funnel";
 import { evaluateSampleLimit, getSampleLimitPolicy } from "../../../lib/sample-limits";
+import { updateOrderFeatureConsent } from "@littlecolorbook/db";
 
 const createSampleSchema = z.object({
   email: z.string().email(),
@@ -25,6 +26,12 @@ const createSampleSchema = z.object({
   utmCampaign: z.string().trim().optional(),
   utmContent: z.string().trim().optional(),
   utmTerm: z.string().trim().optional(),
+  /**
+   * Opt-in consent to feature the resulting source photo + coloring
+   * page in the creative library, ads, gallery, emails. False when
+   * omitted — consent is strictly opt-in.
+   */
+  featureConsent: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -157,6 +164,14 @@ export async function POST(request: NextRequest) {
     totalCents: 0,
     clientIp,
   });
+
+  if (parsed.data.featureConsent && result.order.id) {
+    try {
+      await updateOrderFeatureConsent(result.order.id, true);
+    } catch (error) {
+      console.error("samples: failed to record feature consent", error);
+    }
+  }
 
   return NextResponse.json({
     id: result.order.id,

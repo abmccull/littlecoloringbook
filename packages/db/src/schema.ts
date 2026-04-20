@@ -97,6 +97,8 @@ export const orders = pgTable(
     quantity: integer("quantity").default(1).notNull(),
     bundleSelection: text("bundle_selection"),
     coverStyle: text("cover_style").default("storybook").notNull(),
+    occasion: text("occasion"),
+    occasionContext: jsonb("occasion_context").$type<Record<string, unknown> | null>(),
     copyNames: jsonb("copy_names").$type<Array<string | null> | null>(),
     childFirstName: text("child_first_name"),
     dedicationText: text("dedication_text"),
@@ -108,11 +110,24 @@ export const orders = pgTable(
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     luluPrintJobId: text("lulu_print_job_id"),
     clientIp: text("client_ip"),
+    // Per-order marketing-reuse consent. When true, we can feature the
+    // source photo + coloring page pair in ads, gallery, emails.
+    // Captured at sample-submission time via a checkbox and again on
+    // the post-purchase consent form. Null = not answered (treat as no).
+    featureConsent: boolean("feature_consent"),
+    featureConsentAt: timestamp("feature_consent_at", { withTimezone: true }),
+    // Set when the ingest-consented-samples cron has copied this
+    // order's assets into the creative library. Prevents re-ingestion
+    // on subsequent cron runs.
+    featureIngestedAt: timestamp("feature_ingested_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     acquisitionPathIdx: index("orders_acquisition_path_idx").on(table.acquisitionPath),
+    featureConsentIdx: index("orders_feature_consent_idx")
+      .on(table.featureConsent)
+      .where(sql`${table.featureConsent} = true AND ${table.featureIngestedAt} IS NULL`),
     customerIdx: index("orders_customer_idx").on(table.customerId),
     visitorIdx: index("orders_visitor_idx").on(table.visitorId),
     statusIdx: index("orders_status_idx").on(table.status),

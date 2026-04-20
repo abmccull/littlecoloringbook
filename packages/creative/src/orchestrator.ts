@@ -139,33 +139,46 @@ async function produceStaticImage(
   report: ComplianceReport,
   opts: ProduceCreativeOptions,
 ): Promise<ProduceResult> {
-  if (!opts.sourceImagePath) {
-    throw new Error(
-      "opts.sourceImagePath is required for static_image in MVP. Provide a source photo path.",
-    );
+  // Seed-library or recycled-sample bypass: if the brief supplies a
+  // pre-rendered hero image URL, skip the Gemini render entirely and
+  // use that image as the base. Enables zero-image-gen-cost ad
+  // generation from existing vetted pairs.
+  let rendered: { buffer: Buffer };
+  if (brief.heroImageUrl) {
+    const res = await fetch(brief.heroImageUrl);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch heroImageUrl (${res.status}): ${brief.heroImageUrl}`);
+    }
+    rendered = { buffer: Buffer.from(await res.arrayBuffer()) };
+  } else {
+    if (!opts.sourceImagePath) {
+      throw new Error(
+        "opts.sourceImagePath is required for static_image when heroImageUrl is not provided.",
+      );
+    }
+
+    // a. Read source image from disk
+    const sourceBuffer = readFileSync(opts.sourceImagePath);
+    const sourceMimeType = opts.sourceImagePath.toLowerCase().endsWith(".png")
+      ? "image/png"
+      : "image/jpeg";
+
+    // b. Build prompt via pipeline helper; visual_prompt serves as sourceLabel
+    const prompt = buildColoringPrompt({
+      attempt: 0,
+      deliveryMode: "sample" as DeliveryMode,
+      jobKind: "sample",
+      pageNumber: 1,
+      sourceLabel: brief.visualPrompt,
+    });
+
+    // c. Render via Gemini — produces the hero illustration
+    rendered = await renderColoringPageImage({
+      sourceImageBuffer: sourceBuffer,
+      mimeType: sourceMimeType,
+      prompt,
+    });
   }
-
-  // a. Read source image from disk
-  const sourceBuffer = readFileSync(opts.sourceImagePath);
-  const sourceMimeType = opts.sourceImagePath.toLowerCase().endsWith(".png")
-    ? "image/png"
-    : "image/jpeg";
-
-  // b. Build prompt via pipeline helper; visual_prompt serves as sourceLabel
-  const prompt = buildColoringPrompt({
-    attempt: 0,
-    deliveryMode: "sample" as DeliveryMode,
-    jobKind: "sample",
-    pageNumber: 1,
-    sourceLabel: brief.visualPrompt,
-  });
-
-  // c. Render via Gemini — produces the hero illustration
-  const rendered = await renderColoringPageImage({
-    sourceImageBuffer: sourceBuffer,
-    mimeType: sourceMimeType,
-    prompt,
-  });
 
   // d. Optional Canva autofill overlay (explicit opt-in via canvaTemplateId)
   const { heroBuffer: canvaHero, canvaMeta } = await maybeRunCanvaAutofill(rendered.buffer, brief, opts);

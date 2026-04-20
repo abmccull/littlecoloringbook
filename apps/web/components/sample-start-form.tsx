@@ -31,6 +31,7 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [childFirstName, setChildFirstName] = useState("");
+  const [featureConsent, setFeatureConsent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -48,6 +49,7 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
         body: JSON.stringify({
           email,
           childFirstName: childFirstName.trim() || undefined,
+          featureConsent,
           ...acquisition,
         }),
       });
@@ -153,6 +155,18 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
           household/network in 30 days.
         </p>
       </div>
+
+      <label className="sample-start-consent">
+        <input
+          type="checkbox"
+          checked={featureConsent}
+          onChange={(event) => setFeatureConsent(event.target.checked)}
+        />
+        <span className="muted">
+          It's okay to feature my coloring page in your gallery and social posts. Totally optional —
+          uncheck if you'd rather we keep it private.
+        </span>
+      </label>
 
       {errorMessage ? <div className="status-banner status-banner-warning">{errorMessage}</div> : null}
 

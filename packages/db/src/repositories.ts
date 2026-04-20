@@ -7,6 +7,7 @@ import {
   normalizeCopyNames,
   normalizeCoverStyle,
   normalizePrintBundleCode,
+  type RenderFallback,
 } from "@littlecolorbook/shared";
 import { getDatabase, isDatabaseConfigured } from "./client";
 import {
@@ -136,6 +137,8 @@ export type CreateOrderInput = {
   quantity?: number;
   bundleSelection?: string | null;
   coverStyle?: string | null;
+  occasion?: string | null;
+  occasionContext?: Record<string, unknown> | null;
   copyNames?: Array<string | null> | null;
   childFirstName?: string | null;
   dedicationText?: string | null;
@@ -207,6 +210,8 @@ export type PortalSummary = {
     quantity: number;
     bundleSelection: string | null;
     coverStyle: string;
+    occasion: string | null;
+    occasionContext: Record<string, unknown> | null;
     copyNames: Array<string | null> | null;
     childFirstName: string | null;
     dedicationText: string | null;
@@ -479,6 +484,8 @@ export async function createOrderDraft(input: CreateOrderInput) {
     quantity: initialCommerce.quantity,
     bundleSelection: initialCommerce.bundleSelection,
     coverStyle: normalizeCoverStyle(input.coverStyle),
+    occasion: normalizeTrackingValue(input.occasion),
+    occasionContext: input.occasionContext ?? null,
     copyNames: normalizeCopyNames(input.copyNames, initialCommerce.quantity),
     childFirstName: input.childFirstName ?? null,
     dedicationText: input.dedicationText ?? null,
@@ -541,6 +548,8 @@ export async function createOrderDraft(input: CreateOrderInput) {
       quantity: order.quantity,
       bundleSelection: order.bundleSelection,
       coverStyle: order.coverStyle,
+      occasion: order.occasion,
+      occasionContext: order.occasionContext,
       copyNames: order.copyNames,
     },
     createdAt: now(),
@@ -734,6 +743,110 @@ export async function updateOrderClientIp(orderId: string, clientIp: string) {
   if (!isDatabaseConfigured()) return;
   const db = getDatabase();
   await db.update(orders).set({ clientIp, updatedAt: now() }).where(eq(orders.id, orderId));
+}
+
+/**
+ * Record per-order consent to feature the source photo + generated
+ * coloring page in the creative library / ads / gallery. Captured on
+ * sample submission (checkbox) and re-confirmable via the post-
+ * purchase consent form. Setting true timestamps the consent; setting
+ * false clears the timestamp so the ingestion cron can't pick the
+ * order back up once revoked.
+ */
+export async function updateOrderFeatureConsent(orderId: string, consent: boolean) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(orders)
+    .set({
+      featureConsent: consent,
+      featureConsentAt: consent ? now() : null,
+      updatedAt: now(),
+    })
+    .where(eq(orders.id, orderId));
+}
+
+/**
+ * Mark an order as ingested into the creative library so the
+ * ingest-consented-samples cron doesn't pick it up again.
+ */
+export async function markOrderFeatureIngested(orderId: string) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(orders)
+    .set({ featureIngestedAt: now(), updatedAt: now() })
+    .where(eq(orders.id, orderId));
+}
+
+/**
+ * Return consented sample orders ready for ingestion into the
+ * creative library. "Ready" = feature_consent=true AND feature_
+ * ingested_at IS NULL AND status is a terminal sample state.
+ * Joined with the first upload (source photo) and the latest
+ * generated-page asset (coloring page) so the caller can copy
+ * both into the creative library in one pass.
+ */
+export async function listConsentedSamplesForIngestion(input: { limit?: number } = {}): Promise<Array<{
+  orderId: string;
+  customerEmail: string | null;
+  childFirstName: string | null;
+  sourceObjectPath: string | null;
+  coloringObjectPath: string | null;
+}>> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const limit = input.limit ?? 100;
+  const rows = await db.execute(sql<{
+    order_id: string;
+    customer_email: string | null;
+    child_first_name: string | null;
+    source_object_path: string | null;
+    coloring_object_path: string | null;
+  }>`
+    SELECT
+      o.id AS order_id,
+      c.email AS customer_email,
+      o.child_first_name AS child_first_name,
+      up.object_path AS source_object_path,
+      ga.object_path AS coloring_object_path
+    FROM orders o
+    LEFT JOIN customers c ON c.id = o.customer_id
+    LEFT JOIN LATERAL (
+      SELECT object_path
+      FROM uploads
+      WHERE order_id = o.id
+      ORDER BY created_at ASC
+      LIMIT 1
+    ) up ON true
+    LEFT JOIN LATERAL (
+      SELECT object_path
+      FROM assets
+      WHERE order_id = o.id
+        AND kind IN ('generated_page', 'preview')
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) ga ON true
+    WHERE o.order_type = 'sample'
+      AND o.feature_consent = true
+      AND o.feature_ingested_at IS NULL
+      AND o.status IN ('pdf_ready', 'delivered')
+    ORDER BY o.created_at ASC
+    LIMIT ${limit}
+  `);
+  return (rows as unknown as Array<{
+    order_id: string;
+    customer_email: string | null;
+    child_first_name: string | null;
+    source_object_path: string | null;
+    coloring_object_path: string | null;
+  }>).map((row) => ({
+    orderId: row.order_id,
+    customerEmail: row.customer_email,
+    childFirstName: row.child_first_name,
+    sourceObjectPath: row.source_object_path,
+    coloringObjectPath: row.coloring_object_path,
+  }));
 }
 
 export async function updateOrderCommerceSelection(input: {
@@ -1380,11 +1493,9 @@ export async function createGenerationJobRecord(input: {
   targetPages: number;
   provider?: string | null;
   model?: string | null;
-  fallbackProvider?: string | null;
-  fallbackModel?: string | null;
   promptVersion?: string | null;
   cleanupVersion?: string | null;
-}) {
+} & RenderFallback) {
   const record = {
     id: createId("gen"),
     orderId: input.orderId,
@@ -1842,6 +1953,8 @@ function buildDemoPortalSummary(portalKey: string): PortalSummary {
       quantity: 1,
       bundleSelection: null,
       coverStyle: "storybook",
+      occasion: "everyday",
+      occasionContext: { childName: "Mila" },
       copyNames: null,
       childFirstName: "Mila",
       dedicationText: "Made for rainy afternoons.",
@@ -1972,6 +2085,8 @@ async function buildPortalSummaryFromOrder(order: typeof orders.$inferSelect, po
       quantity: order.quantity,
       bundleSelection: order.bundleSelection,
       coverStyle: order.coverStyle,
+      occasion: order.occasion,
+      occasionContext: order.occasionContext,
       copyNames: order.copyNames,
       childFirstName: order.childFirstName,
       dedicationText: order.dedicationText,

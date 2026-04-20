@@ -65,6 +65,10 @@
     {
       "path": "/api/cron/fulfill-creative-requests",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/ingest-consented-samples",
+      "schedule": "30 4 * * *"
     }
   ]
 }
