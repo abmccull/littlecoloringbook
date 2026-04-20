@@ -38,6 +38,19 @@ export const fulfillmentStatusValues = ["draft", "submitted", "in_production", "
 export const emailEventStatusValues = ["queued", "sent", "failed", "skipped"] as const;
 export const supportActionTypeValues = ["rerender_page", "replace_page", "resubmit_lulu", "mark_support_required", "send_email"] as const;
 
+export const processingJobKindValues = [
+  "process-sample",
+  "process-paid-order",
+  "submit-lulu",
+  "sync-lulu-status",
+  "process-capi-event",
+] as const;
+export const processingJobStatusValues = ["pending", "claimed", "completed", "failed"] as const;
+export const processingJobKindEnum = pgEnum("processing_job_kind", processingJobKindValues);
+export const processingJobStatusEnum = pgEnum("processing_job_status", processingJobStatusValues);
+export type ProcessingJobKind = (typeof processingJobKindValues)[number];
+export type ProcessingJobStatus = (typeof processingJobStatusValues)[number];
+
 export const orderTypeEnum = pgEnum("order_type", orderTypeValues);
 export const deliveryModeEnum = pgEnum("delivery_mode", deliveryModeValues);
 export const orderStatusEnum = pgEnum("order_status", orderStatusValues);
@@ -1576,4 +1589,56 @@ export type BriefElementIds = {
   visual_style_id?: string;
   /** Set by mix-match endpoint for attribution tracing */
   mix_match_parent_brief_id?: string;
+};
+
+// ─── Postgres-backed processing queue (replaces BullMQ) ─────────────────────
+
+export const processingJobs = pgTable(
+  "processing_jobs",
+  {
+    id: text("id").primaryKey(),
+    kind: processingJobKindEnum("kind").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: processingJobStatusEnum("status").default("pending").notNull(),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    maxAttempts: integer("max_attempts").default(3).notNull(),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).defaultNow().notNull(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    claimedBy: text("claimed_by"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    // Optional idempotency key — unique when set. Lets callers enqueue
+    // deterministically without worrying about duplicates (retries,
+    // webhooks that replay, etc.).
+    jobKey: text("job_key"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    jobKeyIdx: uniqueIndex("processing_jobs_job_key_idx")
+      .on(table.jobKey)
+      .where(sql`${table.jobKey} IS NOT NULL`),
+    pickupIdx: index("processing_jobs_pickup_idx")
+      .on(table.kind, table.scheduledAt)
+      .where(sql`${table.status} = 'pending'`),
+    claimedAtIdx: index("processing_jobs_claimed_at_idx")
+      .on(table.claimedAt)
+      .where(sql`${table.status} = 'claimed'`),
+  }),
+);
+
+export type ProcessingJob = typeof processingJobs.$inferSelect;
+export type NewProcessingJob = typeof processingJobs.$inferInsert;
+
+/**
+ * Per-kind payload shapes. Mirror the ones BullMQ used to carry so
+ * handlers can keep their current signatures during the cutover.
+ */
+export type ProcessingJobPayloadMap = {
+  "process-sample": { orderId: string };
+  "process-paid-order": { orderId: string };
+  "submit-lulu": { orderId: string; providerJobId?: string };
+  "sync-lulu-status": { orderId: string; providerJobId?: string };
+  "process-capi-event": { capiEventId: string };
 };

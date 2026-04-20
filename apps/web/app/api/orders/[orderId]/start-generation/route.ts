@@ -71,7 +71,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
   }
 
   let jobQueued = false;
-  let dispatchMode: "queue" | "direct" | null = null;
+  let dispatchMode: "queue" | "direct" | "postgres" | null = null;
 
   try {
     const queued = await enqueueInternalJob({
@@ -89,7 +89,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     );
   }
 
-  if (jobQueued && dispatchMode === "queue") {
+  // Flip into preprocessing for any async dispatch path (queue or
+  // postgres). The synchronous direct path manages its own state
+  // transitions inside the dispatched job.
+  const asyncDispatch = dispatchMode === "queue" || dispatchMode === "postgres";
+  if (jobQueued && asyncDispatch) {
     await setOrderStatus(orderId, "preprocessing", "order.generation_started", {
       uploadedCount,
       triggeredBy: "setup_page",

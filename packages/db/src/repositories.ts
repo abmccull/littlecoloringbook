@@ -22,6 +22,7 @@ import {
   orderEvents,
   orders,
   portalTokens,
+  processingJobs,
   refunds,
   refundPolicyTierValues,
   refundReasonValues,
@@ -93,6 +94,9 @@ import type {
   CreativeAssetTagsJson,
   NewCreativeBrief,
   NewCreativeAsset,
+  ProcessingJob,
+  ProcessingJobKind,
+  ProcessingJobPayloadMap,
   DmPlatform,
   DmThreadStatus,
   DmMessageDirection,
@@ -7000,4 +7004,220 @@ export async function listTopPerformingTagCombos(input: {
     avgCpaCents: row["avg_cpa_cents"] != null ? Number(row["avg_cpa_cents"]) : null,
     avgHookRate: row["avg_hook_rate"] != null ? Number(row["avg_hook_rate"]) : null,
   }));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Processing-jobs queue — Postgres-backed replacement for BullMQ
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Default backoff schedule for failed jobs — doubles with each
+ * attempt (roughly mirrors the BullMQ default). Returns seconds.
+ */
+function defaultBackoffSeconds(attempt: number): number {
+  const base = 30;
+  const max = 15 * 60; // cap at 15 min
+  return Math.min(base * Math.pow(2, attempt - 1), max);
+}
+
+/**
+ * Enqueue a processing job. Writes a row with status='pending' at the
+ * given scheduledAt (default: now). If jobKey is provided, the unique
+ * index prevents duplicate enqueues of the same logical job — a second
+ * INSERT with the same jobKey returns the existing row instead of
+ * throwing (ON CONFLICT DO NOTHING + SELECT).
+ */
+export async function enqueueProcessingJob<TKind extends ProcessingJobKind>(input: {
+  kind: TKind;
+  payload: ProcessingJobPayloadMap[TKind];
+  jobKey?: string;
+  scheduledAt?: Date;
+  maxAttempts?: number;
+}): Promise<{ id: string; created: boolean } | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const id = createId("job");
+  const rows = await db
+    .insert(processingJobs)
+    .values({
+      id,
+      kind: input.kind,
+      payload: input.payload as Record<string, unknown>,
+      scheduledAt: input.scheduledAt ?? now(),
+      maxAttempts: input.maxAttempts ?? 3,
+      jobKey: input.jobKey ?? null,
+    })
+    .onConflictDoNothing({ target: processingJobs.jobKey })
+    .returning({ id: processingJobs.id });
+
+  if (rows[0]) return { id: rows[0].id, created: true };
+
+  // Conflict — fetch the existing row so caller gets its id back
+  if (input.jobKey) {
+    const existing = await db
+      .select({ id: processingJobs.id })
+      .from(processingJobs)
+      .where(eq(processingJobs.jobKey, input.jobKey))
+      .limit(1);
+    if (existing[0]) return { id: existing[0].id, created: false };
+  }
+  return null;
+}
+
+/**
+ * Claim up to `limit` pending jobs of the given kind. Uses FOR UPDATE
+ * SKIP LOCKED so multiple workers can poll concurrently without
+ * stepping on each other. Sets status='claimed' + claimed_at + claimed_by.
+ * Returns the full job rows so the caller can dispatch them.
+ */
+export async function claimNextProcessingJobs<TKind extends ProcessingJobKind>(input: {
+  kind: TKind;
+  limit: number;
+  claimedBy: string;
+}): Promise<ProcessingJob[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db.execute(sql<ProcessingJob>`
+    UPDATE processing_jobs
+    SET
+      status = 'claimed',
+      claimed_at = now(),
+      claimed_by = ${input.claimedBy},
+      updated_at = now()
+    WHERE id IN (
+      SELECT id
+      FROM processing_jobs
+      WHERE kind = ${input.kind}
+        AND status = 'pending'
+        AND scheduled_at <= now()
+      ORDER BY scheduled_at ASC
+      LIMIT ${input.limit}
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING *
+  `);
+  return rows as unknown as ProcessingJob[];
+}
+
+/** Mark a job completed. Terminal state — no retries after this. */
+export async function completeProcessingJob(jobId: string): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db
+    .update(processingJobs)
+    .set({
+      status: "completed",
+      completedAt: now(),
+      updatedAt: now(),
+    })
+    .where(eq(processingJobs.id, jobId));
+}
+
+/**
+ * Record a job failure. If attempt_count < max_attempts, the job is
+ * reset to status='pending' with scheduled_at pushed forward by
+ * exponential backoff. Otherwise it lands in status='failed' and
+ * won't retry.
+ */
+export async function failProcessingJob(input: {
+  jobId: string;
+  error: string;
+  retryDelaySeconds?: number;
+}): Promise<{ willRetry: boolean; nextAttempt: number } | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+
+  const [existing] = await db
+    .select({
+      attemptCount: processingJobs.attemptCount,
+      maxAttempts: processingJobs.maxAttempts,
+    })
+    .from(processingJobs)
+    .where(eq(processingJobs.id, input.jobId))
+    .limit(1);
+  if (!existing) return null;
+
+  const nextAttempt = existing.attemptCount + 1;
+  const willRetry = nextAttempt < existing.maxAttempts;
+
+  if (willRetry) {
+    const backoffSec = input.retryDelaySeconds ?? defaultBackoffSeconds(nextAttempt);
+    const nextRunAt = new Date(Date.now() + backoffSec * 1000);
+    await db
+      .update(processingJobs)
+      .set({
+        status: "pending",
+        attemptCount: nextAttempt,
+        lastError: input.error.slice(0, 4000),
+        scheduledAt: nextRunAt,
+        claimedAt: null,
+        claimedBy: null,
+        updatedAt: now(),
+      })
+      .where(eq(processingJobs.id, input.jobId));
+  } else {
+    await db
+      .update(processingJobs)
+      .set({
+        status: "failed",
+        attemptCount: nextAttempt,
+        lastError: input.error.slice(0, 4000),
+        failedAt: now(),
+        updatedAt: now(),
+      })
+      .where(eq(processingJobs.id, input.jobId));
+  }
+
+  return { willRetry, nextAttempt };
+}
+
+/**
+ * Reset jobs stuck in 'claimed' beyond the timeout back to 'pending'
+ * so another worker can pick them up. Called by the worker on each
+ * poll cycle — cheap self-healing for crashed workers.
+ */
+export async function resetStuckClaimedJobs(input: {
+  timeoutSeconds: number;
+}): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
+  const db = getDatabase();
+  const result = await db.execute(sql`
+    UPDATE processing_jobs
+    SET
+      status = 'pending',
+      claimed_at = null,
+      claimed_by = null,
+      last_error = COALESCE(last_error, '') || ' [reset-stuck]',
+      updated_at = now()
+    WHERE status = 'claimed'
+      AND claimed_at < (now() - (${input.timeoutSeconds} || ' seconds')::interval)
+  `);
+  return typeof result === "object" && result !== null && "rowCount" in result ? Number((result as { rowCount: number }).rowCount) : 0;
+}
+
+/** Observability — counts by kind + status, used by admin metrics. */
+export async function getProcessingJobCounts(): Promise<Array<{
+  kind: ProcessingJobKind;
+  status: "pending" | "claimed" | "completed" | "failed";
+  count: number;
+}>> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db.execute(sql<{
+    kind: ProcessingJobKind;
+    status: "pending" | "claimed" | "completed" | "failed";
+    count: number;
+  }>`
+    SELECT kind, status, COUNT(*)::int AS count
+    FROM processing_jobs
+    WHERE status IN ('pending', 'claimed', 'failed')
+       OR completed_at > now() - interval '24 hours'
+    GROUP BY kind, status
+    ORDER BY kind, status
+  `);
+  return rows as unknown as Array<{
+    kind: ProcessingJobKind;
+    status: "pending" | "claimed" | "completed" | "failed";
+    count: number;
+  }>;
 }

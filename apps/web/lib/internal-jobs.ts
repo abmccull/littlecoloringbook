@@ -2,6 +2,8 @@ import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
 import { enqueueInternalJob as enqueueQueuedInternalJob, isQueueConfigured, type InternalJobName, type InternalJobPayloadMap } from "@littlecolorbook/queue";
+import { enqueueProcessingJob, isDatabaseConfigured } from "@littlecolorbook/db";
+import type { ProcessingJobKind, ProcessingJobPayloadMap } from "@littlecolorbook/db";
 
 export function getInternalJobSecret() {
   return process.env.CRON_SECRET ?? process.env.INTERNAL_JOB_SECRET ?? null;
@@ -101,7 +103,60 @@ export async function dispatchInternalJob<TResponse>(input: {
   return payload as TResponse;
 }
 
+/**
+ * Enqueue an internal job. Postgres is the source of truth —
+ * enqueueProcessingJob writes a row that the dedicated Postgres
+ * polling worker will pick up within ~2s.
+ *
+ * Legacy paths (BullMQ + synchronous HTTP dispatch) remain gated
+ * behind env flags so we have a quick escape hatch during cutover:
+ *
+ *   FORCE_LEGACY_BULLMQ=true   → skip Postgres, use the BullMQ path
+ *                                 (with HTTP fallback on enqueue error)
+ *
+ * Default (both flags unset): Postgres only. BullMQ is ignored.
+ */
 export async function enqueueInternalJob<TName extends InternalJobName>(input: {
+  job: TName;
+  payload: InternalJobPayloadMap[TName];
+  /** Optional deduplication key. Writes the same job_key column used by the Postgres worker. */
+  jobKey?: string;
+  /** @deprecated — retained for signature compatibility during the cutover. Ignored on the Postgres path. */
+  fallbackToDirectOnQueueError?: boolean;
+}) {
+  // Legacy escape hatch — flip this if the Postgres worker is down
+  // and we need to re-enable BullMQ as a temporary fallback.
+  if (process.env.FORCE_LEGACY_BULLMQ === "true") {
+    return enqueueViaLegacyBullMQ(input);
+  }
+
+  // Default path — Postgres-backed queue. The worker polls this table
+  // every ~2s and dispatches to the same internal-job handlers the
+  // BullMQ worker used to call.
+  if (!isDatabaseConfigured()) {
+    throw new Error("DATABASE_URL must be configured to enqueue internal jobs (Postgres-backed queue).");
+  }
+
+  const enqueued = await enqueueProcessingJob({
+    kind: input.job as ProcessingJobKind,
+    payload: input.payload as ProcessingJobPayloadMap[ProcessingJobKind],
+    jobKey: input.jobKey,
+  });
+
+  if (!enqueued) {
+    throw new Error(`Failed to enqueue processing job (${input.job}).`);
+  }
+
+  return {
+    accepted: true,
+    jobId: enqueued.id,
+    mode: "postgres" as const,
+    queueName: "processing_jobs" as const,
+    created: enqueued.created,
+  };
+}
+
+async function enqueueViaLegacyBullMQ<TName extends InternalJobName>(input: {
   job: TName;
   payload: InternalJobPayloadMap[TName];
   fallbackToDirectOnQueueError?: boolean;
@@ -109,7 +164,6 @@ export async function enqueueInternalJob<TName extends InternalJobName>(input: {
   if (isQueueConfigured()) {
     try {
       const queuedJob = await enqueueQueuedInternalJob(input.job, input.payload);
-
       return {
         accepted: true,
         jobId: queuedJob.id ?? null,
@@ -117,11 +171,8 @@ export async function enqueueInternalJob<TName extends InternalJobName>(input: {
         queueName: queuedJob.queueName,
       };
     } catch (error) {
-      if (!input.fallbackToDirectOnQueueError) {
-        throw error;
-      }
-
-      console.warn(`[internal-jobs] queue enqueue failed for ${input.job}, falling back to direct dispatch`, error);
+      if (!input.fallbackToDirectOnQueueError) throw error;
+      console.warn(`[internal-jobs] legacy queue enqueue failed for ${input.job}, falling back to direct dispatch`, error);
     }
   }
 

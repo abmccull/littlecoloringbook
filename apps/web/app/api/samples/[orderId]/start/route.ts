@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
   }
 
   let jobQueued = false;
-  let dispatchMode: "queue" | "direct" | null = null;
+  let dispatchMode: "queue" | "direct" | "postgres" | null = null;
 
   try {
     const queued = await enqueueInternalJob({
@@ -62,7 +62,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     return NextResponse.json({ error: "We could not start the sample. Please try again." }, { status: 500 });
   }
 
-  if (jobQueued && dispatchMode === "queue") {
+  // For async paths (queue, postgres) the worker runs the job after we
+  // return — flip the order into preprocessing so the portal shows the
+  // correct state immediately. For the synchronous direct path, the
+  // dispatched job has already transitioned state itself.
+  const asyncDispatch = dispatchMode === "queue" || dispatchMode === "postgres";
+  if (jobQueued && asyncDispatch) {
     await setOrderStatus(orderId, "preprocessing", "generation.sample_requested", {
       uploadCount: selectedUploads.length,
       requestedUploadIds: Array.from(requestedUploadIds),
@@ -73,7 +78,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     accepted: jobQueued,
     jobQueued,
     orderId,
-    status: dispatchMode === "queue" ? "preprocessing" : order.status,
+    status: asyncDispatch ? "preprocessing" : order.status,
     uploadCount: selectedUploads.length,
     mode: dispatchMode,
   });

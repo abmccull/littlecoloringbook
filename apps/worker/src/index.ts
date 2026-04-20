@@ -8,6 +8,19 @@ import {
   runProcessCapiEventJob,
 } from "@littlecolorbook/jobs";
 import type { Worker } from "bullmq";
+import { startPostgresWorker } from "./postgres-worker";
+
+/**
+ * Default queue backend is Postgres (processing_jobs table). BullMQ
+ * path runs alongside only when LEGACY_BULLMQ_WORKER=true, used as a
+ * rollback valve during the migration.
+ *
+ * With the default config:
+ *   - Vercel enqueues by INSERTing a row into processing_jobs
+ *   - The Postgres worker below polls every 2s and runs handlers
+ *   - BullMQ and Redis are untouched
+ */
+const LEGACY_BULLMQ_ENABLED = process.env.LEGACY_BULLMQ_WORKER === "true";
 
 const JOBS: ReadonlyArray<InternalJobName> = [
   "process-sample",
@@ -25,12 +38,18 @@ const processors: ProcessorMap = {
   "process-capi-event": (data) => runProcessCapiEventJob(data as Parameters<typeof runProcessCapiEventJob>[0]),
 };
 
-const workers: Worker[] = [];
+const bullmqWorkers: Worker[] = [];
+let stopPostgresWorker: (() => Promise<void>) | null = null;
 
 async function shutdown(reason: string) {
   console.log(`[worker] shutting down: ${reason}`);
-  await Promise.allSettled(workers.map((w) => w.close()));
-  await closeInternalQueueConnections();
+  if (stopPostgresWorker) {
+    try { await stopPostgresWorker(); } catch (err) { console.error("[worker] pg-worker stop error", err); }
+  }
+  await Promise.allSettled(bullmqWorkers.map((w) => w.close()));
+  if (LEGACY_BULLMQ_ENABLED) {
+    await closeInternalQueueConnections();
+  }
   process.exit(0);
 }
 
@@ -40,47 +59,59 @@ async function main() {
     defaultOffer,
     integrations: getIntegrationStatus(),
     jobs: JOBS,
+    queueBackend: LEGACY_BULLMQ_ENABLED ? "postgres + bullmq (dual)" : "postgres",
   });
 
-  if (!isQueueConfigured()) {
-    console.error("[worker] REDIS_URL / RAILWAY_REDIS_URL is not set. Worker cannot start.");
+  // ── Postgres worker (default path) ─────────────────────────────────
+  try {
+    stopPostgresWorker = await startPostgresWorker();
+    console.log("[worker] Postgres worker started");
+  } catch (err) {
+    console.error("[worker] Postgres worker failed to start", err);
     process.exit(1);
   }
 
-  for (const jobName of JOBS) {
-    const processor = processors[jobName];
-    if (!processor) {
-      console.log(`[worker] no processor for ${jobName} yet — skipping (queue will still accept jobs)`);
-      continue;
-    }
-
-    const worker = createInternalJobWorker(
-      jobName,
-      async (job) => {
-        const started = Date.now();
-        try {
-          const result = await processor(job.data);
-          console.log(`[worker] ${jobName} ok`, { jobId: job.id, ms: Date.now() - started });
-          return result;
-        } catch (err) {
-          console.error(`[worker] ${jobName} failed`, { jobId: job.id, ms: Date.now() - started, err: String(err) });
-          throw err;
+  // ── BullMQ workers (optional legacy fallback) ──────────────────────
+  if (LEGACY_BULLMQ_ENABLED) {
+    if (!isQueueConfigured()) {
+      console.warn("[worker] LEGACY_BULLMQ_WORKER=true but REDIS_URL is not set — skipping BullMQ workers");
+    } else {
+      for (const jobName of JOBS) {
+        const processor = processors[jobName];
+        if (!processor) {
+          console.log(`[worker] no BullMQ processor for ${jobName} yet — skipping`);
+          continue;
         }
-      },
-    );
 
-    worker.on("failed", (job, err) => {
-      console.error(`[worker] ${jobName} final failure`, { jobId: job?.id, err: String(err) });
-    });
+        const worker = createInternalJobWorker(
+          jobName,
+          async (job) => {
+            const started = Date.now();
+            try {
+              const result = await processor(job.data);
+              console.log(`[worker] bullmq ${jobName} ok`, { jobId: job.id, ms: Date.now() - started });
+              return result;
+            } catch (err) {
+              console.error(`[worker] bullmq ${jobName} failed`, { jobId: job.id, ms: Date.now() - started, err: String(err) });
+              throw err;
+            }
+          },
+        );
 
-    workers.push(worker);
-    console.log(`[worker] ${jobName} listening`);
+        worker.on("failed", (job, err) => {
+          console.error(`[worker] bullmq ${jobName} final failure`, { jobId: job?.id, err: String(err) });
+        });
+
+        bullmqWorkers.push(worker);
+        console.log(`[worker] bullmq ${jobName} listening`);
+      }
+    }
   }
 
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));
 
-  console.log(`[worker] ready — ${workers.length} processors listening`);
+  console.log(`[worker] ready — postgres: on, bullmq: ${LEGACY_BULLMQ_ENABLED ? "on" : "off"}`);
 }
 
 main().catch((err) => {
