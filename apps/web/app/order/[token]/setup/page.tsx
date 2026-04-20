@@ -4,6 +4,7 @@ import { getOrderPortalSummary } from "@littlecolorbook/db";
 import { getOfferByCode } from "@littlecolorbook/shared";
 import { BrandLogo } from "../../../../components/brand-logo";
 import { TrackPageEvent } from "../../../../components/track-page-event";
+import { TrackPurchase } from "../../../../components/track-purchase";
 import { OrderSetupForm } from "../../../../components/order-setup-form";
 
 type SetupPageProps = {
@@ -74,6 +75,12 @@ export default async function OrderSetupPage({ params }: SetupPageProps) {
           selectedOffer: summary.order.selectedOfferCode,
           uploadCount: summary.uploads.length,
         }}
+      />
+      <TrackPurchase
+        orderId={summary.order.id}
+        valueCents={summary.order.totalCents}
+        currency={"USD"}
+        offerCode={summary.order.selectedOfferCode}
       />
       <OrderSetupForm
         orderId={summary.order.id}

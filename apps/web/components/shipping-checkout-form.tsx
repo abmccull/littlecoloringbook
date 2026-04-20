@@ -4,6 +4,7 @@ import Link from "next/link";
 import { defaultOffer, getOfferByCode } from "@littlecolorbook/shared";
 import { useMemo, useState } from "react";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
+import { readMetaClickIds } from "../lib/meta-click-ids";
 
 type ShippingCheckoutFormProps = {
   orderId?: string;
@@ -152,6 +153,7 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
           bundleSelection,
           shippingCents: selectedQuote.shippingCents,
           shippingLabel: selectedQuote.label,
+          ...readMetaClickIds(),
         }),
       });
 

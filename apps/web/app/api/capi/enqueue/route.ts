@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { insertCapiEvent, isDatabaseConfigured } from "@littlecolorbook/db";
-import { enqueueCapiEvent } from "@littlecolorbook/queue";
+import { insertCapiEvent, isDatabaseConfigured, updateCapiEventStatus } from "@littlecolorbook/db";
+import { sendCapiEvent } from "@littlecolorbook/meta";
+import { enqueueInternalJob } from "../../../../lib/internal-jobs";
 
 const userDataSchema = z.object({
   em: z.array(z.string()).optional(),
@@ -25,7 +26,9 @@ const userDataSchema = z.object({
 const enqueueCapiEventSchema = z.object({
   event_name: z.string().min(1),
   event_time: z.number().int().positive(),
-  event_id: z.string().uuid(),
+  // event_id accepts UUIDs (client-generated default) and deterministic
+  // keys like `purchase_${orderId}` used for pixel<->CAPI dedup.
+  event_id: z.string().min(1).max(128),
   action_source: z.string().min(1),
   event_source_url: z.string().optional(),
   user_data: userDataSchema,
@@ -93,7 +96,30 @@ export async function POST(request: NextRequest) {
 
   const userDataFingerprint = buildUserDataFingerprint(event.user_data);
 
-  if (isDatabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
+    try {
+      const result = await sendCapiEvent(payloadJson as Parameters<typeof sendCapiEvent>[0]);
+      return NextResponse.json(
+        {
+          accepted: true,
+          mode: "direct",
+          eventsReceived: result.events_received,
+          traceId: result.fbtrace_id,
+        },
+        { status: 202 },
+      );
+    } catch (error) {
+      return NextResponse.json(
+        {
+          accepted: false,
+          error: error instanceof Error ? error.message : "Failed to deliver CAPI event",
+        },
+        { status: 502 },
+      );
+    }
+  }
+
+  try {
     const row = await insertCapiEvent({
       id: `capi_${event.event_id.replace(/-/g, "")}`,
       eventId: event.event_id,
@@ -104,12 +130,43 @@ export async function POST(request: NextRequest) {
       payloadJson,
     });
 
-    if (row) {
-      enqueueCapiEvent(row.id).catch((err: unknown) => {
-        console.error("[capi/enqueue] failed to enqueue job", err);
-      });
+    if (!row) {
+      throw new Error("Failed to persist CAPI event before dispatch");
     }
-  }
 
-  return NextResponse.json({ accepted: true }, { status: 202 });
+    const dispatched = await enqueueInternalJob({
+      job: "process-capi-event",
+      payload: { capiEventId: row.id },
+      fallbackToDirectOnQueueError: true,
+    });
+
+    if (!dispatched.accepted) {
+      await updateCapiEventStatus(row.id, {
+        status: "failed",
+        errorMessage: "Failed to dispatch CAPI event for delivery",
+      });
+
+      return NextResponse.json(
+        { accepted: false, error: "Failed to dispatch CAPI event for delivery" },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        accepted: true,
+        mode: dispatched.mode,
+        jobId: dispatched.jobId,
+      },
+      { status: 202 },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        accepted: false,
+        error: error instanceof Error ? error.message : "Failed to enqueue CAPI event",
+      },
+      { status: 502 },
+    );
+  }
 }

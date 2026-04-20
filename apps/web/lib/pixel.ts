@@ -12,6 +12,44 @@ declare global {
 
 type TrackEventParams = Record<string, unknown>;
 
+type TrackEventOptions = {
+  /**
+   * Override the generated event_id. Pass a stable, deterministic value
+   * (e.g. `purchase_${orderId}`) when the same event might also be sent
+   * server-side via CAPI — Meta uses event_id to deduplicate between
+   * pixel and CAPI. Without a matching event_id, Meta double-counts.
+   */
+  eventId?: string;
+  /**
+   * Skip the client-side CAPI enqueue and only fire the browser pixel.
+   * Use for events where the server handles CAPI itself (e.g. Purchase
+   * via Stripe webhook). Prevents duplicate CAPI inserts on the same
+   * deterministic event_id.
+   */
+  skipCapiEnqueue?: boolean;
+};
+
+const standardPixelEvents = new Set([
+  "AddPaymentInfo",
+  "AddToCart",
+  "AddToWishlist",
+  "CompleteRegistration",
+  "Contact",
+  "CustomizeProduct",
+  "Donate",
+  "FindLocation",
+  "InitiateCheckout",
+  "Lead",
+  "PageView",
+  "Purchase",
+  "Schedule",
+  "Search",
+  "StartTrial",
+  "SubmitApplication",
+  "Subscribe",
+  "ViewContent",
+]);
+
 export function initPixel(): void {
   if (typeof window === "undefined") return;
 
@@ -57,14 +95,17 @@ export function initPixel(): void {
   window.fbq?.("init", pixelId);
 }
 
-export function trackEvent(name: string, params: TrackEventParams = {}): void {
+export function trackEvent(name: string, params: TrackEventParams = {}, options: TrackEventOptions = {}): void {
   if (typeof window === "undefined") return;
 
-  const eventId = crypto.randomUUID();
+  const eventId = options.eventId ?? crypto.randomUUID();
 
   if (window.fbq) {
-    window.fbq("track", name, params, { eventID: eventId });
+    const command = standardPixelEvents.has(name) ? "track" : "trackCustom";
+    window.fbq(command, name, params, { eventID: eventId });
   }
+
+  if (options.skipCapiEnqueue) return;
 
   const payload = {
     event_name: name,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { trackEvent } from "./analytics-provider";
+import { readMetaClickIds } from "../lib/meta-click-ids";
 
 type SampleOfferCheckoutButtonProps = {
   offerCode: string;
@@ -72,7 +73,7 @@ export function SampleOfferCheckoutButton({
       const checkoutResponse = await fetch(`/api/orders/${orderPayload.id}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(readMetaClickIds()),
       });
 
       const checkoutPayload = (await checkoutResponse.json()) as CheckoutResponse;

@@ -5,6 +5,7 @@ import { BrandLogo } from "../../../components/brand-logo";
 import { ConsentForm } from "../../../components/account/consent-form";
 import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
+import { TrackPurchase } from "../../../components/track-purchase";
 import { getCustomerSession } from "../../../lib/auth";
 
 function formatMoney(cents: number) {
@@ -43,6 +44,14 @@ export default async function OrderConfirmationPage({
           deliveryMode: summary?.order.deliveryMode ?? null,
         }}
       />
+      {hasConfirmedOrder && summary ? (
+        <TrackPurchase
+          orderId={summary.order.id}
+          valueCents={summary.order.totalCents}
+          currency={"USD"}
+          offerCode={summary.order.selectedOfferCode}
+        />
+      ) : null}
       <TrackBuyerJourneyStage
         stage="purchase_confirmed"
         enabled={hasConfirmedOrder}

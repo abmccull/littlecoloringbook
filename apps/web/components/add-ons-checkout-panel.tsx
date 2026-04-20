@@ -9,6 +9,7 @@ import {
   type PrintBundleCode,
 } from "@littlecolorbook/shared";
 import { trackEvent } from "./analytics-provider";
+import { readMetaClickIds } from "../lib/meta-click-ids";
 
 type AddOnsCheckoutPanelProps = {
   orderId: string;
@@ -177,6 +178,7 @@ export function AddOnsCheckoutPanel({ orderId, selectedOffer, uploadedCount, onC
           quantity,
           bundleSelection: resolvedBundleSelection,
           copyNames: resolvedCopyNames,
+          ...readMetaClickIds(),
         }),
       });
 

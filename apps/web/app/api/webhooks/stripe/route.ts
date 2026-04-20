@@ -25,6 +25,7 @@ import {
 import { reconcileStripeRefund } from "../../../../lib/refund-executor";
 import { captureServerEvent } from "../../../../lib/posthog-server";
 import { enqueuePurchaseCapiEvent } from "../../../../lib/capi-purchase";
+import { enqueueRefundCapiEvent } from "../../../../lib/capi-refund";
 
 function getPaymentIntentId(session: Stripe.Checkout.Session) {
   if (!session.payment_intent) {
@@ -123,12 +124,20 @@ async function handleCheckoutCompleted(event: Stripe.Event, session: Stripe.Chec
   }
 
   // Meta CAPI Purchase event. Best-effort: a failure here must never
-  // break Stripe order processing, since the critical work is already done.
+  // break Stripe order processing, since the critical work is already
+  // done. We pull fbc / fbp out of the Stripe session metadata (set by
+  // the client during checkout session creation) and clientIp from the
+  // order row (populated at checkout time from the request headers).
   try {
+    const metadata = session.metadata ?? {};
     await enqueuePurchaseCapiEvent({
       orderId,
       session,
       eventSourceUrl: process.env.APP_URL ? `${process.env.APP_URL}/thanks` : undefined,
+      fbc: typeof metadata.fbc === "string" && metadata.fbc ? metadata.fbc : null,
+      fbp: typeof metadata.fbp === "string" && metadata.fbp ? metadata.fbp : null,
+      clientIpAddress: orderRow?.clientIp ?? null,
+      clientUserAgent: null,
     });
   } catch (error) {
     console.error("stripe webhook: enqueuePurchaseCapiEvent failed", error);
@@ -265,12 +274,43 @@ export async function POST(request: NextRequest) {
       const refundObj = (event.type === "refund.updated"
         ? (event.data.object as Stripe.Refund)
         : null) ?? null;
+
+      type RefundNotice = {
+        id: string;
+        amount: number | null;
+        orderId: string | null;
+        status: string | null;
+      };
+      const processedRefunds: RefundNotice[] = [];
+
+      async function resolveOrderIdForRefund(r: Stripe.Refund): Promise<string | null> {
+        const meta = (r.metadata ?? {}) as Record<string, string>;
+        if (meta.orderId) return meta.orderId;
+        const paymentIntentId =
+          typeof r.payment_intent === "string" ? r.payment_intent : r.payment_intent?.id ?? null;
+        if (!paymentIntentId) return null;
+        try {
+          const stripe = getStripe();
+          const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+          const piMeta = (pi.metadata ?? {}) as Record<string, string>;
+          return piMeta.orderId ?? null;
+        } catch {
+          return null;
+        }
+      }
+
       if (refundObj) {
         await reconcileStripeRefund({
           stripeRefundId: refundObj.id,
           status: refundObj.status ?? null,
           amount: refundObj.amount ?? null,
           failureReason: refundObj.failure_reason ?? null,
+        });
+        processedRefunds.push({
+          id: refundObj.id,
+          amount: refundObj.amount ?? null,
+          orderId: await resolveOrderIdForRefund(refundObj),
+          status: refundObj.status ?? null,
         });
       } else if (event.type === "charge.refunded") {
         const charge = event.data.object as Stripe.Charge;
@@ -282,8 +322,35 @@ export async function POST(request: NextRequest) {
             amount: r.amount ?? null,
             failureReason: r.failure_reason ?? null,
           });
+          processedRefunds.push({
+            id: r.id,
+            amount: r.amount ?? null,
+            orderId: await resolveOrderIdForRefund(r),
+            status: r.status ?? null,
+          });
         }
       }
+
+      // Meta CAPI refund reversal. Best-effort — a failure must not
+      // block Stripe refund reconciliation. Only fire for successfully
+      // completed refunds; skip pending / failed ones.
+      for (const r of processedRefunds) {
+        if (!r.orderId) continue;
+        if (r.status && r.status !== "succeeded") continue;
+        if (!r.amount || r.amount <= 0) continue;
+        try {
+          await enqueueRefundCapiEvent({
+            orderId: r.orderId,
+            refundId: r.id,
+            refundAmountCents: r.amount,
+            currency: "USD",
+            eventSourceUrl: process.env.APP_URL ? `${process.env.APP_URL}/thanks` : undefined,
+          });
+        } catch (error) {
+          console.error("stripe webhook: enqueueRefundCapiEvent failed", error);
+        }
+      }
+
       await markStripeWebhookProcessed({
         stripeEventId: event.id,
         status: "processed",

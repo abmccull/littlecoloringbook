@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
-import type Stripe from "stripe";
 import { buildNormalizedUserData, sendCapiEvent, type CapiEventInput } from "@littlecolorbook/meta";
-import { insertCapiEvent, isDatabaseConfigured, updateCapiEventStatus } from "@littlecolorbook/db";
+import {
+  insertCapiEvent,
+  isDatabaseConfigured,
+  updateCapiEventStatus,
+  getOrderPortalSummaryByOrderId,
+} from "@littlecolorbook/db";
 import { enqueueInternalJob } from "./internal-jobs";
 
 function splitName(name: string | null | undefined) {
@@ -12,60 +16,65 @@ function splitName(name: string | null | undefined) {
   return { firstName: parts[0] ?? null, lastName: parts[parts.length - 1] ?? null };
 }
 
-export async function enqueuePurchaseCapiEvent({
+/**
+ * Fire a Meta CAPI Refund event so Value Optimization stops counting
+ * refunded revenue. Sent with a negative `value` referencing the
+ * original order. Deterministic event_id (`refund_${refundId}`) makes
+ * retries safe and Meta's side idempotent.
+ *
+ * Best-effort: failure is logged but must not disrupt local refund
+ * reconciliation. Never expose refund amount or this event to the
+ * customer.
+ */
+export async function enqueueRefundCapiEvent({
   orderId,
-  session,
+  refundId,
+  refundAmountCents,
+  currency = "USD",
   eventSourceUrl,
-  fbc,
-  fbp,
-  clientIpAddress,
-  clientUserAgent,
 }: {
   orderId: string;
-  session: Stripe.Checkout.Session;
+  refundId: string;
+  refundAmountCents: number;
+  currency?: string;
   eventSourceUrl?: string;
-  fbc?: string | null;
-  fbp?: string | null;
-  clientIpAddress?: string | null;
-  clientUserAgent?: string | null;
 }) {
-  const { firstName, lastName } = splitName(session.customer_details?.name);
-  const address = session.customer_details?.address ?? null;
+  if (!refundAmountCents || refundAmountCents <= 0) return null;
+
+  const summary = isDatabaseConfigured() ? await getOrderPortalSummaryByOrderId(orderId) : null;
+  const customer = summary?.customer ?? null;
+  const address = summary?.shippingAddress ?? null;
+  const { firstName, lastName } = splitName(customer?.firstName);
 
   const userData = buildNormalizedUserData({
-    email: session.customer_details?.email ?? null,
-    phone: session.customer_details?.phone ?? null,
+    email: customer?.email ?? null,
+    phone: customer?.phone ?? null,
     firstName,
     lastName,
     city: address?.city ?? null,
     state: address?.state ?? null,
-    zip: address?.postal_code ?? null,
-    country: address?.country ?? null,
+    zip: address?.postalCode ?? null,
+    country: address?.countryCode ?? null,
     externalId: orderId,
-    fbc: fbc ?? null,
-    fbp: fbp ?? null,
-    clientIpAddress: clientIpAddress ?? null,
-    clientUserAgent: clientUserAgent ?? null,
   });
 
-  const eventId = `purchase_${orderId}`;
-  const valueCents = session.amount_total ?? 0;
-  const currency = (session.currency ?? "usd").toUpperCase();
-  const offerCode = session.metadata?.offerCode ?? session.metadata?.selectedOfferCode ?? null;
+  const eventId = `refund_${refundId}`;
   const eventTime = new Date();
 
   const payloadJson: Record<string, unknown> = {
-    event_name: "Purchase",
+    event_name: "Refund",
     event_time: Math.floor(eventTime.getTime() / 1000),
     event_id: eventId,
     action_source: "website",
     user_data: userData,
     custom_data: {
-      value: valueCents / 100,
+      // Negative value signals a revenue reversal. Meta Value Optimization
+      // reads this to adjust expected revenue for the corresponding
+      // audience pattern.
+      value: -(refundAmountCents / 100),
       currency,
-      content_ids: offerCode ? [offerCode] : [],
-      content_type: "product",
       order_id: orderId,
+      refund_id: refundId,
     },
   };
   if (eventSourceUrl) payloadJson.event_source_url = eventSourceUrl;
@@ -85,7 +94,7 @@ export async function enqueuePurchaseCapiEvent({
   const row = await insertCapiEvent({
     id: `capi_${eventId}`,
     eventId,
-    eventName: "Purchase",
+    eventName: "Refund",
     eventTime,
     actionSource: "website",
     userDataFingerprint: fingerprint,
@@ -93,7 +102,7 @@ export async function enqueuePurchaseCapiEvent({
   });
 
   if (!row) {
-    throw new Error("Failed to persist purchase CAPI event before dispatch");
+    throw new Error("Failed to persist refund CAPI event before dispatch");
   }
 
   try {
@@ -106,14 +115,14 @@ export async function enqueuePurchaseCapiEvent({
     if (!dispatched.accepted) {
       await updateCapiEventStatus(row.id, {
         status: "failed",
-        errorMessage: "Failed to dispatch purchase CAPI event for delivery",
+        errorMessage: "Failed to dispatch refund CAPI event for delivery",
       });
-      throw new Error("Failed to dispatch purchase CAPI event for delivery");
+      throw new Error("Failed to dispatch refund CAPI event for delivery");
     }
   } catch (error) {
     await updateCapiEventStatus(row.id, {
       status: "failed",
-      errorMessage: error instanceof Error ? error.message : "Failed to dispatch purchase CAPI event",
+      errorMessage: error instanceof Error ? error.message : "Failed to dispatch refund CAPI event",
     });
     throw error;
   }

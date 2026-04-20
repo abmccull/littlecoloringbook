@@ -730,6 +730,12 @@ export async function saveShippingQuotes(orderId: string, quotes: ShippingQuoteI
   }));
 }
 
+export async function updateOrderClientIp(orderId: string, clientIp: string) {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db.update(orders).set({ clientIp, updatedAt: now() }).where(eq(orders.id, orderId));
+}
+
 export async function updateOrderCommerceSelection(input: {
   orderId: string;
   selectedOfferCode?: string | null;

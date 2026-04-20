@@ -34,7 +34,11 @@ function debugAnalytics(eventName: string, properties: Record<string, unknown>) 
   }
 }
 
-export function trackEvent(eventName: string, properties: Record<string, unknown> = {}) {
+export function trackEvent(
+  eventName: string,
+  properties: Record<string, unknown> = {},
+  options: { eventId?: string; skipCapiEnqueue?: boolean } = {},
+) {
   if (typeof window === "undefined") {
     return;
   }
@@ -47,7 +51,7 @@ export function trackEvent(eventName: string, properties: Record<string, unknown
     window.posthog.capture(eventName, properties);
   }
 
-  trackPixelEvent(eventName, properties);
+  trackPixelEvent(eventName, properties, options);
 
   debugAnalytics(eventName, properties);
 }

@@ -3,9 +3,11 @@ import {
   attachStripeCheckoutSessionToOrder,
   getOrderPortalSummaryByOrderId,
   isDatabaseConfigured,
+  updateOrderClientIp,
 } from "@littlecolorbook/db";
 import { getNormalizedOrderQuantity, getOfferByCode, getOfferSubtotalForQuantity } from "@littlecolorbook/shared";
 import { getAppUrl, getStripe, getVerifiedStripeAccountId, isStripeConfigured } from "../../../../../lib/stripe";
+import { extractClientIp } from "../../../../../lib/request-ip";
 import { z } from "zod";
 
 const checkoutRequestSchema = z.object({
@@ -15,6 +17,11 @@ const checkoutRequestSchema = z.object({
   bundleSelection: z.string().trim().optional(),
   shippingCents: z.number().int().nonnegative().optional(),
   shippingLabel: z.string().trim().optional(),
+  // Meta click cookies — client pixel reads `_fbc` / `_fbp` and posts
+  // them so we can store them alongside the Stripe session. Webhook uses
+  // them to build a high-EMQ CAPI Purchase event.
+  fbc: z.string().trim().max(200).optional(),
+  fbp: z.string().trim().max(200).optional(),
 });
 
 function allowDevCheckoutFallback() {
@@ -138,6 +145,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     ? `${appUrl}${portalAccess.portalHref}/setup`
     : `${appUrl}/order/confirmation?orderId=${orderId}`;
 
+  const clientIp = extractClientIp(request);
+  if (isDatabaseConfigured() && clientIp && clientIp !== "unknown") {
+    try {
+      await updateOrderClientIp(orderId, clientIp);
+    } catch (error) {
+      console.error("checkout: failed to persist client IP on order", error);
+    }
+  }
+
+  // Meta click identifiers captured on the client and forwarded here.
+  // Stored in Stripe metadata so the post-payment webhook can include
+  // them in the CAPI Purchase event for high-EMQ match.
+  const fbc = parsed.data.fbc ?? "";
+  const fbp = parsed.data.fbp ?? "";
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     client_reference_id: orderId,
@@ -153,6 +175,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
       selectedQuote: selectedQuote?.id ?? parsed.data.selectedQuote ?? "",
       shippingLabel: selectedQuote?.label ?? parsed.data.shippingLabel ?? "",
       shippingCents: String(shippingCents),
+      // Truncate to Stripe's 500-char metadata-value limit (fbc/fbp are
+      // well under, but defensive) and omit empty strings to keep the
+      // metadata object tidy.
+      ...(fbc ? { fbc: fbc.slice(0, 500) } : {}),
+      ...(fbp ? { fbp: fbp.slice(0, 500) } : {}),
     },
     payment_intent_data: {
       metadata: {
