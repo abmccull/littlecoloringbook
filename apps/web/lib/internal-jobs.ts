@@ -51,7 +51,6 @@ const internalJobPathByName: Record<InternalJobName, string> = {
   "process-paid-order": "/api/internal/jobs/process-paid-order",
   "submit-lulu": "/api/internal/jobs/submit-lulu",
   "sync-lulu-status": "/api/internal/jobs/sync-lulu-status",
-  "batch-submit-lulu": "/api/internal/jobs/batch-submit-lulu",
   "process-capi-event": "/api/internal/jobs/process-capi-event",
 };
 
@@ -92,20 +91,30 @@ export async function dispatchInternalJob<TResponse>(input: {
 export async function enqueueInternalJob<TName extends InternalJobName>(input: {
   job: TName;
   payload: InternalJobPayloadMap[TName];
+  fallbackToDirectOnQueueError?: boolean;
 }) {
   if (isQueueConfigured()) {
-    const queuedJob = await enqueueQueuedInternalJob(input.job, input.payload);
+    try {
+      const queuedJob = await enqueueQueuedInternalJob(input.job, input.payload);
 
-    return {
-      accepted: true,
-      jobId: queuedJob.id ?? null,
-      mode: "queue" as const,
-      queueName: queuedJob.queueName,
-    };
+      return {
+        accepted: true,
+        jobId: queuedJob.id ?? null,
+        mode: "queue" as const,
+        queueName: queuedJob.queueName,
+      };
+    } catch (error) {
+      if (!input.fallbackToDirectOnQueueError) {
+        throw error;
+      }
+
+      console.warn(`[internal-jobs] queue enqueue failed for ${input.job}, falling back to direct dispatch`, error);
+    }
   }
 
   const payload = await dispatchInternalJob<{
     accepted?: boolean;
+    failed?: boolean;
     status?: string;
   }>({
     path: internalJobPathByName[input.job],
@@ -113,7 +122,7 @@ export async function enqueueInternalJob<TName extends InternalJobName>(input: {
   });
 
   return {
-    accepted: payload?.accepted ?? true,
+    accepted: payload?.accepted ?? !payload?.failed,
     jobId: null,
     mode: "direct" as const,
     queueName: null,
