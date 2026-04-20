@@ -838,13 +838,13 @@ export async function listConsentedSamplesForIngestion(input: { limit?: number }
     ORDER BY o.created_at ASC
     LIMIT ${limit}
   `);
-  return (rows as unknown as Array<{
+  return unwrapExecuteRows<{
     order_id: string;
     customer_email: string | null;
     child_first_name: string | null;
     source_object_path: string | null;
     coloring_object_path: string | null;
-  }>).map((row) => ({
+  }>(rows).map((row) => ({
     orderId: row.order_id,
     customerEmail: row.customer_email,
     childFirstName: row.child_first_name,
@@ -7021,6 +7021,21 @@ function defaultBackoffSeconds(attempt: number): number {
 }
 
 /**
+ * neon-http's db.execute() returns a NeonHttpQueryResult ({ rows, rowCount, ... }),
+ * NOT a raw array. Query-builder methods (select/insert/update) unpack .rows
+ * automatically, but raw db.execute(sql`...`) does not. This helper normalizes
+ * both shapes so callers can always iterate.
+ */
+function unwrapExecuteRows<T>(result: unknown): T[] {
+  if (Array.isArray(result)) return result as T[];
+  if (result && typeof result === "object" && "rows" in result) {
+    const rows = (result as { rows?: unknown }).rows;
+    if (Array.isArray(rows)) return rows as T[];
+  }
+  return [];
+}
+
+/**
  * Enqueue a processing job. Writes a row with status='pending' at the
  * given scheduledAt (default: now). If jobKey is provided, the unique
  * index prevents duplicate enqueues of the same logical job — a second
@@ -7077,7 +7092,7 @@ export async function claimNextProcessingJobs<TKind extends ProcessingJobKind>(i
 }): Promise<ProcessingJob[]> {
   if (!isDatabaseConfigured()) return [];
   const db = getDatabase();
-  const rows = await db.execute(sql<ProcessingJob>`
+  const result = await db.execute(sql<ProcessingJob>`
     UPDATE processing_jobs
     SET
       status = 'claimed',
@@ -7096,7 +7111,7 @@ export async function claimNextProcessingJobs<TKind extends ProcessingJobKind>(i
     )
     RETURNING *
   `);
-  return rows as unknown as ProcessingJob[];
+  return unwrapExecuteRows<ProcessingJob>(result);
 }
 
 /** Mark a job completed. Terminal state — no retries after this. */
@@ -7192,7 +7207,11 @@ export async function resetStuckClaimedJobs(input: {
     WHERE status = 'claimed'
       AND claimed_at < (now() - (${input.timeoutSeconds} || ' seconds')::interval)
   `);
-  return typeof result === "object" && result !== null && "rowCount" in result ? Number((result as { rowCount: number }).rowCount) : 0;
+  if (result && typeof result === "object" && "rowCount" in result) {
+    const rc = (result as { rowCount?: number | null }).rowCount;
+    return typeof rc === "number" ? rc : 0;
+  }
+  return 0;
 }
 
 /** Observability — counts by kind + status, used by admin metrics. */
@@ -7203,7 +7222,7 @@ export async function getProcessingJobCounts(): Promise<Array<{
 }>> {
   if (!isDatabaseConfigured()) return [];
   const db = getDatabase();
-  const rows = await db.execute(sql<{
+  const result = await db.execute(sql<{
     kind: ProcessingJobKind;
     status: "pending" | "claimed" | "completed" | "failed";
     count: number;
@@ -7215,9 +7234,9 @@ export async function getProcessingJobCounts(): Promise<Array<{
     GROUP BY kind, status
     ORDER BY kind, status
   `);
-  return rows as unknown as Array<{
+  return unwrapExecuteRows<{
     kind: ProcessingJobKind;
     status: "pending" | "claimed" | "completed" | "failed";
     count: number;
-  }>;
+  }>(result);
 }
