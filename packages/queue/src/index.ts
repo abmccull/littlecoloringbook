@@ -1,7 +1,7 @@
 import IORedis from "ioredis";
 import { Queue, Worker, type JobsOptions, type Processor } from "bullmq";
 
-export type InternalJobName = "process-sample" | "process-paid-order" | "submit-lulu" | "sync-lulu-status" | "batch-submit-lulu" | "process-capi-event";
+export type InternalJobName = "process-sample" | "process-paid-order" | "submit-lulu" | "sync-lulu-status" | "process-capi-event";
 
 export type ProcessSamplePayload = {
   orderId: string;
@@ -34,10 +34,6 @@ export type SyncLuluStatusPayload = {
   providerJobId?: string;
 };
 
-export type BatchSubmitLuluPayload = {
-  dryRun?: boolean;
-};
-
 export type ProcessCapiEventPayload = {
   capiEventId: string;
 };
@@ -47,7 +43,6 @@ export type InternalJobPayloadMap = {
   "process-paid-order": ProcessPaidOrderPayload;
   "submit-lulu": SubmitLuluPayload;
   "sync-lulu-status": SyncLuluStatusPayload;
-  "batch-submit-lulu": BatchSubmitLuluPayload;
   "process-capi-event": ProcessCapiEventPayload;
 };
 
@@ -56,7 +51,6 @@ const queueNames: Record<InternalJobName, string> = {
   "process-paid-order": "paid-default",
   "submit-lulu": "print-submit",
   "sync-lulu-status": "lulu-sync",
-  "batch-submit-lulu": "lulu-batch",
   "process-capi-event": "capi-events",
 };
 
@@ -88,13 +82,6 @@ const defaultJobOptions: Record<InternalJobName, JobsOptions> = {
     removeOnComplete: 500,
     removeOnFail: 500,
     priority: 10,
-  },
-  "batch-submit-lulu": {
-    attempts: 3,
-    backoff: { type: "exponential", delay: 30_000 },
-    removeOnComplete: 100,
-    removeOnFail: 200,
-    priority: 8,
   },
   "process-capi-event": {
     attempts: 5,

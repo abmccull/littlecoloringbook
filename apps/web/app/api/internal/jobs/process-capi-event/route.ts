@@ -33,7 +33,20 @@ export async function POST(request: NextRequest) {
       capiEventId: parsed.data.capiEventId,
     });
 
-    return NextResponse.json(result);
+    if ("failed" in result && result.failed) {
+      return NextResponse.json(
+        {
+          accepted: false,
+          ...result,
+        },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({
+      accepted: true,
+      ...result,
+    });
   } catch (error) {
     if (isJobRunnerError(error)) {
       return NextResponse.json(

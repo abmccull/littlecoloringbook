@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorizeInternalJobRequest, enqueueInternalJob } from "../../../../lib/internal-jobs";
+import { authorizeInternalJobRequest, dispatchInternalJob } from "../../../../lib/internal-jobs";
 
 export async function GET(request: NextRequest) {
   const unauthorized = authorizeInternalJobRequest(request);
@@ -9,9 +9,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await enqueueInternalJob({
-      job: "batch-submit-lulu",
-      payload: {},
+    const result = await dispatchInternalJob<{
+      accepted?: boolean;
+      dryRun?: boolean;
+      job?: string;
+      mode?: string;
+      processed?: number;
+      submitted?: number;
+      skipped?: number;
+      failed?: number;
+      results?: unknown[];
+    }>({
+      path: "/api/internal/jobs/batch-submit-lulu",
+      body: {},
     });
 
     return NextResponse.json({

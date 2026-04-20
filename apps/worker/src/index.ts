@@ -14,7 +14,6 @@ const JOBS: ReadonlyArray<InternalJobName> = [
   "process-paid-order",
   "submit-lulu",
   "sync-lulu-status",
-  "batch-submit-lulu",
   "process-capi-event",
 ];
 
@@ -24,8 +23,6 @@ const processors: ProcessorMap = {
   "process-sample": (data) => runProcessSampleJob(data as Parameters<typeof runProcessSampleJob>[0], {}),
   "process-paid-order": (data) => runProcessPaidOrderJob(data as Parameters<typeof runProcessPaidOrderJob>[0], {}),
   "process-capi-event": (data) => runProcessCapiEventJob(data as Parameters<typeof runProcessCapiEventJob>[0]),
-  // batch-submit-lulu requires a configured submitPrintOrder; it's invoked
-  // directly by apps/web/app/api/cron/batch-lulu/route.ts rather than queued.
 };
 
 const workers: Worker[] = [];

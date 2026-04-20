@@ -7,6 +7,10 @@
       "schedule": "0 15 * * *"
     },
     {
+      "path": "/api/cron/batch-lulu",
+      "schedule": "0 14 * * *"
+    },
+    {
       "path": "/api/cron/newsletter-sunday",
       "schedule": "0 14 * * 6"
     },
