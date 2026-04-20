@@ -1,0 +1,22 @@
+
+> @littlecolorbook/web@0.0.0 dev
+> next dev --port 3001
+
+▲ Next.js 16.2.2 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.68.65:3001
+- Environments: .env.local, .env
+✓ Ready in 902ms
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          40788
+- Dir:          C:\Users\hands\littlecoloringbook\apps\web
+- Log:          .next\dev\logs\next-development.log
+
+Run taskkill /PID 40788 /F to stop it.
+[?25h
+npm ERR! Lifecycle script `dev` failed with error: 
+npm ERR! Error: command failed 
+npm ERR!   in workspace: @littlecolorbook/web@0.0.0 
+npm ERR!   at location: C:\Users\hands\littlecoloringbook\apps\web 

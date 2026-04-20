@@ -1,0 +1,22 @@
+
+> @littlecolorbook/web@0.0.0 start
+> next start --port 3001
+
+▲ Next.js 16.2.2
+- Local:         http://localhost:3001
+- Network:       http://192.168.68.65:3001
+✓ Ready in 389ms
+
+** (process:40908): WARNING **: 14:14:45.644: webpsave_buffer: no property named `smart_deblock'
+
+[capi/enqueue] failed to enqueue job Error: REDIS_URL is not configured.
+    at <unknown> (C:\Users\hands\littlecoloringbook\apps\web\.next\server\chunks\[root-of-the-server]__0hu6ovg._.js:1:11599)
+    at <unknown> (C:\Users\hands\littlecoloringbook\apps\web\.next\server\chunks\[root-of-the-server]__0hu6ovg._.js:1:11689)
+    at s (C:\Users\hands\littlecoloringbook\apps\web\.next\server\chunks\[root-of-the-server]__0hu6ovg._.js:1:11741)
+    at u (C:\Users\hands\littlecoloringbook\apps\web\.next\server\chunks\[root-of-the-server]__0hu6ovg._.js:1:11905)
+[capi/enqueue] failed to enqueue job Error: REDIS_URL is not configured.
+    at <unknown> (C:\Users\hands\littlecoloringbook\apps\web\.next\server\chunks\[root-of-the-server]__0hu6ovg._.js:1:11599)
+    at <unknown> (C:\Users\hands\littlecoloringbook\apps\web\.next\server\chunks\[root-of-the-server]__0hu6ovg._.js:1:11689)
+    at s (C:\Users\hands\littlecoloringbook\apps\web\.next\server\chunks\[root-of-the-server]__0hu6ovg._.js:1:11741)
+    at u (C:\Users\hands\littlecoloringbook\apps\web\.next\server\chunks\[root-of-the-server]__0hu6ovg._.js:1:11905)
+^C
