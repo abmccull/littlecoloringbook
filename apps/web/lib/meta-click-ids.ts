@@ -1,11 +1,11 @@
 /**
  * Read the Meta click identifiers (`_fbc` / `_fbp`) that the Meta pixel
  * drops as first-party cookies. Returns `{}` on the server. Safe to call
- * anywhere on the client — silently no-ops if cookies aren't present or
- * document isn't available.
+ * anywhere on the client and silently no-ops if cookies are not present
+ * or `document` is unavailable.
  *
- * Used by the checkout POST so fbc/fbp can be forwarded into Stripe
- * session metadata and surfaced to the CAPI Purchase event on the
+ * Used by the checkout POST so `fbc` and `fbp` can be forwarded into
+ * Stripe session metadata and surfaced to the CAPI Purchase event on the
  * webhook side for high-EMQ attribution.
  */
 
