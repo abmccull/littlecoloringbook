@@ -7,11 +7,9 @@ export const CAPI_EVENT_NAMES = [
   "Lead",
   "CompleteRegistration",
   "Subscribe",
-  // Custom event — Meta accepts arbitrary names and uses them for
-  // reporting. We send this with a negative custom_data.value to signal
-  // a revenue reversal against an existing Purchase event. Value
-  // Optimization consumes this to avoid over-bidding on refund-heavy
-  // cohorts.
+  // Custom event — Meta accepts arbitrary names and surfaces them for
+  // reporting/diagnostics. We use this to record refund reversals against
+  // an existing order without overloading Purchase semantics.
   "Refund",
 ] as const;
 

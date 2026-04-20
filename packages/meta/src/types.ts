@@ -45,6 +45,7 @@ export type CustomData = {
   content_ids?: string[];
   content_type?: string;
   order_id?: string;
+  refund_id?: string;
   contents?: Array<{ id: string; quantity: number; item_price?: number }>;
   num_items?: number;
 };

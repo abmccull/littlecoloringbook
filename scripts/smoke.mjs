@@ -7,6 +7,13 @@ const webRoot = path.join(repoRoot, "apps", "web");
 const port = 3100;
 const baseUrl = "http://127.0.0.1:" + port;
 const cronSecret = "smoke-secret";
+const useShellForNpm = process.platform === "win32";
+const nextExecutable = path.join(
+  webRoot,
+  "node_modules",
+  ".bin",
+  process.platform === "win32" ? "next.cmd" : "next",
+);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -58,8 +65,9 @@ async function postJson(pathname, body, headers = {}) {
   });
 }
 
-const server = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1", "--port", String(port)], {
+const server = spawn(nextExecutable, ["start", "--hostname", "127.0.0.1", "--port", String(port)], {
   cwd: webRoot,
+  shell: useShellForNpm,
   stdio: "inherit",
   env: {
     ...process.env,
@@ -78,7 +86,10 @@ try {
   assert(home.includes("Get My Free Sample Page"), "Homepage CTA copy is missing.");
 
   const sample = await getText("/sample");
-  assert(sample.includes("Get a free personalized coloring page to print tonight"), "Sample page headline is missing.");
+  assert(
+    sample.includes("One photo of your kid. One free coloring page they'll actually want to color."),
+    "Sample page headline is missing.",
+  );
 
   const sampleOrder = await postJson("/api/samples", {
     email: "sample-smoke@example.com",
@@ -92,14 +103,17 @@ try {
     : sampleOrder.processingUrl;
   const sampleProcessing = await getText(sampleProcessingPath);
   assert(
-    sampleProcessing.includes("Upload the photo you want turned into a coloring page") ||
+    sampleProcessing.includes("Upload the photo you want us to turn into your free page.") ||
       sampleProcessing.includes("Your free page is being created") ||
       sampleProcessing.includes("Your free coloring page is ready"),
     "Sample processing flow did not render the updated upload, processing, or ready state.",
   );
 
   const create = await getText("/create");
-  assert(create.includes("Choose your full book"), "Create page headline is missing.");
+  assert(
+    create.includes("Most families who already have a real stack of favorite photos end up happiest with 50 or 100 pages."),
+    "Create page support copy is missing.",
+  );
 
   const order = await postJson("/api/orders", {
     email: "smoke@example.com",
@@ -116,7 +130,7 @@ try {
 
   const portalPath = order.portalUrl.startsWith("http") ? new URL(order.portalUrl).pathname : order.portalUrl;
   const portal = await getText(portalPath);
-  assert(portal.includes("Customer portal"), "Portal page did not render.");
+  assert(portal.includes("Your order"), "Portal page did not render.");
 
   const unauthorizedJobResponse = await fetch(baseUrl + "/api/internal/jobs/process-paid-order", {
     method: "POST",
@@ -143,7 +157,7 @@ try {
   assert(typeof checkout.checkoutUrl === "string" && checkout.checkoutUrl.length > 0, "Checkout route did not return a checkoutUrl.");
 
   const confirmation = await getText("/order/confirmation?orderId=" + order.id);
-  assert(confirmation.includes("Payment received"), "Confirmation page did not render.");
+  assert(confirmation.includes("You are officially in. We are making your book now."), "Confirmation page did not render.");
 
   const cron = await getJson("/api/cron/lulu-status", {
     headers: {
@@ -151,6 +165,13 @@ try {
     },
   });
   assert(cron.ok === true, "Cron sync route did not return ok=true.");
+
+  const batchLulu = await getJson("/api/cron/batch-lulu", {
+    headers: {
+      Authorization: "Bearer " + cronSecret,
+    },
+  });
+  assert(batchLulu.ok === true, "Batch Lulu cron route did not return ok=true.");
 
   console.log("\nSmoke test passed.");
 } finally {
