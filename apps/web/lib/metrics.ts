@@ -8,13 +8,14 @@ import {
   getRepeatCustomerStats,
   getRevenueMetrics,
   getSampleToPaidFunnel,
+  getUnfulfilledPrintOrderDimensionsInWindow,
   sumAdSpendInWindow,
   type MetricsWindow,
 } from "@littlecolorbook/db";
+import { estimateLuluBookCostCents } from "@littlecolorbook/shared";
 
 const STRIPE_FEE_PCT = 0.029;
 const STRIPE_FEE_FLAT_CENTS = 30;
-const LULU_PRINT_COST_RATIO = 0.4; // best-effort estimate; refine once we log Lulu cost per job
 
 export type DashboardMetrics = {
   window: { start: string; end: string; label: string };
@@ -111,7 +112,7 @@ export async function computeDashboardMetrics(
   const w = windowFromRange(range);
   const window: MetricsWindow = { start: w.start, end: w.end };
 
-  const [revenue, breakdown, gemini, adSpend, funnel, repeat, newPaying, luluActual] = await Promise.all([
+  const [revenue, breakdown, gemini, adSpend, funnel, repeat, newPaying, luluActual, unfulfilledDims] = await Promise.all([
     getRevenueMetrics(window),
     getOrderBreakdown(window),
     getGeminiCostInWindow(window),
@@ -120,19 +121,26 @@ export async function computeDashboardMetrics(
     getRepeatCustomerStats(window),
     countNewPayingCustomers(window),
     getLuluActualCostInWindow(window),
+    getUnfulfilledPrintOrderDimensionsInWindow(window),
   ]);
 
   const netCents = Math.max(0, revenue.gross_cents - revenue.refunded_cents);
   const stripeFeeCents = revenue.paid_order_count > 0
     ? Math.round(revenue.gross_cents * STRIPE_FEE_PCT + STRIPE_FEE_FLAT_CENTS * revenue.paid_order_count)
     : 0;
-  // Lulu cost — prefer actual per-job cost from the provider response.
-  // Fall back to 40%-of-print-portion estimate for jobs we haven't
-  // captured cost on yet.
-  const luluJobsWithoutCost = Math.max(0, luluActual.jobs_total - luluActual.jobs_with_cost);
-  const avgPrintRevenueCents = breakdown.print_count > 0 ? Math.round(revenue.gross_cents / Math.max(1, revenue.paid_order_count)) : 0;
-  const luluEstimateCents =
-    luluActual.known_cost_cents + Math.round(luluJobsWithoutCost * avgPrintRevenueCents * LULU_PRINT_COST_RATIO);
+  // Lulu cost of goods — prefer real per-job cost captured from the
+  // provider response. For orders that haven't reached fulfillment yet
+  // (or failed to capture cost), estimate via the shared cost formula
+  // using each order's actual page count and quantity. No revenue ratio.
+  const unfulfilledEstimateCents = unfulfilledDims.reduce((acc, row) => {
+    // Prefer live Lulu-quoted production cost when available, fall back
+    // to the formula using this order's actual page count and quantity.
+    if (typeof row.quoted_production_cost_cents === "number" && row.quoted_production_cost_cents > 0) {
+      return acc + row.quoted_production_cost_cents;
+    }
+    return acc + estimateLuluBookCostCents(row.design_count, row.quantity);
+  }, 0);
+  const luluEstimateCents = luluActual.known_cost_cents + unfulfilledEstimateCents;
 
   const totalCostsCents = adSpend + gemini.total_cost_cents + stripeFeeCents + luluEstimateCents;
   const grossMarginCents = netCents - totalCostsCents;

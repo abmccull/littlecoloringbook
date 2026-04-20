@@ -163,7 +163,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
         shippingCents: quote.shippingCents,
         window: quote.window,
         isSelected: index === 0,
-        quotePayload: quote.rawPayload,
+        // Persist the raw Lulu response + a flattened productionCostCents /
+        // fulfillmentCostCents for cheap server-side reads (metrics,
+        // refund-tier). These fields are INTERNAL cost-of-goods — never
+        // returned to the customer.
+        quotePayload: {
+          ...quote.rawPayload,
+          productionCostCents: quote.productionCostCents,
+          fulfillmentCostCents: quote.fulfillmentCostCents,
+        },
       })),
     );
 

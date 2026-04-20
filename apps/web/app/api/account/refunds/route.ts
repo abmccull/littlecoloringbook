@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
   createRefundRequest,
+  getLuluProductionCostForOrder,
   getOrderForCustomer,
   listRefundsForOrder,
   openTicket,
@@ -33,7 +34,10 @@ export async function POST(request: NextRequest) {
   });
   if (!summary) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
-  const existingRefunds = await listRefundsForOrder(summary.order.id);
+  const [existingRefunds, luluProductionCostCents] = await Promise.all([
+    listRefundsForOrder(summary.order.id),
+    getLuluProductionCostForOrder(summary.order.id),
+  ]);
   const alreadyRefundedCents = existingRefunds
     .filter((r) => r.status === "succeeded" || r.status === "processing")
     .reduce((acc, r) => acc + (r.refundedCents ?? r.amountCents), 0);
@@ -42,6 +46,7 @@ export async function POST(request: NextRequest) {
     summary,
     reason: parsed.data.reason,
     alreadyRefundedCents,
+    luluProductionCostCents,
   });
 
   // Always open a ticket for the refund so admin + customer have a

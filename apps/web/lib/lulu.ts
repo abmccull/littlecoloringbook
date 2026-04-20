@@ -25,6 +25,8 @@ export type LuluQuote = {
   rawPayload: Record<string, unknown>;
   service: string;
   shippingCents: number;
+  productionCostCents: number | null;
+  fulfillmentCostCents: number | null;
   totalCents: number;
   warnings: unknown[];
   window: string;
@@ -202,6 +204,15 @@ export async function quoteLuluShippingOptions(input: LuluQuoteInput) {
       const shippingCost = asRecord(payload.shipping_cost);
       const shippingCents = parseMoneyToCents(shippingCost?.total_cost_incl_tax ?? shippingCost?.total_cost_excl_tax);
       const totalCents = parseMoneyToCents(payload.total_cost_incl_tax ?? payload.total_cost_excl_tax);
+      const lineItemCosts = Array.isArray(payload.line_item_costs) ? payload.line_item_costs : [];
+      const firstLineItem = asRecord(lineItemCosts[0]);
+      const productionCostCents = firstLineItem
+        ? parseMoneyToCents(firstLineItem.total_cost_excl_tax ?? firstLineItem.total_cost_excl_discounts ?? firstLineItem.total_cost_incl_tax) || null
+        : null;
+      const fulfillmentCost = asRecord(payload.fulfillment_cost);
+      const fulfillmentCostCents = fulfillmentCost
+        ? parseMoneyToCents(fulfillmentCost.total_cost_excl_tax ?? fulfillmentCost.total_cost_incl_tax) || null
+        : null;
       const warnings = Array.isArray(asRecord(payload.shipping_address)?.warnings)
         ? (asRecord(payload.shipping_address)?.warnings as unknown[])
         : [];
@@ -213,6 +224,8 @@ export async function quoteLuluShippingOptions(input: LuluQuoteInput) {
         rawPayload: payload,
         service: level.toLowerCase(),
         shippingCents,
+        productionCostCents,
+        fulfillmentCostCents,
         totalCents,
         warnings,
         window: shippingWindows[level],

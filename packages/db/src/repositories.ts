@@ -3020,6 +3020,82 @@ export async function getLuluActualCostInWindow(window: MetricsWindow): Promise<
   return row ?? fallback;
 }
 
+/**
+ * For print orders in the window that do NOT have a persisted real Lulu
+ * cost (no submitted fulfillment_job, or fulfillment_job.cost_cents null),
+ * list dimensions so the caller can apply the shared cost formula. When
+ * an order has a persisted live shipping quote with a real production
+ * cost from Lulu, expose that too so the caller can prefer it over the
+ * formula. Used by the metrics dashboard — never exposed to customers.
+ */
+export async function getUnfulfilledPrintOrderDimensionsInWindow(window: MetricsWindow): Promise<Array<{
+  design_count: number;
+  quantity: number;
+  quoted_production_cost_cents: number | null;
+}>> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db.execute(sql<{
+    design_count: number;
+    quantity: number;
+    quoted_production_cost_cents: number | null;
+  }>`
+    WITH best_quote AS (
+      SELECT DISTINCT ON (order_id)
+        order_id,
+        COALESCE(
+          (quote_payload->>'productionCostCents')::int,
+          ((quote_payload->'line_item_costs'->0->>'total_cost_excl_tax')::numeric * 100)::int
+        ) AS production_cost_cents
+      FROM shipping_quotes
+      WHERE quote_payload IS NOT NULL
+      ORDER BY order_id, is_selected DESC, created_at DESC
+    )
+    SELECT
+      o.design_count,
+      o.quantity,
+      bq.production_cost_cents AS quoted_production_cost_cents
+    FROM orders o
+    LEFT JOIN fulfillment_jobs fj ON fj.order_id = o.id
+    LEFT JOIN best_quote bq ON bq.order_id = o.id
+    WHERE o.created_at >= ${window.start} AND o.created_at <= ${window.end}
+      AND o.delivery_mode = 'print'
+      AND o.status NOT IN ('draft', 'awaiting_payment', 'failed', 'refunded_full')
+      AND (fj.id IS NULL OR fj.cost_cents IS NULL OR fj.status = 'draft')
+  `);
+  return (rows as unknown as Array<{
+    design_count: number;
+    quantity: number;
+    quoted_production_cost_cents: number | null;
+  }>).slice();
+}
+
+/**
+ * Server-only lookup: resolve the real Lulu production cost for an order,
+ * preferring the actual captured cost on the fulfillment job, then the
+ * live shipping-quote cost from Lulu, then the formula in the caller.
+ *
+ * Returns null if nothing real is known; caller should apply the shared
+ * formula. Never call from a customer-facing response path — Lulu cost
+ * is internal cost-of-goods data.
+ */
+export async function getLuluProductionCostForOrder(orderId: string): Promise<number | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const rows = await db.execute(sql<{ cost_cents: number | null }>`
+    SELECT COALESCE(
+      (SELECT fj.cost_cents FROM fulfillment_jobs fj WHERE fj.order_id = ${orderId} AND fj.cost_cents IS NOT NULL ORDER BY fj.updated_at DESC LIMIT 1),
+      (SELECT COALESCE(
+        (sq.quote_payload->>'productionCostCents')::int,
+        ((sq.quote_payload->'line_item_costs'->0->>'total_cost_excl_tax')::numeric * 100)::int
+      ) FROM shipping_quotes sq WHERE sq.order_id = ${orderId} AND sq.quote_payload IS NOT NULL ORDER BY sq.is_selected DESC, sq.created_at DESC LIMIT 1)
+    )::int AS cost_cents
+  `);
+  const row = (rows as unknown as Array<{ cost_cents: number | null }>)[0];
+  const v = row?.cost_cents;
+  return typeof v === "number" && v > 0 ? v : null;
+}
+
 /* ------------------------------------------------------------------
  * Daily metrics rollup (nightly pre-aggregation)
  * ------------------------------------------------------------------ */

@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { PortalSummary } from "@littlecolorbook/db";
+import { estimateLuluBookCostCents } from "@littlecolorbook/shared";
 
 export type RefundPolicyTier =
   | "full_pre_lulu"
@@ -32,13 +33,22 @@ export type RefundTierDecision = {
   replacementOnly?: boolean;
 };
 
-const PRODUCTION_COST_RATIO = 0.4; // Lulu production share of the print portion
-
-function estimatePrintPortion(summary: PortalSummary): number {
-  // Subtract shipping to get the book portion of the order total.
-  // We don't have cost of goods stored per-order today, so this is
-  // a best-effort estimate. Refined once we wire Lulu cost tracking.
-  return Math.max(0, summary.order.totalCents - summary.order.shippingCents);
+/**
+ * Resolve the Lulu production cost for an order. Prefers the actual cost
+ * passed in by the caller (looked up server-side from fulfillment_jobs
+ * or shipping_quotes). Falls back to the shared cost formula using the
+ * order's real page count and quantity — never to a flat percentage of
+ * revenue. Lulu cost is cost-of-goods data that must not leak to the
+ * customer-facing PortalSummary, so we accept it as a separate arg.
+ */
+function resolveLuluProductionCents(
+  summary: PortalSummary,
+  luluProductionCostCents: number | null | undefined,
+): number {
+  if (typeof luluProductionCostCents === "number" && luluProductionCostCents > 0) {
+    return luluProductionCostCents;
+  }
+  return estimateLuluBookCostCents(summary.order.designCount, summary.order.quantity);
 }
 
 function fullAmountRemaining(summary: PortalSummary, alreadyRefundedCents: number): number {
@@ -56,6 +66,13 @@ export function computeRefundTier(input: {
   summary: PortalSummary;
   reason: RefundCategory;
   alreadyRefundedCents: number;
+  /**
+   * Real Lulu production cost for this order in cents, resolved server-
+   * side (fulfillment_jobs.cost_cents > shipping_quotes.quote_payload).
+   * Pass null/undefined to fall back to the shared cost formula. This
+   * field is server-only — do not echo it back to the customer.
+   */
+  luluProductionCostCents?: number | null;
 }): RefundTierDecision {
   const { summary, reason } = input;
   const status = summary.order.status;
@@ -140,7 +157,7 @@ export function computeRefundTier(input: {
         replacementOnly: true,
       };
     }
-    const partial = Math.max(0, full - Math.floor(estimatePrintPortion(summary) * PRODUCTION_COST_RATIO));
+    const partial = Math.max(0, full - resolveLuluProductionCents(summary, input.luluProductionCostCents));
     return {
       tier: "partial_in_production",
       amountCents: partial,
