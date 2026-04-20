@@ -23,6 +23,19 @@ export type FbPublishPhotoInput = {
   apiVersion?: string;
 };
 
+export type FbCarouselPublishInput = {
+  pageId: string;
+  accessToken: string;
+  /**
+   * Public HTTPS URLs for each slide, in order. Signed GCS URLs work fine
+   * as long as they're valid during the upload. 2–10 images.
+   */
+  imageUrls: string[];
+  caption: string;
+  scheduledUnix?: number;
+  apiVersion?: string;
+};
+
 export type IgFeedPublishInput = {
   igUserId: string;
   accessToken: string;

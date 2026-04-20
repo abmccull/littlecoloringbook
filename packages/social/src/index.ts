@@ -18,10 +18,10 @@ export type {
   Taxonomy,
   CreativeAsset as SlotCreativeAsset,
 } from "./slot-rules";
-export { publishFbPagePhoto } from "./fb-page";
+export { publishFbPagePhoto, publishFbPageCarousel } from "./fb-page";
 export { publishIgFeedSingle } from "./ig";
 export { FbPublishError } from "./types";
-export type { FbPhotoPublishResult, FbPublishPhotoInput, IgFeedPublishInput } from "./types";
+export type { FbPhotoPublishResult, FbPublishPhotoInput, FbCarouselPublishInput, IgFeedPublishInput } from "./types";
 
 export {
   sendFbMessengerText,

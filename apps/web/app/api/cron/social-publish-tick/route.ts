@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMetaEnv } from "@littlecolorbook/shared/env";
 import { authorizeInternalJobRequest } from "../../../../lib/internal-jobs";
 import { listDueOrganicPosts, updateOrganicPostStatus } from "@littlecolorbook/db";
-import { publishFbPagePhoto } from "@littlecolorbook/social";
+import { publishFbPagePhoto, publishFbPageCarousel } from "@littlecolorbook/social";
+import { createSignedDownloadUrl } from "@littlecolorbook/shared/storage";
 
 const BATCH_LIMIT = 10;
 const MAX_ATTEMPTS_BEFORE_FAIL = 3;
@@ -48,9 +49,9 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
-    if (post.format !== "single_image") {
+    if (post.format !== "single_image" && post.format !== "carousel") {
       await updateOrganicPostStatus(post.id, "failed", {
-        errorMessage: `Format '${post.format}' not yet implemented — only single_image supported in v1`,
+        errorMessage: `Format '${post.format}' not yet implemented — single_image and carousel supported`,
         publishingAttempts: (post.publishingAttempts ?? 0) + 1,
       });
       failed++;
@@ -60,6 +61,15 @@ export async function GET(request: NextRequest) {
     if (!post.imageAssetIds || post.imageAssetIds.length === 0) {
       await updateOrganicPostStatus(post.id, "failed", {
         errorMessage: "No imageAssetIds on post",
+        publishingAttempts: (post.publishingAttempts ?? 0) + 1,
+      });
+      failed++;
+      continue;
+    }
+
+    if (post.format === "carousel" && post.imageAssetIds.length < 2) {
+      await updateOrganicPostStatus(post.id, "failed", {
+        errorMessage: "Carousel format requires at least 2 imageAssetIds",
         publishingAttempts: (post.publishingAttempts ?? 0) + 1,
       });
       failed++;
@@ -79,13 +89,39 @@ export async function GET(request: NextRequest) {
     await updateOrganicPostStatus(post.id, "publishing", { publishingAttempts: newAttemptCount });
 
     try {
-      const result = await publishFbPagePhoto({
-        pageId,
-        accessToken: pageAccessToken,
-        imagePath: post.imageAssetIds[0],
-        caption: post.caption,
-        apiVersion,
-      });
+      let result: { id: string; post_id: string };
+
+      if (post.format === "carousel") {
+        // Resolve asset ids to public URLs. Absolute URLs pass through;
+        // everything else is treated as a GCS object path in the exports
+        // bucket and signed with a short-lived read URL for the FB fetch.
+        const imageUrls = await Promise.all(
+          post.imageAssetIds.map(async (assetId) => {
+            if (/^https?:\/\//i.test(assetId)) return assetId;
+            const { url } = await createSignedDownloadUrl({
+              bucket: "exports",
+              objectPath: assetId,
+              expiresInMinutes: 15,
+            });
+            return url;
+          }),
+        );
+        result = await publishFbPageCarousel({
+          pageId,
+          accessToken: pageAccessToken,
+          imageUrls,
+          caption: post.caption,
+          apiVersion,
+        });
+      } else {
+        result = await publishFbPagePhoto({
+          pageId,
+          accessToken: pageAccessToken,
+          imagePath: post.imageAssetIds[0],
+          caption: post.caption,
+          apiVersion,
+        });
+      }
 
       await updateOrganicPostStatus(post.id, "published", {
         metaFbPostId: result.post_id || result.id,
