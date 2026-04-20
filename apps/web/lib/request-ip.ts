@@ -15,3 +15,13 @@ export function extractClientIp(request: NextRequest): string {
     "unknown"
   );
 }
+
+/**
+ * Extract the browser user agent string from a Next.js request. Returns null
+ * when the header is missing so callers can omit it cleanly from downstream
+ * metadata and payloads.
+ */
+export function extractClientUserAgent(request: NextRequest): string | null {
+  const userAgent = request.headers.get("user-agent")?.trim();
+  return userAgent ? userAgent : null;
+}

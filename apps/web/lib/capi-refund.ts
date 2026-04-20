@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { buildNormalizedUserData, sendCapiEvent, type CapiEventInput } from "@littlecolorbook/meta";
 import {
+  getCapiEventByEventId,
   insertCapiEvent,
   isDatabaseConfigured,
   updateCapiEventStatus,
@@ -16,11 +17,28 @@ function splitName(name: string | null | undefined) {
   return { firstName: parts[0] ?? null, lastName: parts[parts.length - 1] ?? null };
 }
 
+async function dispatchRefundCapiEventRow(rowId: string) {
+  const dispatched = await enqueueInternalJob({
+    job: "process-capi-event",
+    payload: { capiEventId: rowId },
+    fallbackToDirectOnQueueError: true,
+  });
+
+  if (!dispatched.accepted) {
+    await updateCapiEventStatus(rowId, {
+      status: "failed",
+      errorMessage: "Failed to dispatch refund CAPI event for delivery",
+    });
+    throw new Error("Failed to dispatch refund CAPI event for delivery");
+  }
+}
+
 /**
- * Fire a Meta CAPI Refund event so Value Optimization stops counting
- * refunded revenue. Sent with a negative `value` referencing the
- * original order. Deterministic event_id (`refund_${refundId}`) makes
- * retries safe and Meta's side idempotent.
+ * Fire a Meta CAPI Refund event so downstream reporting and diagnostics
+ * can see revenue reversals tied back to the original order. Sent with a
+ * negative `value` referencing the original order. Deterministic
+ * event_id (`refund_${refundId}`) keeps webhook replays and duplicate
+ * Stripe refund notifications idempotent on our side.
  *
  * Best-effort: failure is logged but must not disrupt local refund
  * reconciliation. Never expose refund amount or this event to the
@@ -61,29 +79,37 @@ export async function enqueueRefundCapiEvent({
   const eventId = `refund_${refundId}`;
   const eventTime = new Date();
 
-  const payloadJson: Record<string, unknown> = {
+  const capiEvent: CapiEventInput = {
     event_name: "Refund",
     event_time: Math.floor(eventTime.getTime() / 1000),
     event_id: eventId,
     action_source: "website",
     user_data: userData,
     custom_data: {
-      // Negative value signals a revenue reversal. Meta Value Optimization
-      // reads this to adjust expected revenue for the corresponding
-      // audience pattern.
+      // Negative value keeps refund reporting tied to the original order.
       value: -(refundAmountCents / 100),
       currency,
       order_id: orderId,
       refund_id: refundId,
     },
   };
-  if (eventSourceUrl) payloadJson.event_source_url = eventSourceUrl;
-
-  const capiEvent = payloadJson as CapiEventInput;
+  if (eventSourceUrl) capiEvent.event_source_url = eventSourceUrl;
 
   if (!isDatabaseConfigured()) {
     await sendCapiEvent(capiEvent);
     return null;
+  }
+
+  const existing = await getCapiEventByEventId(eventId);
+  if (existing) {
+    if (existing.status === "failed") {
+      await updateCapiEventStatus(existing.id, {
+        status: "queued",
+        errorMessage: null,
+      });
+      await dispatchRefundCapiEventRow(existing.id);
+    }
+    return existing;
   }
 
   const fingerprint = createHash("sha256")
@@ -98,7 +124,7 @@ export async function enqueueRefundCapiEvent({
     eventTime,
     actionSource: "website",
     userDataFingerprint: fingerprint,
-    payloadJson,
+    payloadJson: capiEvent as unknown as Record<string, unknown>,
   });
 
   if (!row) {
@@ -106,19 +132,7 @@ export async function enqueueRefundCapiEvent({
   }
 
   try {
-    const dispatched = await enqueueInternalJob({
-      job: "process-capi-event",
-      payload: { capiEventId: row.id },
-      fallbackToDirectOnQueueError: true,
-    });
-
-    if (!dispatched.accepted) {
-      await updateCapiEventStatus(row.id, {
-        status: "failed",
-        errorMessage: "Failed to dispatch refund CAPI event for delivery",
-      });
-      throw new Error("Failed to dispatch refund CAPI event for delivery");
-    }
+    await dispatchRefundCapiEventRow(row.id);
   } catch (error) {
     await updateCapiEventStatus(row.id, {
       status: "failed",

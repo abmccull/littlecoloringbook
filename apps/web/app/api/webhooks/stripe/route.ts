@@ -126,8 +126,9 @@ async function handleCheckoutCompleted(event: Stripe.Event, session: Stripe.Chec
   // Meta CAPI Purchase event. Best-effort: a failure here must never
   // break Stripe order processing, since the critical work is already
   // done. We pull fbc / fbp out of the Stripe session metadata (set by
-  // the client during checkout session creation) and clientIp from the
-  // order row (populated at checkout time from the request headers).
+  // the client during checkout session creation), clientIp from the
+  // order row (populated at checkout time from the request headers),
+  // and clientUserAgent from the checkout session metadata.
   try {
     const metadata = session.metadata ?? {};
     await enqueuePurchaseCapiEvent({
@@ -137,7 +138,8 @@ async function handleCheckoutCompleted(event: Stripe.Event, session: Stripe.Chec
       fbc: typeof metadata.fbc === "string" && metadata.fbc ? metadata.fbc : null,
       fbp: typeof metadata.fbp === "string" && metadata.fbp ? metadata.fbp : null,
       clientIpAddress: orderRow?.clientIp ?? null,
-      clientUserAgent: null,
+      clientUserAgent:
+        typeof metadata.clientUserAgent === "string" && metadata.clientUserAgent ? metadata.clientUserAgent : null,
     });
   } catch (error) {
     console.error("stripe webhook: enqueuePurchaseCapiEvent failed", error);

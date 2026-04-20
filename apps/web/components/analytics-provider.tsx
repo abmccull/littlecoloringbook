@@ -7,6 +7,7 @@ import posthog from "posthog-js";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { buyerJourneyStageMeta, type BuyerJourneyStage } from "../lib/buyer-journey";
+import { readMetaClickIds } from "../lib/meta-click-ids";
 import { initPixel, trackEvent as trackPixelEvent } from "../lib/pixel";
 
 declare global {
@@ -125,6 +126,7 @@ export function AnalyticsProvider() {
 
   useEffect(() => {
     initPixel();
+    readMetaClickIds();
 
     if (!posthogKey || posthogInitialized) {
       return;

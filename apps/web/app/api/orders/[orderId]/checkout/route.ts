@@ -7,7 +7,7 @@ import {
 } from "@littlecolorbook/db";
 import { getNormalizedOrderQuantity, getOfferByCode, getOfferSubtotalForQuantity } from "@littlecolorbook/shared";
 import { getAppUrl, getStripe, getVerifiedStripeAccountId, isStripeConfigured } from "../../../../../lib/stripe";
-import { extractClientIp } from "../../../../../lib/request-ip";
+import { extractClientIp, extractClientUserAgent } from "../../../../../lib/request-ip";
 import { z } from "zod";
 
 const checkoutRequestSchema = z.object({
@@ -146,6 +146,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     : `${appUrl}/order/confirmation?orderId=${orderId}`;
 
   const clientIp = extractClientIp(request);
+  const clientUserAgent = extractClientUserAgent(request);
   if (isDatabaseConfigured() && clientIp && clientIp !== "unknown") {
     try {
       await updateOrderClientIp(orderId, clientIp);
@@ -177,9 +178,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
       shippingCents: String(shippingCents),
       // Truncate to Stripe's 500-char metadata-value limit (fbc/fbp are
       // well under, but defensive) and omit empty strings to keep the
-      // metadata object tidy.
+      // metadata object tidy. User agent is captured here because the
+      // post-payment webhook no longer has access to the original browser
+      // request headers.
       ...(fbc ? { fbc: fbc.slice(0, 500) } : {}),
       ...(fbp ? { fbp: fbp.slice(0, 500) } : {}),
+      ...(clientUserAgent ? { clientUserAgent: clientUserAgent.slice(0, 500) } : {}),
     },
     payment_intent_data: {
       metadata: {
