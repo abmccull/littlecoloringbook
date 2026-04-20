@@ -6,6 +6,7 @@ export type SampleLimitPolicy = {
   maxSamplesPerEmail: number;
   maxSamplesPerVisitor: number;
   maxSamplesPerIp: number;
+  ipWindowDays: number;
   bypassEmails: Set<string>;
   bypassIps: Set<string>;
 };
@@ -32,10 +33,12 @@ export type SampleLimitEvaluation = {
     email: number;
     visitor: number;
     ip: number;
+    ipWindowDays: number;
   };
 };
 
 const DEFAULT_MAX_SAMPLES_PER_IP = 4;
+const DEFAULT_IP_WINDOW_DAYS = 30;
 const DEFAULT_TESTER_BYPASS_EMAILS = ["handscrapedflooring@gmail.com"];
 const DEFAULT_TESTER_BYPASS_IPS = ["160.223.185.14"];
 
@@ -65,6 +68,7 @@ export function getSampleLimitPolicy(env: SampleLimitEnv = process.env): SampleL
     maxSamplesPerEmail: 1,
     maxSamplesPerVisitor: 1,
     maxSamplesPerIp: parsePositiveInt(env.SAMPLE_LIMIT_IP_MAX, DEFAULT_MAX_SAMPLES_PER_IP),
+    ipWindowDays: parsePositiveInt(env.SAMPLE_LIMIT_IP_WINDOW_DAYS, DEFAULT_IP_WINDOW_DAYS),
     // Keep the operator requested production tester carve-out even if env
     // configuration has not been applied yet, then extend it via env.
     bypassEmails: new Set([
@@ -95,6 +99,7 @@ export function evaluateSampleLimit(input: SampleLimitEvaluationInput): SampleLi
         email: policy.maxSamplesPerEmail,
         visitor: policy.maxSamplesPerVisitor,
         ip: policy.maxSamplesPerIp,
+        ipWindowDays: policy.ipWindowDays,
       },
     };
   }
@@ -122,6 +127,7 @@ export function evaluateSampleLimit(input: SampleLimitEvaluationInput): SampleLi
       email: policy.maxSamplesPerEmail,
       visitor: policy.maxSamplesPerVisitor,
       ip: policy.maxSamplesPerIp,
+      ipWindowDays: policy.ipWindowDays,
     },
   };
 }

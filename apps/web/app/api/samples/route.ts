@@ -4,13 +4,16 @@ import {
   countSamplesByEmail,
   countSamplesByIp,
   countSamplesByVisitor,
+  createPortalAccessForOrder,
   createOrderDraft,
-  findExistingSampleOrderId,
+  findSampleResumeCandidate,
+  getOrderPortalSummaryByOrderId,
   isDatabaseConfigured,
 } from "@littlecolorbook/db";
 import { readAttributionSnapshot } from "../../../lib/attribution-cookies";
 import { extractClientIp } from "../../../lib/request-ip";
-import { evaluateSampleLimit } from "../../../lib/sample-limits";
+import { getSampleIpWindowStart, getSampleResumeUrl } from "../../../lib/sample-funnel";
+import { evaluateSampleLimit, getSampleLimitPolicy } from "../../../lib/sample-limits";
 
 const createSampleSchema = z.object({
   email: z.string().email(),
@@ -44,12 +47,64 @@ export async function POST(request: NextRequest) {
 
   const attribution = readAttributionSnapshot(request);
   const clientIp = extractClientIp(request);
+  const policy = getSampleLimitPolicy();
 
-  // Abuse protection: 1 sample per email, 1 per browser, capped per IP.
+  const resumeCandidate = await findSampleResumeCandidate({
+    email: parsed.data.email,
+    visitorId: attribution.visitorId,
+  });
+
+  if (resumeCandidate) {
+    const [portalAccess, summary] = await Promise.all([
+      createPortalAccessForOrder(resumeCandidate.orderId),
+      getOrderPortalSummaryByOrderId(resumeCandidate.orderId),
+    ]);
+
+    if (!portalAccess || !summary) {
+      return NextResponse.json(
+        { error: "Could not resume the existing free sample." },
+        { status: 500 },
+      );
+    }
+
+    const processingUrl = `/sample/processing?token=${encodeURIComponent(portalAccess.portalToken)}`;
+    const readyUrl = `/sample/${portalAccess.portalToken}`;
+    const resumeUrl = getSampleResumeUrl({
+      orderId: summary.order.id,
+      portalToken: portalAccess.portalToken,
+      status: summary.order.status,
+      hasPreviewAsset: Boolean(summary.assets.previewPath),
+    });
+
+    return NextResponse.json({
+      id: summary.order.id,
+      status: summary.order.status,
+      type: summary.order.orderType,
+      email: summary.customer?.email ?? parsed.data.email,
+      childFirstName: summary.order.childFirstName,
+      portalToken: portalAccess.portalToken,
+      portalUrl: portalAccess.portalHref,
+      processingUrl,
+      readyUrl,
+      resumeUrl,
+      resumed: true,
+      resumedBy: resumeCandidate.matchedBy,
+      reason: "resume_existing_sample",
+      databaseConfigured: portalAccess.databaseConfigured,
+      jobQueued: false,
+    });
+  }
+
+  const ipWindowStart =
+    clientIp !== "unknown" ? getSampleIpWindowStart(policy.ipWindowDays) : null;
+
+  // Abuse protection: 1 sample per email, 1 active sample per browser, capped per IP in a rolling window.
   const [emailCount, visitorCount, ipCount] = await Promise.all([
     countSamplesByEmail(parsed.data.email),
     attribution.visitorId ? countSamplesByVisitor(attribution.visitorId) : Promise.resolve(0),
-    clientIp !== "unknown" ? countSamplesByIp(clientIp) : Promise.resolve(0),
+    clientIp !== "unknown"
+      ? countSamplesByIp(clientIp, { createdAfter: ipWindowStart })
+      : Promise.resolve(0),
   ]);
 
   const limitEvaluation = evaluateSampleLimit({
@@ -61,17 +116,16 @@ export async function POST(request: NextRequest) {
       visitorCount,
       ipCount,
     },
+    policy,
   });
 
   if (limitEvaluation.blocked) {
-    const existingOrderId = await findExistingSampleOrderId(parsed.data.email);
     return NextResponse.json(
       {
         blocked: true,
         reason: "sample_limit_reached",
         blockedBy: limitEvaluation.blockedBy,
         limits: limitEvaluation.limits,
-        existingOrderId: existingOrderId ?? null,
       },
       { status: 429 },
     );

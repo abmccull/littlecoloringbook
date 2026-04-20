@@ -9,6 +9,9 @@ type SampleCreateResponse = {
   error?: string;
   id?: string;
   processingUrl?: string;
+  resumeUrl?: string;
+  resumed?: boolean;
+  resumedBy?: "email" | "visitor";
   blocked?: boolean;
   reason?: string;
   blockedBy?: Array<"email" | "visitor" | "ip">;
@@ -16,8 +19,8 @@ type SampleCreateResponse = {
     email: number;
     visitor: number;
     ip: number;
+    ipWindowDays: number;
   };
-  existingOrderId?: string | null;
 };
 
 type SampleStartFormProps = {
@@ -51,15 +54,27 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
 
       const payload = (await response.json()) as SampleCreateResponse;
 
+      if (response.ok && payload.resumed && payload.resumeUrl) {
+        trackEvent("sample_draft_resumed", {
+          orderId: payload.id,
+          resumedBy: payload.resumedBy ?? "email",
+        });
+
+        router.push(payload.resumeUrl);
+        return;
+      }
+
       if (response.status === 429 && payload.blocked) {
         const limitUrl = new URL("/sample/limit-reached", window.location.origin);
-        if (payload.existingOrderId) limitUrl.searchParams.set("orderId", payload.existingOrderId);
         if (email) limitUrl.searchParams.set("email", email);
         if (payload.blockedBy?.length) {
           limitUrl.searchParams.set("blockedBy", payload.blockedBy.join(","));
         }
         if (payload.limits?.ip) {
           limitUrl.searchParams.set("ipLimit", String(payload.limits.ip));
+        }
+        if (payload.limits?.ipWindowDays) {
+          limitUrl.searchParams.set("ipWindowDays", String(payload.limits.ipWindowDays));
         }
         router.push(limitUrl.pathname + limitUrl.search);
         return;
@@ -134,7 +149,8 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
         <h3>See your photo become a coloring page in 90 seconds.</h3>
         <p className="muted">We'll email you the finished page so you never lose it.</p>
         <p className="mini-note">
-          Free sample policy: 1 sample per email, 1 sample per browser, up to 4 samples per household/network.
+          Free sample policy: 1 sample per email, 1 active sample per browser, up to 4 samples per
+          household/network in 30 days.
         </p>
       </div>
 

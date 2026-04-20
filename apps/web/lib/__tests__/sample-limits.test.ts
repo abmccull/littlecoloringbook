@@ -8,6 +8,7 @@ describe("getSampleLimitPolicy", () => {
     expect(policy.maxSamplesPerEmail).toBe(1);
     expect(policy.maxSamplesPerVisitor).toBe(1);
     expect(policy.maxSamplesPerIp).toBe(4);
+    expect(policy.ipWindowDays).toBe(30);
     expect(policy.bypassEmails.has("handscrapedflooring@gmail.com")).toBe(true);
     expect(policy.bypassIps.has("160.223.185.14")).toBe(true);
   });
@@ -15,11 +16,13 @@ describe("getSampleLimitPolicy", () => {
   it("parses bypass lists and configured household limits", () => {
     const policy = getSampleLimitPolicy({
       SAMPLE_LIMIT_IP_MAX: "5",
+      SAMPLE_LIMIT_IP_WINDOW_DAYS: "21",
       SAMPLE_LIMIT_BYPASS_EMAILS: " handscrapedflooring@gmail.com,TEST@example.com ",
       SAMPLE_LIMIT_BYPASS_IPS: "160.223.185.14, 203.0.113.10 ",
     });
 
     expect(policy.maxSamplesPerIp).toBe(5);
+    expect(policy.ipWindowDays).toBe(21);
     expect(policy.bypassEmails.has("handscrapedflooring@gmail.com")).toBe(true);
     expect(policy.bypassEmails.has("test@example.com")).toBe(true);
     expect(policy.bypassIps.has("160.223.185.14")).toBe(true);
@@ -134,5 +137,23 @@ describe("evaluateSampleLimit", () => {
 
     expect(result.blocked).toBe(false);
     expect(result.bypassed).toBe(true);
+  });
+
+  it("returns the rolling household window in limit metadata", () => {
+    const result = evaluateSampleLimit({
+      email: "new@example.com",
+      visitorId: "visitor-1",
+      clientIp: "203.0.113.10",
+      counts: {
+        emailCount: 0,
+        visitorCount: 0,
+        ipCount: 0,
+      },
+      policy: getSampleLimitPolicy({
+        SAMPLE_LIMIT_IP_WINDOW_DAYS: "14",
+      }),
+    });
+
+    expect(result.limits.ipWindowDays).toBe(14);
   });
 });

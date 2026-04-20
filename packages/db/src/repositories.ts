@@ -2310,7 +2310,6 @@ export async function countSamplesByEmail(email: string): Promise<number> {
       and(
         eq(orders.customerId, customer.id),
         eq(orders.orderType, "sample"),
-        ne(orders.status, "draft"),
         ne(orders.status, "failed"),
       ),
     );
@@ -2318,23 +2317,25 @@ export async function countSamplesByEmail(email: string): Promise<number> {
   return result[0]?.total ?? 0;
 }
 
-export async function countSamplesByIp(ip: string): Promise<number> {
+export async function countSamplesByIp(
+  ip: string,
+  options: { createdAfter?: Date | null } = {},
+): Promise<number> {
   if (!isDatabaseConfigured()) {
     return 0;
   }
 
   const db = getDatabase();
+  const conditions = [
+    eq(orders.clientIp, ip),
+    eq(orders.orderType, "sample"),
+    ne(orders.status, "failed"),
+    ...(options.createdAfter ? [gte(orders.createdAt, options.createdAfter)] : []),
+  ];
   const result = await db
     .select({ total: count() })
     .from(orders)
-    .where(
-      and(
-        eq(orders.clientIp, ip),
-        eq(orders.orderType, "sample"),
-        ne(orders.status, "draft"),
-        ne(orders.status, "failed"),
-      ),
-    );
+    .where(and(...conditions));
 
   return result[0]?.total ?? 0;
 }
@@ -2352,45 +2353,79 @@ export async function countSamplesByVisitor(visitorId: string): Promise<number> 
       and(
         eq(orders.visitorId, visitorId),
         eq(orders.orderType, "sample"),
-        ne(orders.status, "draft"),
-        ne(orders.status, "failed"),
+        inArray(orders.status, ["draft", "preprocessing", "generating", "qa_review"]),
       ),
     );
 
   return result[0]?.total ?? 0;
 }
 
+export type SampleResumeCandidate = {
+  orderId: string;
+  matchedBy: "email" | "visitor";
+  status: OrderStatus;
+};
+
 /**
- * Returns the order ID of an existing completed sample order for the given email,
- * or null if none exists. The raw portal token cannot be recovered (only the SHA-256
- * hash is stored), so we return the order ID to allow building a support link.
+ * Finds the most recent resumable sample for an email or active sample on a visitor.
+ * Email matches are preferred so returning users can resume from any device.
  */
-export async function findExistingSampleOrderId(email: string): Promise<string | null> {
+export async function findSampleResumeCandidate(input: {
+  email: string;
+  visitorId?: string | null;
+}): Promise<SampleResumeCandidate | null> {
   if (!isDatabaseConfigured()) {
     return null;
   }
 
-  const normalizedEmail = normalizeEmail(email);
+  const normalizedEmail = normalizeEmail(input.email);
   const db = getDatabase();
 
   const customer = await db.query.customers.findFirst({
     where: eq(customers.email, normalizedEmail),
   });
 
-  if (!customer) {
+  if (customer) {
+    const order = await db.query.orders.findFirst({
+      where: and(
+        eq(orders.customerId, customer.id),
+        eq(orders.orderType, "sample"),
+        ne(orders.status, "failed"),
+      ),
+      orderBy: [desc(orders.createdAt)],
+    });
+
+    if (order) {
+      return {
+        orderId: order.id,
+        matchedBy: "email",
+        status: order.status,
+      };
+    }
+  }
+
+  if (!input.visitorId) {
     return null;
   }
 
   const order = await db.query.orders.findFirst({
     where: and(
-      eq(orders.customerId, customer.id),
+      eq(orders.visitorId, input.visitorId),
       eq(orders.orderType, "sample"),
-      ne(orders.status, "draft"),
+      inArray(orders.status, ["draft", "preprocessing", "generating", "qa_review"]),
     ),
     orderBy: [desc(orders.createdAt)],
   });
 
-  return order?.id ?? null;
+  if (!order) {
+    return null;
+  }
+
+  return {
+    orderId: order.id,
+    matchedBy: "visitor",
+    status: order.status,
+  };
 }
 
 export async function recordSupportAction(input: {

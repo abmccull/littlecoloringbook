@@ -7,18 +7,22 @@ type LimitReachedPageProps = {
     email?: string;
     blockedBy?: string;
     ipLimit?: string;
+    ipWindowDays?: string;
   }>;
 };
 
 export default async function SampleLimitReachedPage({ searchParams }: LimitReachedPageProps) {
-  const { orderId, email, blockedBy, ipLimit } = await searchParams;
+  const { orderId, email, blockedBy, ipLimit, ipWindowDays } = await searchParams;
   const blockedReasons = new Set((blockedBy ?? "").split(",").map((value) => value.trim()).filter(Boolean));
   const householdLimit = Number.parseInt(ipLimit ?? "", 10);
   const displayHouseholdLimit = Number.isFinite(householdLimit) && householdLimit > 0 ? householdLimit : 4;
+  const householdWindowDays = Number.parseInt(ipWindowDays ?? "", 10);
+  const displayHouseholdWindowDays =
+    Number.isFinite(householdWindowDays) && householdWindowDays > 0 ? householdWindowDays : 30;
 
   let heading = "Free sample limit reached";
   let lede =
-    `To keep bots and fake signups from abusing free generations, we allow 1 sample per email, 1 sample per browser, and up to ${displayHouseholdLimit} samples per household/network.`;
+    `To keep bots and fake signups from abusing free generations, we allow 1 sample per email, 1 active sample per browser, and up to ${displayHouseholdLimit} samples per household/network in ${displayHouseholdWindowDays} days.`;
 
   if (blockedReasons.has("email")) {
     heading = "This email already used a free sample";
@@ -27,11 +31,11 @@ export default async function SampleLimitReachedPage({ searchParams }: LimitReac
   } else if (blockedReasons.has("visitor")) {
     heading = "This browser already used a free sample";
     lede =
-      "We allow 1 free sample per browser so the sample flow cannot be recycled endlessly from the same device. You can still continue into the full book flow below.";
+      "We allow 1 active free sample per browser so the sample flow cannot be recycled endlessly from the same device while a sample is still in progress. You can still continue into the full book flow below.";
   } else if (blockedReasons.has("ip")) {
     heading = "This household or network reached the free sample limit";
     lede =
-      `We allow up to ${displayHouseholdLimit} free samples per household/network. That gives real families room to try it while still blocking automated abuse.`;
+      `We allow up to ${displayHouseholdLimit} free samples per household/network in a ${displayHouseholdWindowDays}-day window. That gives real families room to try it while still blocking automated abuse.`;
   }
 
   const buildHref = (() => {
