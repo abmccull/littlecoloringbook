@@ -121,6 +121,23 @@ export const creativeBriefInputSchema = z.object({
   canvaFieldMapping: z
     .record(z.string(), z.enum(["hook", "body", "cta", "hero_image"]))
     .optional(),
+  // ─── Sharp compositor (alternative to Canva) ───────────────────────────────
+  /**
+   * Pick a server-side layout for the static hero. When set, the
+   * orchestrator runs the sharp compositor after Gemini, overlaying
+   * hook/body/cta per the named variant. Ignored when `canvaTemplateId`
+   * is also set (Canva takes precedence). Omit to skip compositing —
+   * the raw Gemini hero is used as-is.
+   */
+  compositorVariant: z
+    .enum(["hero_v1", "hero_v2", "hero_v3", "before_after"])
+    .nullish(),
+  /**
+   * Public URL for the original source photo. Required for the
+   * "before_after" compositor variant — the orchestrator composites
+   * [source photo | coloring page] before applying text overlays.
+   */
+  sourcePhotoUrl: z.string().url().nullish(),
   // ─── Phase 7a: copy element IDs ────────────────────────────────────────────
   /**
    * When present, the orchestrator hydrates actual copy text from the DB using

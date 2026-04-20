@@ -31,6 +31,7 @@ import { tagsToTagsJson } from "./tagging";
 import { CanvaClient } from "./canva/client";
 import { DEFAULT_CANVA_FIELD_MAPPING } from "./canva/types";
 import type { CanvaAutofillField } from "./canva/types";
+import { compositeBeforeAfter, renderStaticHeroAd } from "./compositor";
 import { produceCarouselImage } from "./carousel";
 import { produceStopMotionReveal } from "./video/stop-motion";
 import { produceSlideshowNarrationVideo } from "./video/slideshow-narration";
@@ -166,10 +167,16 @@ async function produceStaticImage(
     prompt,
   });
 
-  // d. Optional Canva autofill overlay
-  const { heroBuffer, canvaMeta } = await maybeRunCanvaAutofill(rendered.buffer, brief, opts);
+  // d. Optional Canva autofill overlay (explicit opt-in via canvaTemplateId)
+  const { heroBuffer: canvaHero, canvaMeta } = await maybeRunCanvaAutofill(rendered.buffer, brief, opts);
 
-  // e. Derive 4 aspect crops from (potentially Canva-enhanced) hero
+  // d2. Optional sharp compositor (alternative to Canva). Only runs when
+  // the brief asks for a layout variant AND Canva was not used. Keeps
+  // brand-consistent hook/body/cta overlays programmatically so the
+  // creative system can iterate without manual Canva template work.
+  const heroBuffer = await maybeRunSharpCompositor(canvaHero, brief, canvaMeta !== undefined);
+
+  // e. Derive 4 aspect crops from (potentially enhanced) hero
   const crops = await deriveAspectCrops(heroBuffer);
 
   // f. Generate IDs
@@ -288,6 +295,57 @@ async function produceStaticImage(
     complianceStatus: report.status,
     metadata: canvaMeta,
   };
+}
+
+// ─── Sharp compositor (server-side alternative to Canva) ────────────────────
+
+/**
+ * Apply a named layout variant on top of the hero image. Runs only when
+ * the brief requests a compositorVariant AND the Canva path didn't
+ * already transform the image — this keeps the two paths mutually
+ * exclusive so brief authors don't have to think about ordering.
+ *
+ * For the "before_after" variant, the brief's sourcePhotoUrl is fetched
+ * first and side-by-side composited with the coloring page before the
+ * hook/body/cta overlay is applied.
+ */
+async function maybeRunSharpCompositor(
+  baseImage: Buffer,
+  brief: CreativeBriefParsed,
+  canvaAlreadyRan: boolean,
+): Promise<Buffer> {
+  if (canvaAlreadyRan) return baseImage;
+  if (!brief.compositorVariant) return baseImage;
+
+  try {
+    let heroImage = baseImage;
+
+    if (brief.compositorVariant === "before_after") {
+      if (!brief.sourcePhotoUrl) {
+        console.warn("[creative/orchestrator] before_after variant requires sourcePhotoUrl — skipping compositor");
+        return baseImage;
+      }
+      const res = await fetch(brief.sourcePhotoUrl);
+      if (!res.ok) {
+        console.warn(`[creative/orchestrator] sourcePhotoUrl fetch failed (${res.status}) — skipping compositor`);
+        return baseImage;
+      }
+      const sourcePhoto = Buffer.from(await res.arrayBuffer());
+      heroImage = await compositeBeforeAfter({ sourcePhoto, coloringPage: baseImage });
+    }
+
+    return await renderStaticHeroAd({
+      heroImage,
+      hook: brief.hook,
+      body: brief.body,
+      cta: brief.cta,
+      variant: brief.compositorVariant,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[creative/orchestrator] Sharp compositor failed — falling back to raw hero. Error: ${message}`);
+    return baseImage;
+  }
 }
 
 // ─── Canva autofill overlay (optional) ───────────────────────────────────────
