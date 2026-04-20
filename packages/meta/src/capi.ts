@@ -13,6 +13,16 @@ type CApiResponseBody = {
   };
 };
 
+function isProductionDeliveryEnvironment(): boolean {
+  const vercelEnv = process.env.VERCEL_ENV;
+
+  if (vercelEnv) {
+    return vercelEnv === "production";
+  }
+
+  return process.env.NODE_ENV === "production";
+}
+
 export async function sendCapiEvent(event: CapiEventInput): Promise<CapiSendResult> {
   const env = getMetaEnv();
 
@@ -33,6 +43,10 @@ export async function sendCapiEvent(event: CapiEventInput): Promise<CapiSendResu
   };
 
   if (env.testEventCode) {
+    if (isProductionDeliveryEnvironment()) {
+      throw new CapiSendError(0, null, "META_TEST_EVENT_CODE must not be set in production.");
+    }
+
     body.test_event_code = env.testEventCode;
   }
 

@@ -7,6 +7,17 @@ vi.mock("@littlecolorbook/shared/env", () => ({
     datasetId: "dataset_123",
     graphApiVersion: "v22.0",
     testEventCode: null,
+    appId: null,
+    appSecret: null,
+    businessId: null,
+    adAccountId: null,
+    pageId: null,
+    pageAccessToken: null,
+    igUserId: null,
+    pixelId: null,
+    catalogId: null,
+    webhookVerifyToken: null,
+    webhookAppSecret: null,
   })),
 }));
 
@@ -46,6 +57,7 @@ describe("sendCapiEvent", () => {
       businessId: null,
       adAccountId: null,
       pageId: null,
+      pageAccessToken: null,
       igUserId: null,
       pixelId: null,
       catalogId: null,
@@ -56,6 +68,7 @@ describe("sendCapiEvent", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -93,6 +106,7 @@ describe("sendCapiEvent", () => {
       businessId: null,
       adAccountId: null,
       pageId: null,
+      pageAccessToken: null,
       igUserId: null,
       pixelId: null,
       catalogId: null,
@@ -112,6 +126,34 @@ describe("sendCapiEvent", () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string) as Record<string, unknown>;
     expect(body.test_event_code).toBe("TEST12345");
+  });
+
+  it("rejects test_event_code in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.mocked(getMetaEnv).mockReturnValue({
+      systemUserToken: "test-token",
+      datasetId: "dataset_123",
+      graphApiVersion: "v22.0",
+      testEventCode: "TEST12345",
+      appId: null,
+      appSecret: null,
+      businessId: null,
+      adAccountId: null,
+      pageId: null,
+      pageAccessToken: null,
+      igUserId: null,
+      pixelId: null,
+      catalogId: null,
+      webhookVerifyToken: null,
+      webhookAppSecret: null,
+    });
+
+    const err = await sendCapiEvent(sampleEvent).catch((error: unknown) => error);
+    expect(err).toBeInstanceOf(CapiSendError);
+    expect(fetch).not.toHaveBeenCalled();
+    if (err instanceof CapiSendError) {
+      expect(err.message).toContain("META_TEST_EVENT_CODE must not be set in production");
+    }
   });
 
   it("throws CapiSendError on 400 with error body", async () => {
