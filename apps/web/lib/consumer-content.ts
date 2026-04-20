@@ -352,6 +352,34 @@ export const faqs: FaqItem[] = [
   },
 ];
 
+export const founderStory = {
+  title: "Why I built Little Color Book",
+  eyebrow: "From the founder",
+  signature: "Alec, founder and dad of 3",
+  paragraphs: [
+    "I'm a dad of three. And for the thousandth time, my kids were asking me to print coloring pages off Google.",
+    "You know how this goes. Fifteen minutes of a six-year-old scrolling through dragon pages because this one's mouth is slightly cooler than that one's. Then the watermarks. The blown-up low-res. The pages that don't fit on the paper. The fifth tab open trying to find one that isn't paywalled.",
+    "There had to be a better way.",
+    "So I started messing with AI. I pulled photos off my phone. The kids. Our dog. My son holding a stick like it's Excalibur. Turned them into coloring pages. Real ones. Bold lines, clean backgrounds, no logos across the middle.",
+    "My kids lost it.",
+    "They stopped asking for Pokemon. They started staging scenes. They built whole comic books. Epic fight scenes. The stuffed animals cast as side characters. The cat pulled into the plot against her will. Suddenly they were the heroes of the story, not some stock dragon on page 47 of a search result. My six-year-old's decision paralysis disappeared the second he got to be the one on the page.",
+    "And they colored. For hours. No screens. No negotiation.",
+    "If that worked for my kitchen table, I figured it'd work for a lot of other parents too. That's why Little Color Book exists. To turn the photos already on your phone into the kind of coloring pages your kids actually want to finish. The ones where they're the main character.",
+  ],
+};
+
+export const founderStoryShort = {
+  title: "A quick note from the founder",
+  eyebrow: "From the founder",
+  signature: "Alec, dad of 3",
+  paragraphs: [
+    "I'm a dad of three. For the thousandth time, my kids were asking me to print coloring pages off Google. Fifteen minutes of a six-year-old scrolling, watermarks, pages that don't fit on the paper.",
+    "There had to be a better way.",
+    "I pulled photos off my phone, fed them to AI, and turned them into coloring pages. My kids lost it. They stopped asking for Pokemon and started staging their own scenes. Suddenly they were the heroes.",
+    "Little Color Book is that, for you.",
+  ],
+};
+
 export const urgencyMessages = {
   sampleExpiry: "Your preview is saved for 48 hours.",
   seasonalCover: "Mother's Day cover available through May 10.",

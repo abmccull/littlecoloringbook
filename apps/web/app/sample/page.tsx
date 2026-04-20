@@ -8,7 +8,7 @@ import { TrackVisibilityStage } from "../../components/track-visibility-stage";
 import { TrackPageEvent } from "../../components/track-page-event";
 import { TrackedLink } from "../../components/tracked-link";
 import { getAcquisitionPayloadFromRecord } from "../../lib/acquisition";
-import { faqs, photoExamples, proofAssets } from "../../lib/consumer-content";
+import { faqs, founderStoryShort, photoExamples, proofAssets } from "../../lib/consumer-content";
 
 const sampleReasons = [
   "One good photo is enough to see whether the style feels like your family.",
@@ -93,6 +93,15 @@ export default async function SamplePage({
         </div>
       </section>
 
+      <Section eyebrow={founderStoryShort.eyebrow} title={founderStoryShort.title}>
+        <article className="surface founder-story founder-story-compact">
+          {founderStoryShort.paragraphs.map((paragraph, index) => (
+            <p key={index}>{paragraph}</p>
+          ))}
+          <p className="founder-signature">{founderStoryShort.signature}</p>
+        </article>
+      </Section>
+
       <Section
         eyebrow="Best photo choices"
         title="Better photos in. Better coloring pages out."
@@ -144,7 +153,7 @@ export default async function SamplePage({
         id="faq"
         eyebrow="FAQ"
         title="Questions parents ask before they upload."
-        copy="Timing, print versus PDF, multiple kids, gift copies — the details most parents want before they start."
+        copy="Timing, print versus PDF, multiple kids, gift copies. The details most parents want before they start."
       >
         <FaqAccordion items={faqs} />
       </Section>

@@ -6,7 +6,7 @@ import { HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "..
 import { Section } from "../components/section";
 import { TrackVisibilityStage } from "../components/track-visibility-stage";
 import { TrackedLink } from "../components/tracked-link";
-import { consumerOffers, faqs, funnelCtas, guarantees, homepageContent, parentQuotes, useCaseCards } from "../lib/consumer-content";
+import { consumerOffers, faqs, founderStory, funnelCtas, guarantees, homepageContent, parentQuotes, useCaseCards } from "../lib/consumer-content";
 
 const coreOffers = consumerOffers.filter((offer) => offer.code === "pdf-30" || offer.code === "pdf-50" || offer.code === "pdf-100");
 
@@ -62,6 +62,15 @@ export default function HomePage() {
         <ProofStrip />
       </Section>
 
+      <Section eyebrow={founderStory.eyebrow} title={founderStory.title}>
+        <article className="surface founder-story">
+          {founderStory.paragraphs.map((paragraph, index) => (
+            <p key={index}>{paragraph}</p>
+          ))}
+          <p className="founder-signature">{founderStory.signature}</p>
+        </article>
+      </Section>
+
       <Section
         id="book-sizes"
         eyebrow="Pick your size"
@@ -78,7 +87,7 @@ export default function HomePage() {
       <Section
         eyebrow="Why parents keep coming back"
         title="Easy enough for a Tuesday afternoon. Good enough to gift to grandma."
-        copy="That's the whole point. It works on a regular weekday — and it still feels thoughtful enough to show up on a grandparent's coffee table."
+        copy="That's the whole point. It works on a regular weekday, and it still feels thoughtful enough to show up on a grandparent's coffee table."
       >
         <UseCaseModule items={useCaseCards} />
       </Section>
@@ -86,7 +95,7 @@ export default function HomePage() {
       <Section
         eyebrow="Why this works"
         title="An easy screen-free win now. A keepsake worth saving later."
-        copy="Your kid recognizes the faces on every page — that's why they actually want to color it. You end up with something nice enough to print, gift, and keep."
+        copy="Your kid recognizes the faces on every page. That's why they actually want to color it. You end up with something nice enough to print, gift, and keep."
       >
         <ParentQuoteBlock quotes={parentQuotes} />
       </Section>
@@ -129,7 +138,7 @@ export default function HomePage() {
         id="faq"
         eyebrow="FAQ"
         title="Questions parents ask before they upload."
-        copy="Timing, print versus PDF, multiple kids, gift copies — the details most parents want before they start."
+        copy="Timing, print versus PDF, multiple kids, gift copies. The details most parents want before they start."
       >
         <FaqAccordion items={faqs} />
       </Section>

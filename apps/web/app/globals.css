@@ -2398,6 +2398,34 @@ select.text-input {
   color: var(--muted);
 }
 
+.founder-story {
+  display: grid;
+  gap: 14px;
+  padding: 28px;
+  max-width: 720px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 241, 0.96));
+}
+
+.founder-story p {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.founder-story-compact p {
+  font-size: 1rem;
+}
+
+.founder-signature {
+  font-size: 0.95rem !important;
+  color: var(--muted);
+  font-style: italic;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  margin-top: 6px !important;
+}
+
 .faq-card,
 .photo-example-card,
 .detail-card {

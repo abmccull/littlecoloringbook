@@ -125,7 +125,7 @@ function ExamplesCarousel({ audience }: ExamplesCarouselProps) {
   return (
     <div className="processing-examples">
       <p className="processing-examples-caption">
-        While you wait &mdash; here&rsquo;s what other pages look like
+        While you wait, here&rsquo;s what other pages look like
       </p>
       <div
         className="processing-examples-stage"
