@@ -34,6 +34,21 @@ Running log of corrections from the user. Read at session start so the same mist
 
 ---
 
+## 2026-04-20 — Vercel build failed after a split commit
+
+**Mistake:** Committed a set of files that depended on an unstaged modification to a shared wrapper (`apps/web/lib/internal-jobs.ts`). Local typecheck passed because the wrapper in my working tree had the new option. CI typecheck failed because the pushed wrapper didn't.
+
+**Reality:** When editing a subset of a working tree that has many uncommitted changes, type dependencies between the files-I-want-to-commit and the files-I'm-leaving-uncommitted can silently break CI.
+
+**Rule for future:** When staging a subset of modified files, before committing, run typecheck against *only the HEAD tree* (not the working tree). Options:
+
+1. `git stash --keep-index` before typecheck — stashes unstaged changes, leaves staged ones. Run typecheck. If clean, commit. Then `git stash pop`.
+2. Or: after `git add`, do `git diff --cached --name-only` and read every file that imports from a non-staged modified file — confirm the non-staged file's current signature is what's actually committed to main, not a local-only evolution.
+
+The split-commit risk is highest when a shared lib file (types, helpers, schemas) has in-progress work that other files depend on.
+
+---
+
 ## How to use this file
 
 - Read at the start of any session touching paid ads, unit economics, or brand voice for this project
