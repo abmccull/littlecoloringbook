@@ -1,35 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeInternalJobRequest } from "../../../../lib/internal-jobs";
-import { GraphClient } from "@littlecolorbook/meta";
+import { GraphClient } from "@littlecolorbook/meta/client";
+import { createCampaign } from "@littlecolorbook/ads/campaigns";
+import { createAdSet } from "@littlecolorbook/ads/adsets";
+import { createAd } from "@littlecolorbook/ads/ads";
+import { uploadAdImageBufferRaw } from "@littlecolorbook/ads/adimages";
+import { createAdCreative } from "@littlecolorbook/ads/creatives";
+import { generateDailyBriefs } from "@littlecolorbook/ads/brief-generator";
+import { bundledCampaignTaxonomy } from "@littlecolorbook/ads/campaign-taxonomy";
+import type { AdBrief } from "@littlecolorbook/ads/types";
 import {
-  generateDailyBriefs,
-  createCampaign,
-  createAdSet,
-  createAd,
-  createAdCreative,
-  uploadAdImageRaw,
-  type AdBrief,
-} from "@littlecolorbook/ads";
-import {
+  getCreativeAssetById,
   upsertAdCampaign,
   upsertAdSet,
   upsertAd,
   upsertAdCreative,
   listCreativeAssets,
-} from "@littlecolorbook/db";
+} from "@littlecolorbook/db/repositories";
 import { downloadObject, type StorageBucketKind } from "@littlecolorbook/shared/storage";
-import { resolve, join } from "node:path";
-import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-
-const TAXONOMY_PATH = resolve(process.cwd(), "../../campaign-taxonomy.yaml");
-
-// Last-resort image path used only when the creative library is empty
-// (shouldn't happen in prod once scripts/seed-creative-library.mjs has run).
-const FALLBACK_IMAGE_PATH = resolve(process.cwd(), "../../campaigns/fb-page-warmup/images/44-pets-VzG64C5T7p4.png");
 
 type AudienceTag = "family" | "kids" | "pets";
+type ResolvedCreativeImage = {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+};
 
 function mapBriefToAudience(brief: AdBrief): AudienceTag | undefined {
   const text = `${brief.persona ?? ""} ${brief.occasion ?? ""} ${brief.format ?? ""} ${brief.visualPrompt ?? ""}`.toLowerCase();
@@ -51,10 +46,55 @@ function bucketKindFor(bucketName: string): StorageBucketKind | null {
   return null;
 }
 
-// Pulls a hero from creative_assets matching the brief's audience tag,
-// downloads from GCS, writes to a tmp file, returns the local path.
-// Returns null if the library has no usable assets (cron will warn and skip).
-async function resolveCreativeImagePath(brief: AdBrief): Promise<string | null> {
+function extensionForMimeType(mimeType: string): string {
+  switch (mimeType.toLowerCase()) {
+    case "image/png":
+      return ".png";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/jpeg":
+    case "image/jpg":
+    default:
+      return ".jpg";
+  }
+}
+
+async function loadCreativeAssetImage(input: {
+  assetId: string;
+  gcsBucket: string;
+  gcsObject: string;
+  mimeType: string;
+}): Promise<ResolvedCreativeImage | null> {
+  const bucketKind = bucketKindFor(input.gcsBucket);
+  if (!bucketKind) return null;
+
+  const buffer = await downloadObject({ bucket: bucketKind, objectPath: input.gcsObject });
+  return {
+    buffer,
+    filename: `${input.assetId}${extensionForMimeType(input.mimeType)}`,
+    mimeType: input.mimeType,
+  };
+}
+
+// Pulls a hero from creative_assets matching the brief's audience tag and
+// returns in-memory bytes ready for multipart upload.
+async function resolveCreativeImage(brief: AdBrief): Promise<ResolvedCreativeImage | null> {
+  const explicitAssetId = brief.imageAssetIds?.[0];
+  if (explicitAssetId) {
+    const explicitAsset = await getCreativeAssetById(explicitAssetId);
+    if (!explicitAsset) {
+      throw new Error(`Creative asset not found: ${explicitAssetId}`);
+    }
+    return loadCreativeAssetImage({
+      assetId: explicitAsset.id,
+      gcsBucket: explicitAsset.gcsBucket,
+      gcsObject: explicitAsset.gcsObject,
+      mimeType: explicitAsset.mimeType,
+    });
+  }
+
   const audience = mapBriefToAudience(brief);
 
   let candidates = await listCreativeAssets({
@@ -78,13 +118,12 @@ async function resolveCreativeImagePath(brief: AdBrief): Promise<string | null> 
   if (candidates.length === 0) return null;
 
   const picked = candidates[stableHash(brief.slotKey) % candidates.length];
-  const bucketKind = bucketKindFor(picked.gcsBucket);
-  if (!bucketKind) return null;
-
-  const buffer = await downloadObject({ bucket: bucketKind, objectPath: picked.gcsObject });
-  const tmpPath = join(tmpdir(), `lcb-ad-${brief.slotKey}-${picked.id}.png`);
-  await writeFile(tmpPath, buffer);
-  return tmpPath;
+  return loadCreativeAssetImage({
+    assetId: picked.id,
+    gcsBucket: picked.gcsBucket,
+    gcsObject: picked.gcsObject,
+    mimeType: picked.mimeType,
+  });
 }
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -161,7 +200,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let briefs;
   try {
     briefs = generateDailyBriefs({
-      taxonomyYamlPath: TAXONOMY_PATH,
+      taxonomy: bundledCampaignTaxonomy,
       count: batchSize,
       seed: today,
       date: today,
@@ -211,36 +250,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     try {
       await enforceRateLimit();
 
-      // Resolve image: prefer brief-provided paths (explicit caller), then
-      // the creative library (seeded from Phase 2a), then the last-resort
-      // warmup fallback image bundled in the repo.
-      let imagePath = brief.imageAssetIds?.[0] ?? null;
-
-      if (!imagePath) {
-        try {
-          imagePath = await resolveCreativeImagePath(brief);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          summary.errors.push({ slotKey: brief.slotKey, error: `creative-library lookup failed: ${msg}` });
-          summary.skipped++;
-          continue;
-        }
+      let resolvedImage: ResolvedCreativeImage | null = null;
+      try {
+        resolvedImage = await resolveCreativeImage(brief);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        summary.errors.push({ slotKey: brief.slotKey, error: `creative-library lookup failed: ${msg}` });
+        summary.skipped++;
+        continue;
       }
 
-      if (!imagePath) imagePath = FALLBACK_IMAGE_PATH;
-
-      if (!existsSync(imagePath)) {
-        summary.errors.push({ slotKey: brief.slotKey, error: `Image not found: ${imagePath}` });
+      if (!resolvedImage) {
+        summary.errors.push({ slotKey: brief.slotKey, error: "No creative image available for brief." });
         summary.skipped++;
         continue;
       }
 
       // (a) Upload image → hash
-      const { hash: imageHash } = await uploadAdImageRaw({
+      const { hash: imageHash } = await uploadAdImageBufferRaw({
         accessToken: token,
         version: apiVersion,
         adAccountId,
-        imagePath,
+        imageBuffer: resolvedImage.buffer,
+        filename: resolvedImage.filename,
+        mimeType: resolvedImage.mimeType,
       });
 
       // (b) Create ad creative

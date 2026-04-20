@@ -15,7 +15,15 @@
     "vitest": "^3.2.4"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./ads": "./src/ads.ts",
+    "./adimages": "./src/adimages.ts",
+    "./adsets": "./src/adsets.ts",
+    "./brief-generator": "./src/brief-generator.ts",
+    "./campaign-taxonomy": "./src/campaign-taxonomy.ts",
+    "./campaigns": "./src/campaigns.ts",
+    "./creatives": "./src/creatives.ts",
+    "./types": "./src/types.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

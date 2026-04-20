@@ -1,10 +1,12 @@
 export { createCampaign, updateCampaign, pauseCampaign, getCampaign } from "./campaigns";
 export { createAdSet, updateAdSet, pauseAdSet, getAdSet } from "./adsets";
 export { createAd, updateAd, pauseAd, getAd } from "./ads";
-export { uploadAdImageRaw, createAdCreative, createAdCreativeFromPost } from "./creatives";
+export { uploadAdImage, uploadAdImageRaw, uploadAdImageBufferRaw } from "./adimages";
+export { createAdCreative, createAdCreativeFromPost } from "./creatives";
 export { fetchAdsInsights } from "./insights";
 export { createCustomAudience, createLookalikeAudience } from "./audiences";
 export { generateDailyBriefs, buildBanditArmsFromPerformance } from "./brief-generator";
+export { bundledCampaignTaxonomy } from "./campaign-taxonomy";
 export type { LearnedPriors, ElementPriorRow, SamplingMode } from "./brief-generator";
 export {
   sampleBeta,

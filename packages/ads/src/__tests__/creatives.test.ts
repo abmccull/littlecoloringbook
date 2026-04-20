@@ -40,7 +40,7 @@ describe("uploadAdImageRaw", () => {
         }),
     });
 
-    const { uploadAdImageRaw } = await import("../creatives");
+    const { uploadAdImageRaw } = await import("../adimages");
 
     const result = await uploadAdImageRaw({
       accessToken: "EAAtest",
@@ -68,7 +68,7 @@ describe("uploadAdImageRaw", () => {
         JSON.stringify({ error: { message: "Invalid image format", code: 100 } }),
     });
 
-    const { uploadAdImageRaw } = await import("../creatives");
+    const { uploadAdImageRaw } = await import("../adimages");
 
     await expect(
       uploadAdImageRaw({
@@ -87,7 +87,7 @@ describe("uploadAdImageRaw", () => {
       text: async () => JSON.stringify({ images: {} }),
     });
 
-    const { uploadAdImageRaw } = await import("../creatives");
+    const { uploadAdImageRaw } = await import("../adimages");
 
     await expect(
       uploadAdImageRaw({
@@ -97,6 +97,41 @@ describe("uploadAdImageRaw", () => {
         imagePath: "/fake/test.png",
       }),
     ).rejects.toThrow("could not extract hash");
+  });
+});
+
+describe("uploadAdImageBufferRaw", () => {
+  it("uploads in-memory bytes without reading from disk", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          images: {
+            "asset-123.png": { hash: "bufferhash123", url: "https://cdn.facebook.com/fake" },
+          },
+        }),
+    });
+
+    const { uploadAdImageBufferRaw } = await import("../adimages");
+
+    const result = await uploadAdImageBufferRaw({
+      accessToken: "EAAtest",
+      version: "v22.0",
+      adAccountId: "1023080546186668",
+      imageBuffer: Buffer.from("inline-bytes"),
+      filename: "asset-123.png",
+      mimeType: "image/png",
+    });
+
+    expect(result.hash).toBe("bufferhash123");
+
+    const [calledUrl, calledInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain("act_1023080546186668/adimages");
+    expect(calledInit.method).toBe("POST");
+
+    const body = calledInit.body as FormData;
+    expect(body.get("access_token")).toBe("EAAtest");
   });
 });
 

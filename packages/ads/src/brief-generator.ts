@@ -1,14 +1,13 @@
-import { readFileSync } from "node:fs";
-import { load as loadYaml } from "js-yaml";
 import type { AdBrief } from "./types";
 import { thompsonSample, sampleBeta } from "./thompson-sampling";
 import type { BanditArm } from "./thompson-sampling";
+import { bundledCampaignTaxonomy } from "./campaign-taxonomy";
 
 // ─── Taxonomy types ───────────────────────────────────────────────────────────
 
 type Persona = { id: string; name: string };
 
-type TaxonomyYaml = {
+export type CampaignTaxonomy = {
   personas?: Persona[];
   formats?: string[];
   occasions?: string[];
@@ -204,7 +203,16 @@ export function buildBanditArmsFromPerformance(
 // ─── Main generator ───────────────────────────────────────────────────────────
 
 type GenerateDailyBriefsInput = {
-  taxonomyYamlPath: string;
+  /**
+   * Bundled taxonomy input used by deployed runtimes. This keeps the generator
+   * pure and avoids filesystem access in serverless import graphs.
+   */
+  taxonomy?: CampaignTaxonomy;
+  /**
+   * Deprecated compatibility field. Existing tests still pass this, but the
+   * generator now uses bundled taxonomy data instead of reading from disk.
+   */
+  taxonomyYamlPath?: string;
   count: number;
   seed?: string;
   date?: string;
@@ -244,7 +252,7 @@ type GenerateDailyBriefsInput = {
 
 export function generateDailyBriefs(input: GenerateDailyBriefsInput): AdBrief[] {
   const {
-    taxonomyYamlPath,
+    taxonomy = bundledCampaignTaxonomy,
     count,
     seed,
     date = new Date().toISOString().slice(0, 10),
@@ -254,9 +262,6 @@ export function generateDailyBriefs(input: GenerateDailyBriefsInput): AdBrief[] 
     samplingMode = "uniform",
     explorationRate = 0.2,
   } = input;
-
-  const rawYaml = readFileSync(taxonomyYamlPath, "utf8");
-  const taxonomy = loadYaml(rawYaml) as TaxonomyYaml;
 
   const personas: Persona[] = taxonomy.personas ?? [{ id: "default", name: "Default" }];
   const formats: string[] = taxonomy.formats ?? ["slideshow_narration"];
