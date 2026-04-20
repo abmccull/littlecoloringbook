@@ -18,3 +18,7 @@ apps/web/apps/
 *.vercel-prod*
 test-results/
 playwright-report/
+
+# Office / LibreOffice lock files
+.~lock.*#
+~$*
