@@ -150,14 +150,14 @@ export const consumerOffers: ConsumerOffer[] = [
   {
     code: "pdf-30",
     title: "The Starter Book",
-    badge: "Easy first book",
+    badge: "First book",
     badgeTone: "sky",
     designs: 30,
     pdfPrice: 29,
     printPrice: 49,
-    description: "The fastest way to turn a handful of favorites into their first personalized coloring book.",
+    description: "30 favorite photos. The fastest way to have the book in their hands tonight.",
     ctaLabel: "Start with The Starter Book",
-    comparisonNote: "Best for your first full book.",
+    comparisonNote: "Pick this when you want the first book without overthinking which photos.",
   },
   {
     code: "pdf-50",
@@ -167,9 +167,9 @@ export const consumerOffers: ConsumerOffer[] = [
     designs: 50,
     pdfPrice: 39,
     printPrice: 64,
-    description: "The sweet spot. Enough pages for birthdays, pets, siblings, and every moment worth coloring.",
+    description: "50 pages. Enough room for birthdays, pets, siblings, and every moment worth coloring.",
     ctaLabel: "Build My Family Memory Book",
-    comparisonNote: "Best when you want the book to feel full without going all the way to 100.",
+    comparisonNote: "Pick this when you have more than a handful of favorites but don't need all 100.",
     featured: true,
   },
   {
@@ -180,46 +180,46 @@ export const consumerOffers: ConsumerOffer[] = [
     designs: 100,
     pdfPrice: 59,
     printPrice: 99,
-    description: "Every birthday, every pet, every silly moment gets its own page. The full family story in one book.",
+    description: "100 pages. Every birthday, every pet, every silly moment in one book.",
     ctaLabel: "Get The Complete Collection",
-    comparisonNote: "Best when you want the most book for the money.",
+    comparisonNote: "Pick this for the lowest cost per page and room for the whole family story.",
   },
 ];
 
 export const homepageContent = {
   hero: {
     badge: "Free sample in 30 seconds",
-    title: "Your kid's favorite photos. Their new favorite coloring book.",
+    title: "Turn the photos on your phone into a screen-free activity they actually want to do.",
     description:
-      "Upload one photo. See it become a coloring page in about 30 seconds. When they light up, turn the rest of your camera roll into their own book.",
+      "Upload one favorite photo. Watch it become a coloring page in about 30 seconds. If your kid lights up, turn the rest of your camera roll into the full book.",
     supporting:
-      "They'll recognize every face on every page. That's what makes them actually want to color it. No craft-project energy required.",
+      "They recognize every face on every page. That's why they actually want to color it. No craft project, no perfect-photo hunt, no assembly required.",
     callouts: [
       {
-        badge: "See it first",
+        badge: "Try it first",
         title: "30 seconds to your first page",
-        detail: "Upload one photo and watch it become a coloring page. Free, no commitment.",
+        detail: "Upload one photo and watch it become a coloring page. Free, no card, no commitment.",
         tone: "sun",
       },
       {
         badge: "Made from your photos",
         title: "They recognize themselves. That's the magic.",
-        detail: "Familiar faces, pets, and moments they know make kids actually want to color.",
+        detail: "Familiar faces, pets, and moments they know are what make kids actually want to color.",
         tone: "sky",
       },
       {
-        badge: "Real results",
-        title: "Real parents. Real reactions.",
-        detail: "Join families who turned their camera rolls into keepsakes their kids won't put down.",
+        badge: "What parents say",
+        title: "\"He kept saying 'that's ME!' on every page.\"",
+        detail: "That reaction is the whole reason parents build the full book. One upload gets you there.",
         tone: "coral",
       },
     ] satisfies HeroCallout[],
   },
-  proofStripTitle: "See how one photo becomes a page worth coloring.",
+  proofStripTitle: "See how one favorite photo becomes a page they'll actually color.",
   proofStripCopy:
-    "The input is a photo they already know. The output is bold, clean lines they actually want to fill in. That's the whole trick.",
+    "Start with a photo they already love. End with bold, clean lines they can't wait to fill in. No design skills, no template picking, no project.",
   featuredOfferIntro:
-    "Start with The Starter Book if you want an easy first yes. The Family Memory Book is what most families pick. The Complete Collection is for camera rolls that are packed and ready.",
+    "30 pages for a clean first book. 50 pages for every birthday, pet, and sibling. 100 pages when your camera roll is too full to choose.",
   sampleBlock: {
     title: "See your own photo first. Free.",
     description: "One photo, one free coloring page, about 30 seconds. If they love it, the rest of your camera roll is next.",
@@ -229,7 +229,7 @@ export const homepageContent = {
 export const useCaseCards: UseCaseCard[] = [
   {
     title: "Quiet time that feels like a win",
-    description: "An easy personal activity for afternoons when you need something low-prep that still feels special.",
+    description: "A screen-free activity for afternoons when you need something low-prep that still feels thoughtful.",
     tone: "sun",
   },
   {
@@ -239,7 +239,7 @@ export const useCaseCards: UseCaseCard[] = [
   },
   {
     title: "A keepsake grandparents actually keep",
-    description: "Turn favorite family photos into something that gets colored now and saved later.",
+    description: "Favorite family photos turned into something kids color now and grandparents save for years.",
     tone: "mint",
   },
 ];

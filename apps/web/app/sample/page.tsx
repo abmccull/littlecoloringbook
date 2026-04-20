@@ -11,22 +11,22 @@ import { getAcquisitionPayloadFromRecord } from "../../lib/acquisition";
 import { faqs, photoExamples, proofAssets } from "../../lib/consumer-content";
 
 const sampleReasons = [
-  "You only need one good photo to know whether the style feels like your family.",
-  "The sample gives you proof before you ever commit to a full book.",
-  "If the sample feels right, you can turn the rest of your favorite photos into the full book next.",
+  "One good photo is enough to see whether the style feels like your family.",
+  "You get proof before you spend a dollar on the full book.",
+  "If the sample lands, the rest of your favorite photos become the full book next.",
 ];
 
 const sampleSupportNotes = [
   {
     badge: "Best for",
     title: "One child, one sibling moment, or one favorite pet",
-    detail: "Simple, recognizable photos usually make the strongest free sample pages.",
+    detail: "Simple, recognizable photos turn into the cleanest coloring pages. No studio shot required.",
     tone: "sky",
   },
   {
     badge: "Why start here",
-    title: "You get proof before you buy the full book",
-    detail: "If the sample feels right, the rest of your camera roll can become the full book next.",
+    title: "See proof before you buy the book",
+    detail: "If the sample feels right, the rest of your camera roll becomes the book in minutes.",
     tone: "sun",
   },
 ] as const;
@@ -48,12 +48,12 @@ export default async function SamplePage({
           <span className="pill pill-sun">Free sample</span>
           <h1>One photo of your kid. One free coloring page they'll actually want to color.</h1>
           <p className="lede">
-            Start with one favorite photo first. If the page feels like them, you can turn the rest of your camera roll into the full book right after that.
+            Start with one favorite photo. If the page feels like them, the rest of your camera roll becomes the full book on the next screen.
           </p>
           <ul className="feature-list">
             <li>One free sample page from one favorite photo</li>
-            <li>Best for a child portrait, a sibling moment, or a favorite pet</li>
-            <li>If your child loves it, you are one step away from the full book.</li>
+            <li>Works best with a child portrait, a sibling moment, or a favorite pet</li>
+            <li>If they light up, the full book is one step away</li>
           </ul>
           <div className="sample-entry-support-grid">
             {sampleSupportNotes.map((note) => (
@@ -95,8 +95,8 @@ export default async function SamplePage({
 
       <Section
         eyebrow="Best photo choices"
-        title="Stronger source photos create stronger coloring pages."
-        copy="A few good examples make this easier than guessing what kind of photo to upload."
+        title="Better photos in. Better coloring pages out."
+        copy="A few examples take the guesswork out of picking the photo to upload."
       >
         <PhotoExampleGrid examples={photoExamples} />
       </Section>
@@ -104,7 +104,7 @@ export default async function SamplePage({
       <Section
         eyebrow="What happens next"
         title="One good sample page makes the full book feel obvious."
-        copy="That is the whole point of the free page. You get to see your own photo in the style first, then decide whether you want to turn the rest of your camera roll into the full book."
+        copy="That's the whole point of the free page. You see your own photo in the style first. Then decide whether the rest of the camera roll becomes the book."
       >
         <div className="detail-grid three-up">
           {sampleReasons.map((reason, index) => (
@@ -143,8 +143,8 @@ export default async function SamplePage({
       <Section
         id="faq"
         eyebrow="FAQ"
-        title="Questions moms and grandparents usually ask before they start."
-        copy="Timing, print versus PDF, multiple kids, gift copies, and the practical details most people want before they upload."
+        title="Questions parents ask before they upload."
+        copy="Timing, print versus PDF, multiple kids, gift copies — the details most parents want before they start."
       >
         <FaqAccordion items={faqs} />
       </Section>

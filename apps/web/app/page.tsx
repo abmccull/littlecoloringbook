@@ -64,8 +64,8 @@ export default function HomePage() {
 
       <Section
         id="book-sizes"
-        eyebrow="Choose your size"
-        title="Pick the book size that fits the photos already sitting in your camera roll."
+        eyebrow="Pick your size"
+        title="Three sizes. Match one to the camera roll you already have."
         copy={homepageContent.featuredOfferIntro}
       >
         <div className="offer-grid">
@@ -76,9 +76,9 @@ export default function HomePage() {
       </Section>
 
       <Section
-        eyebrow="Why moms love this"
-        title="It gives you something easy for now and something sweet to keep later."
-        copy="That is the real magic: it works on a regular weekday, but it still feels thoughtful enough to gift."
+        eyebrow="Why parents keep coming back"
+        title="Easy enough for a Tuesday afternoon. Good enough to gift to grandma."
+        copy="That's the whole point. It works on a regular weekday — and it still feels thoughtful enough to show up on a grandparent's coffee table."
       >
         <UseCaseModule items={useCaseCards} />
       </Section>
@@ -86,13 +86,13 @@ export default function HomePage() {
       <Section
         eyebrow="Why this works"
         title="An easy screen-free win now. A keepsake worth saving later."
-        copy="That is the real reason parents say yes. Your child recognizes the people and moments on the page right away, and you still end up with something nice enough to print, gift, and keep."
+        copy="Your kid recognizes the faces on every page — that's why they actually want to color it. You end up with something nice enough to print, gift, and keep."
       >
         <ParentQuoteBlock quotes={parentQuotes} />
       </Section>
 
       <Section
-        eyebrow="Free sample first"
+        eyebrow="Try the free page first"
         title={homepageContent.sampleBlock.title}
         copy={homepageContent.sampleBlock.description}
       >
@@ -100,7 +100,7 @@ export default function HomePage() {
           <div className="stack-tight">
             <span className="pill pill-sky">One photo is enough to start</span>
             <h3>Get the free page first. Decide after you see it.</h3>
-            <p className="muted">No full album required up front. Just one favorite photo, one quick preview, and a clear next move if your child lights up.</p>
+            <p className="muted">No album required up front. One favorite photo, one quick preview, one clear next move if your kid lights up.</p>
           </div>
           <div className="hero-actions">
             <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName="home_midpage_sample_clicked">
@@ -111,9 +111,9 @@ export default function HomePage() {
       </Section>
 
       <Section
-        eyebrow="Guarantee"
-        title="The practical details that make this easy to trust."
-        copy="The fun part should stay front and center. These are the details that keep the purchase low-stress."
+        eyebrow="Guaranteed"
+        title="The parts we don't want you to worry about."
+        copy="Because the fun part is the reaction. Here's how we take every other risk off your plate."
       >
         <div className="detail-grid three-up">
           {guarantees.map((item) => (
@@ -128,8 +128,8 @@ export default function HomePage() {
       <Section
         id="faq"
         eyebrow="FAQ"
-        title="A few practical questions before you start."
-        copy="Everything most moms and grandparents want to know before they try the free page or build the full book."
+        title="Questions parents ask before they upload."
+        copy="Timing, print versus PDF, multiple kids, gift copies — the details most parents want before they start."
       >
         <FaqAccordion items={faqs} />
       </Section>
