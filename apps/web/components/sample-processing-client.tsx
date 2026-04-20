@@ -185,7 +185,7 @@ function ProgressBar({ percent, estimatedSeconds }: ProgressBarProps) {
         />
       </div>
       <div className="processing-progress-meta">
-        <span className="processing-time-hint">Usually takes about 60&ndash;90 seconds</span>
+        <span className="processing-time-hint">Usually takes about 20&ndash;30 seconds</span>
         <span className="processing-time-remaining">{timeLabel}</span>
       </div>
     </div>

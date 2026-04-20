@@ -188,16 +188,16 @@ export const consumerOffers: ConsumerOffer[] = [
 
 export const homepageContent = {
   hero: {
-    badge: "Free sample in 90 seconds",
+    badge: "Free sample in 30 seconds",
     title: "Your kid's favorite photos. Their new favorite coloring book.",
     description:
-      "Upload one photo. See it become a coloring page in 90 seconds. When they light up, turn the rest of your camera roll into their own book.",
+      "Upload one photo. See it become a coloring page in about 30 seconds. When they light up, turn the rest of your camera roll into their own book.",
     supporting:
       "They'll recognize every face on every page. That's what makes them actually want to color it. No craft-project energy required.",
     callouts: [
       {
         badge: "See it first",
-        title: "90 seconds to your first page",
+        title: "30 seconds to your first page",
         detail: "Upload one photo and watch it become a coloring page. Free, no commitment.",
         tone: "sun",
       },
@@ -222,7 +222,7 @@ export const homepageContent = {
     "Start with The Starter Book if you want an easy first yes. The Family Memory Book is what most families pick. The Complete Collection is for camera rolls that are packed and ready.",
   sampleBlock: {
     title: "See your own photo first. Free.",
-    description: "One photo, one free coloring page, 90 seconds. If they love it, the rest of your camera roll is next.",
+    description: "One photo, one free coloring page, about 30 seconds. If they love it, the rest of your camera roll is next.",
   },
 };
 
@@ -300,7 +300,7 @@ export const faqs: FaqItem[] = [
   },
   {
     question: "How fast is the free sample?",
-    answer: "Your free page is ready in about 90 seconds. You'll see it on screen and get a copy in your inbox.",
+    answer: "Your free page is ready in about 20–30 seconds. You'll see it on screen and get a copy in your inbox.",
   },
   {
     question: "How fast do I get the PDF version?",

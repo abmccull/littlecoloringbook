@@ -67,7 +67,7 @@ export default async function SamplePage({
         </div>
         <div className="surface sample-form-card">
           <span className="pill pill-coral">Start here</span>
-          <h3>See your photo become a coloring page in 90 seconds.</h3>
+          <h3>See your photo become a coloring page in about 30 seconds.</h3>
           <p className="muted">We&apos;ll email you the finished page so you never lose it. You&apos;ll upload the photo on the next screen.</p>
           <SampleStartForm acquisition={acquisition} />
           <p className="mini-note">

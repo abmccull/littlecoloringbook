@@ -1,7 +1,15 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import sharp from "sharp";
 import { assertColoringPageQC, type ColoringPageQcResult } from "./coloring-page-qc";
-import { estimateInteriorPageCount, normalizeCoverStyle, type CoverStyleCode, type DeliveryMode } from "@littlecolorbook/shared";
+import {
+  asRecord,
+  estimateInteriorPageCount,
+  extractGeneratedImage,
+  normalizeCoverStyle,
+  type CoverStyleCode,
+  type DeliveryMode,
+  type RenderFallback,
+} from "@littlecolorbook/shared";
 import { getColoringEngineEnv } from "@littlecolorbook/shared/env";
 import { downloadObject } from "@littlecolorbook/shared/storage";
 import { getTrim, getSpineWidth, ensurePageCountParity } from "@littlecolorbook/pdf-templates";
@@ -169,11 +177,6 @@ export type MaterializedPlan = {
   provider: PipelineProvider;
 };
 
-type GeneratedImagePart = {
-  data: string;
-  mimeType: string;
-};
-
 type ProcessedPageAsset = {
   blackRatio: number;
   finalPng: Buffer;
@@ -203,9 +206,7 @@ export type RenderedPageResult = ProcessedPageAsset & {
   renderAttempts: number;
 };
 
-type PipelineRenderSettings = {
-  fallbackModel: string | null;
-  fallbackProvider: PipelineProvider | null;
+type PipelineRenderSettings = RenderFallback<PipelineProvider> & {
   imageSize: GeminiImageSize;
   model: string;
   provider: PipelineProvider;
@@ -505,7 +506,7 @@ export function getPipelineRenderSettings(deliveryMode: DeliveryMode, jobKind: P
     deliveryMode === "print"
       ? process.env.GEMINI_IMAGE_MODEL_PRINT ?? process.env.GEMINI_IMAGE_MODEL ?? PRIMARY_IMAGE_MODEL
       : jobKind === "sample"
-        ? process.env.GEMINI_IMAGE_MODEL_SAMPLE ?? process.env.GEMINI_IMAGE_MODEL ?? FALLBACK_IMAGE_MODEL
+        ? process.env.GEMINI_IMAGE_MODEL_SAMPLE ?? process.env.GEMINI_IMAGE_MODEL ?? PRIMARY_IMAGE_MODEL
         : process.env.GEMINI_IMAGE_MODEL ?? PRIMARY_IMAGE_MODEL;
 
   const requestedProvider = getRequestedPipelineProvider();
@@ -603,49 +604,6 @@ export function buildColoringPrompt(input: {
   ]
     .filter(Boolean)
     .join("\n");
-}
-
-function asRecord(value: unknown) {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-}
-
-function extractGeneratedImage(payload: Record<string, unknown>) {
-  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
-
-  for (const candidate of candidates) {
-    const content = asRecord(asRecord(candidate)?.content);
-    const parts = Array.isArray(content?.parts) ? content.parts : [];
-
-    for (const part of parts) {
-      const partRecord = asRecord(part);
-      const inlineData = asRecord(partRecord?.inlineData) ?? asRecord(partRecord?.inline_data);
-      const data = typeof inlineData?.data === "string" ? inlineData.data : null;
-      const mimeType = typeof inlineData?.mimeType === "string" ? inlineData.mimeType : typeof inlineData?.mime_type === "string" ? inlineData.mime_type : null;
-
-      if (data && mimeType) {
-        return {
-          data,
-          mimeType,
-        } satisfies GeneratedImagePart;
-      }
-    }
-  }
-
-  const message = candidates
-    .map((candidate) => {
-      const parts = Array.isArray(asRecord(asRecord(candidate)?.content)?.parts) ? (asRecord(candidate)?.content as Record<string, unknown>).parts as unknown[] : [];
-      return parts
-        .map((part) => {
-          const text = asRecord(part)?.text;
-          return typeof text === "string" ? text : null;
-        })
-        .filter((value): value is string => Boolean(value))
-        .join(" ");
-    })
-    .filter(Boolean)
-    .join(" ");
-
-  throw new Error(message || "Gemini did not return an image.");
 }
 
 async function renderImageWithGemini(input: {
@@ -1248,19 +1206,19 @@ async function renderImageWithGeminiWithRetries(input: {
   throw lastError ?? new Error(`Failed to generate page ${input.pageNumber}.`);
 }
 
-async function renderSourceWithConfiguredProvider(input: {
-  childFirstName?: string | null;
-  deliveryMode: DeliveryMode;
-  enforceQa?: boolean;
-  fallbackModel?: string | null;
-  fallbackProvider?: PipelineProvider | null;
-  jobKind: PipelineJobKind;
-  pageNumber: number;
-  primaryModel: string;
-  primaryProvider: PipelineProvider;
-  imageSize: GeminiImageSize;
-  source: RenderingSource;
-}) {
+async function renderSourceWithConfiguredProvider(
+  input: {
+    childFirstName?: string | null;
+    deliveryMode: DeliveryMode;
+    enforceQa?: boolean;
+    jobKind: PipelineJobKind;
+    pageNumber: number;
+    primaryModel: string;
+    primaryProvider: PipelineProvider;
+    imageSize: GeminiImageSize;
+    source: RenderingSource;
+  } & RenderFallback<PipelineProvider>,
+) {
   const strategies = [
     {
       provider: input.primaryProvider,
@@ -1351,18 +1309,18 @@ async function renderSourceWithConfiguredProvider(input: {
   throw new Error(strategyErrors.length > 0 ? strategyErrors.join(" | ") : lastError?.message ?? `Failed to generate page ${input.pageNumber}.`);
 }
 
-async function materializePage(input: {
-  childFirstName?: string | null;
-  deliveryMode: DeliveryMode;
-  fallbackModel?: string | null;
-  fallbackProvider?: PipelineProvider | null;
-  jobKind: PipelineJobKind;
-  pageNumber: number;
-  primaryModel: string;
-  primaryProvider: PipelineProvider;
-  imageSize: GeminiImageSize;
-  upload: SourceUpload;
-}) {
+async function materializePage(
+  input: {
+    childFirstName?: string | null;
+    deliveryMode: DeliveryMode;
+    jobKind: PipelineJobKind;
+    pageNumber: number;
+    primaryModel: string;
+    primaryProvider: PipelineProvider;
+    imageSize: GeminiImageSize;
+    upload: SourceUpload;
+  } & RenderFallback<PipelineProvider>,
+) {
   const sourceBuffer = await downloadObject({
     bucket: "uploads",
     objectPath: input.upload.objectPath,
@@ -1387,19 +1345,19 @@ async function materializePage(input: {
   });
 }
 
-export async function renderMarketingPage(input: {
-  childFirstName?: string | null;
-  deliveryMode: DeliveryMode;
-  enforceQa?: boolean;
-  fallbackModel?: string | null;
-  fallbackProvider?: PipelineProvider | null;
-  jobKind: PipelineJobKind;
-  pageNumber: number;
-  primaryModel: string;
-  primaryProvider: PipelineProvider;
-  imageSize: GeminiImageSize;
-  source: RenderingSource;
-}) {
+export async function renderMarketingPage(
+  input: {
+    childFirstName?: string | null;
+    deliveryMode: DeliveryMode;
+    enforceQa?: boolean;
+    jobKind: PipelineJobKind;
+    pageNumber: number;
+    primaryModel: string;
+    primaryProvider: PipelineProvider;
+    imageSize: GeminiImageSize;
+    source: RenderingSource;
+  } & RenderFallback<PipelineProvider>,
+) {
   return renderSourceWithConfiguredProvider(input);
 }
 
@@ -1692,11 +1650,7 @@ function bufferToDataUri(buf: Buffer): string {
 }
 
 function mapCoverStyleToStyleId(coverStyle?: string | null): StyleId {
-  if (coverStyle === "adventure") return "crayon";
-  if (coverStyle === "storybook" || coverStyle === "sunshine" || coverStyle === "crayon" || coverStyle === "minimal") {
-    return coverStyle;
-  }
-  return "storybook";
+  return normalizeCoverStyle(coverStyle);
 }
 
 function buildBookPayload(input: {
