@@ -70,19 +70,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     });
   }
 
-  await setOrderStatus(orderId, "preprocessing", "order.generation_started", {
-    uploadedCount,
-    triggeredBy: "setup_page",
-  });
-
   let jobQueued = false;
+  let dispatchMode: "queue" | "direct" | null = null;
 
   try {
     const queued = await enqueueInternalJob({
       job: "process-paid-order",
       payload: { orderId },
+      fallbackToDirectOnQueueError: true,
     });
     jobQueued = queued.accepted;
+    dispatchMode = queued.mode;
   } catch (error) {
     console.error("Failed to queue paid order processing", error);
     return NextResponse.json(
@@ -91,10 +89,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     );
   }
 
+  if (jobQueued && dispatchMode === "queue") {
+    await setOrderStatus(orderId, "preprocessing", "order.generation_started", {
+      uploadedCount,
+      triggeredBy: "setup_page",
+    });
+  }
+
   return NextResponse.json({
     orderId,
-    status: "preprocessing",
+    status: dispatchMode === "queue" ? "preprocessing" : summary.order.status,
     uploadedCount,
     jobQueued,
+    mode: dispatchMode,
   });
 }

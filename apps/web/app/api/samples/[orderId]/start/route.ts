@@ -43,12 +43,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     return NextResponse.json({ error: "Upload at least one completed photo before starting the sample." }, { status: 409 });
   }
 
-  await setOrderStatus(orderId, "preprocessing", "generation.sample_requested", {
-    uploadCount: selectedUploads.length,
-    requestedUploadIds: Array.from(requestedUploadIds),
-  });
-
   let jobQueued = false;
+  let dispatchMode: "queue" | "direct" | null = null;
 
   try {
     const queued = await enqueueInternalJob({
@@ -57,17 +53,28 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
         orderId,
         uploadIds: selectedUploads.map((upload) => upload.id),
       },
+      fallbackToDirectOnQueueError: true,
     });
     jobQueued = queued.accepted;
+    dispatchMode = queued.mode;
   } catch (error) {
     console.error("Failed to queue sample processing", error);
+    return NextResponse.json({ error: "We could not start the sample. Please try again." }, { status: 500 });
+  }
+
+  if (jobQueued && dispatchMode === "queue") {
+    await setOrderStatus(orderId, "preprocessing", "generation.sample_requested", {
+      uploadCount: selectedUploads.length,
+      requestedUploadIds: Array.from(requestedUploadIds),
+    });
   }
 
   return NextResponse.json({
     accepted: jobQueued,
     jobQueued,
     orderId,
-    status: jobQueued ? "preprocessing" : order.status,
+    status: dispatchMode === "queue" ? "preprocessing" : order.status,
     uploadCount: selectedUploads.length,
+    mode: dispatchMode,
   });
 }
