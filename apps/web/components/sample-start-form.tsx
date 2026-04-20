@@ -31,7 +31,7 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [childFirstName, setChildFirstName] = useState("");
-  const [featureConsent, setFeatureConsent] = useState(false);
+  const [featureConsent, setFeatureConsent] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -150,10 +150,6 @@ export function SampleStartForm({ acquisition }: SampleStartFormProps) {
         <span className="pill pill-sky">What you get</span>
         <h3>See your photo become a coloring page in 90 seconds.</h3>
         <p className="muted">We'll email you the finished page so you never lose it.</p>
-        <p className="mini-note">
-          Free sample policy: 1 sample per email, 1 active sample per browser, up to 4 samples per
-          household/network in 30 days.
-        </p>
       </div>
 
       <label className="sample-start-consent">
