@@ -49,6 +49,26 @@ The split-commit risk is highest when a shared lib file (types, helpers, schemas
 
 ---
 
+## 2026-04-20 — Split-commit struck AGAIN on Postgres queue migration
+
+**Mistake:** Second time in one day. Committed `packages/db/src/repositories.ts` with `import type { RenderFallback } from "@littlecolorbook/shared"` still in place, but the file that defines `RenderFallback` (`packages/shared/src/rendering.ts`) was untracked. Local typecheck passed — working-tree had the file. Vercel clone didn't, typecheck failed, deploy errored.
+
+**Reality:** The first lesson on 2026-04-20 called out this exact pattern. I still did it again. The "before staging" audit wasn't mechanical enough.
+
+**Stricter rule — make this a reflex before every commit:**
+
+Before `git commit` of any subset of a working tree with untracked files:
+
+1. **`git status -u`** — see every untracked file, not just modified ones
+2. **`git ls-files --others --exclude-standard`** — list untracked files (scriptable)
+3. For each untracked file, `grep -rn "<export name>" .` inside committed code — if any committed file already imports from it, **the file MUST be in this commit or a prior one**
+4. Similarly for each MODIFIED file that's not being committed — if it exports something new that committed code already imports, ship the modified file too
+5. **`git stash --keep-index`** → typecheck → `git stash pop` is the fastest mechanical check — stashes unstaged+untracked, typechecks staged tree only. If typecheck still passes, the commit is safe to push.
+
+The `git stash --keep-index` technique is the single-step version of the audit — should run it before every push when there are uncommitted files elsewhere in the tree.
+
+---
+
 ## 2026-04-20 — APP_URL apex vs www caused silent 401 on internal-job fallback
 
 **Mistake:** Sample-start production fallback from BullMQ to direct HTTP dispatch returned 401 on the internal `/api/internal/jobs/process-sample` endpoint. Took runtime-log inspection to identify root cause.
