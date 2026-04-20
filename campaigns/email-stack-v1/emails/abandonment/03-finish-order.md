@@ -50,8 +50,8 @@ Your book is still waiting in the cart, and here's one small thing to make it an
 
 At the current sizes:
 
-- 30-page PDF: $29 → $26.10
-- 50-page print spiral: $64 → $57.60
+- 30-page PDF: $24.99 → $22.49
+- 50-page print spiral: $54 → $48.60
 - 100-page print spiral: $99 → $89.10
 
 Finish your book: {{checkout_resume_url}}?promo=FINISHORDER10
@@ -83,8 +83,8 @@ P.S. If you were weighing PDF vs print, here's the honest rule of thumb: PDF is 
           </table>
           <p style="margin:0 0 8px;">At the current sizes:</p>
           <ul style="margin:0 0 16px;padding-left:20px;">
-            <li style="margin-bottom:6px;">30-page PDF: $29 → $26.10</li>
-            <li style="margin-bottom:6px;">50-page print spiral: $64 → $57.60</li>
+            <li style="margin-bottom:6px;">30-page PDF: $24.99 → $22.49</li>
+            <li style="margin-bottom:6px;">50-page print spiral: $54 → $48.60</li>
             <li>100-page print spiral: $99 → $89.10</li>
           </ul>
           <p style="margin:24px 0;text-align:center;">

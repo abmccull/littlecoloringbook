@@ -48,7 +48,7 @@ A small gift for sticking around.
 
 Here's how the math tends to land:
 
-- 30-page PDF: $29 → $26.10. Print tonight, color tomorrow.
+- 30-page PDF: $24.99 → $22.49. Print tonight, color tomorrow.
 - 50-page PDF: $39 → $35.10. A fuller book, still same-day.
 - 100-page print spiral: $99 → $89.10. The keepsake everyone ends up reaching for.
 
@@ -82,7 +82,7 @@ P.S. The code is `FIRSTBOOK10`. It auto-applies at checkout if you use the link 
           </table>
           <p style="margin:0 0 8px;">Here's how the math tends to land:</p>
           <ul style="margin:0 0 16px;padding-left:20px;">
-            <li style="margin-bottom:6px;">30-page PDF: $29 → $26.10. Print tonight, color tomorrow.</li>
+            <li style="margin-bottom:6px;">30-page PDF: $24.99 → $22.49. Print tonight, color tomorrow.</li>
             <li style="margin-bottom:6px;">50-page PDF: $39 → $35.10. A fuller book, still same-day.</li>
             <li>100-page print spiral: $99 → $89.10. The keepsake everyone ends up reaching for.</li>
           </ul>

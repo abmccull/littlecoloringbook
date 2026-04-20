@@ -27,8 +27,8 @@ Emotional job: solve "what should we do right now?" AND create "something worth 
 Free sample page — customer uploads a photo, we generate one coloring page for them, delivered as a free PDF sample. Used as the bridge into the paid 30/50/100-page books.
 
 ## Paid Offer
-- 30-page book: $29 PDF / $49 print
-- 50-page book: $39 PDF / $64 print
+- 30-page book: $24.99 PDF / $49 print
+- 50-page book: $39 PDF / $54 print
 - 100-page book: $59 PDF / $99 print (best-value keepsake anchor)
 
 ## Offer Codes (manually created in Stripe)

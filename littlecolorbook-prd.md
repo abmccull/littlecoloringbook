@@ -207,7 +207,7 @@ These prices are launch targets and should be revalidated against live API and p
 ### PDF SKUs
 
 - `Mini Memory Pack` - 10 designs - `$14`
-- `Signature Memory Book` - 30 designs - `$29`
+- `Signature Memory Book` - 30 designs - `$24.99`
 - `Storybook Deluxe` - 50 designs - `$39`
 - `Year of Memories` - 100 designs - `$59`
 
@@ -223,7 +223,7 @@ Merchandising roles:
 All printed books include the PDF.
 
 - `Keepsake Spiral 30` - 30 designs - `$49 + shipping`
-- `Keepsake Spiral 50` - 50 designs - `$64 + shipping`
+- `Keepsake Spiral 50` - 50 designs - `$54 + shipping`
 - `Keepsake Spiral 100` - 100 designs - `$99 + shipping`
 
 ### Included in every paid order

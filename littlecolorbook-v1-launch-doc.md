@@ -50,7 +50,7 @@ Grandparents, aunts, and gift buyers who are more likely to choose the printed v
 - Best used as an entry offer or downsell
 - Promise: ready within 15 minutes
 
-**Signature Memory Book** - 30 designs PDF - $29
+**Signature Memory Book** - 30 designs PDF - $24.99
 
 - Best core front-end offer
 - Promise: ready within 30 minutes
@@ -71,7 +71,7 @@ All printed books include the matching PDF for free.
 
 **Keepsake Spiral 30** - 30 designs - $49 + shipping
 
-**Keepsake Spiral 50** - 50 designs - $64 + shipping
+**Keepsake Spiral 50** - 50 designs - $54 + shipping
 
 **Keepsake Spiral 100** - 100 designs - $99 + shipping
 
@@ -151,8 +151,8 @@ Use side-by-side examples:
 
 Lead with these 3 cards first:
 
-- Signature Memory Book - 30 designs - PDF $29 or Print + PDF $49
-- Storybook Deluxe - 50 designs - PDF $39 or Print + PDF $64
+- Signature Memory Book - 30 designs - PDF $24.99 or Print + PDF $49
+- Storybook Deluxe - 50 designs - PDF $39 or Print + PDF $54
 - Year of Memories - 100 designs - PDF $59 or Print + PDF $99
 
 ### Use cases section

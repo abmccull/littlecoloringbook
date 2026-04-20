@@ -1839,8 +1839,8 @@ function buildDemoPortalSummary(portalKey: string): PortalSummary {
       copyNames: null,
       childFirstName: "Mila",
       dedicationText: "Made for rainy afternoons.",
-      subtotalCents: 2900,
-      totalCents: 2900,
+      subtotalCents: 2499,
+      totalCents: 2499,
       shippingCents: 0,
       createdAt: now(),
     },
@@ -1882,7 +1882,7 @@ function buildDemoPortalSummary(portalKey: string): PortalSummary {
       {
         id: "evt_demo_paid",
         eventType: "checkout.session_completed",
-        details: { totalCents: 2900 },
+        details: { totalCents: 2499 },
         createdAt: now(),
       },
       {

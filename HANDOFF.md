@@ -13,7 +13,7 @@
 
 **Business model:**
 - Free sample: 1 photo becomes 1 coloring page (email required). This is the lead magnet and sales mechanism.
-- Paid tiers: PDF downloads ($29-$59) and spiral-bound printed books ($49-$99) via Lulu print-on-demand.
+- Paid tiers: PDF downloads ($24.99-$59) and spiral-bound printed books ($49-$99) via Lulu print-on-demand.
 - Revenue comes from the conversion of free sample users to paid book orders.
 
 **Domain:** littlecolorbook.com
@@ -225,8 +225,8 @@ Three named tiers (MAGIC-formula naming applied):
 
 | Tier | Name | Pages | PDF Price | Print Price | Positioning |
 |------|------|-------|-----------|-------------|-------------|
-| Starter | The Starter Book | 30 | $29 | $49 | "Easy first book" |
-| Featured | The Family Memory Book | 50 | $39 | $64 | "Most families pick this" |
+| Starter | The Starter Book | 30 | $24.99 | $49 | "Easy first book" |
+| Featured | The Family Memory Book | 50 | $39 | $54 | "Most families pick this" |
 | Complete | The Complete Keepsake Collection | 100 | $59 | $99 | "Best value" |
 
 **Note:** A 10-page PDF option (`pdf-10`, $14) still exists in the codebase as a downsell but the business advisor recommends removing it.

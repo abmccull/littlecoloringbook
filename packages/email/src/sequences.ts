@@ -212,7 +212,7 @@ You saw what one page looks like. Here's the easy next step: turn the rest of yo
 
 Use code ${code} at checkout for 10% off your first book. Good ${expiresLabel}.
 
-30 pages is the easiest first book ($29 PDF, $49 spiral). 100 pages is the best-value keepsake ($59 PDF, $99 spiral) when your camera roll is already packed.
+30 pages is the easiest first book ($24.99 PDF, $49 spiral). 100 pages is the best-value keepsake ($59 PDF, $99 spiral) when your camera roll is already packed.
 
 Start your book: ${vars.shopUrl}
 

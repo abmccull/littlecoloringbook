@@ -62,7 +62,7 @@ Start here: {{builder_url}}
 
 — Little Color Book
 
-P.S. The spiral print option in 50 pages ($64) hits the gift sweet spot. It feels like a real book, costs less than a nice candle, and nobody throws it out.
+P.S. The spiral print option in 50 pages ($54) hits the gift sweet spot. It feels like a real book, costs less than a nice candle, and nobody throws it out.
 
 ---
 
@@ -95,7 +95,7 @@ P.S. The spiral print option in 50 pages ($64) hits the gift sweet spot. It feel
             <a href="{{builder_url}}" style="background:#d2691e;color:#ffffff;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;">Start a giftable book</a>
           </p>
           <p style="margin:0 0 8px;">— Little Color Book</p>
-          <p style="margin:24px 0 0;font-size:14px;color:#666;"><strong>P.S.</strong> The 50-page spiral print ($64) hits the gift sweet spot. Feels like a real book, costs less than a nice candle, and nobody throws it out.</p>
+          <p style="margin:24px 0 0;font-size:14px;color:#666;"><strong>P.S.</strong> The 50-page spiral print ($54) hits the gift sweet spot. Feels like a real book, costs less than a nice candle, and nobody throws it out.</p>
         </td></tr>
       </table>
     </td></tr>
