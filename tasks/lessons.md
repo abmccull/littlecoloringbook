@@ -49,6 +49,19 @@ The split-commit risk is highest when a shared lib file (types, helpers, schemas
 
 ---
 
+## 2026-04-20 — APP_URL apex vs www caused silent 401 on internal-job fallback
+
+**Mistake:** Sample-start production fallback from BullMQ to direct HTTP dispatch returned 401 on the internal `/api/internal/jobs/process-sample` endpoint. Took runtime-log inspection to identify root cause.
+
+**Reality:** `APP_URL` was set to `https://littlecolorbook.com` (apex). Vercel serves from `https://www.littlecolorbook.com` (canonical www). When `dispatchInternalJob` built its fetch URL from the apex value, the request hit a `301 apex→www` redirect. The `fetch()` default follows the redirect, but browsers/fetch strip the `Authorization` header on cross-origin redirects as a security feature — so the endpoint saw an unauthenticated request and returned 401. The caller-side `getInternalJobSecret()` path worked fine; the secret was being sent, just not arriving.
+
+**Rule for future:**
+1. **`APP_URL` in any environment that supports internal-HTTP job dispatch MUST be the canonical domain** the site actually serves from. Apex vs www is not interchangeable here.
+2. **When wiring an internal-HTTP fallback with auth headers, set `redirect: "manual"` on the fetch** and throw explicitly on 3xx responses. Silent header-stripping 401s are one of the worst debugging traps — the caller sees "auth fine" and the endpoint sees "no auth." Loud failure at dispatch time points straight at the misconfiguration.
+3. **If you see a 401 where a 200 is expected and the env vars clearly exist on both sides**, check for cross-origin redirect stripping before assuming the secret is wrong.
+
+---
+
 ## How to use this file
 
 - Read at the start of any session touching paid ads, unit economics, or brand voice for this project

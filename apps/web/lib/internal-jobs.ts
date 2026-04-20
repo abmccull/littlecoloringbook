@@ -76,7 +76,20 @@ export async function dispatchInternalJob<TResponse>(input: {
     headers,
     body: input.body ? JSON.stringify(input.body) : undefined,
     cache: "no-store",
+    // Never follow redirects. Cross-origin redirects (e.g. apex → www)
+    // strip the Authorization header by browser-security default,
+    // which surfaces as a 401 from the internal endpoint — a confusing
+    // failure mode when APP_URL is pointed at a non-canonical domain.
+    // Fail loudly at dispatch time so the misconfiguration is obvious.
+    redirect: "manual",
   });
+
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location") ?? "(none)";
+    throw new Error(
+      `Internal job dispatch redirected ${response.status} to ${location}. Point APP_URL at the canonical deployment URL to avoid auth-header-stripping redirects.`,
+    );
+  }
 
   const payload = (await response.json().catch(() => null)) as TResponse | { error?: string } | null;
 
