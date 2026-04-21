@@ -54,11 +54,6 @@ export type MarketingVideoEnv = {
   apiUrl: string;
 };
 
-export type ColoringEngineEnv = {
-  apiUrl: string;
-  timeoutMs: number;
-};
-
 export type EnvValidationIssue = {
   path: string;
   message: string;
@@ -111,11 +106,6 @@ const rawGammaEnvSchema = z.object({
 const rawMarketingVideoEnvSchema = z.object({
   MARKETING_VIDEO_API_KEY: z.string().optional(),
   MARKETING_VIDEO_API_URL: z.string().url("MARKETING_VIDEO_API_URL must be a valid URL"),
-});
-
-const rawColoringEngineEnvSchema = z.object({
-  COLORING_ENGINE_URL: z.string().url("COLORING_ENGINE_URL must be a valid URL"),
-  COLORING_ENGINE_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
 });
 
 function getDefaultLuluAuthTokenUrl(apiBaseUrl: string) {
@@ -327,22 +317,6 @@ export function getMarketingVideoEnv(): MarketingVideoEnv {
   };
 }
 
-export function getColoringEngineEnv(): ColoringEngineEnv {
-  const parsed = rawColoringEngineEnvSchema.parse({
-    COLORING_ENGINE_URL: process.env.COLORING_ENGINE_URL,
-    COLORING_ENGINE_TIMEOUT_MS: process.env.COLORING_ENGINE_TIMEOUT_MS ?? "90000",
-  });
-
-  return {
-    apiUrl: parsed.COLORING_ENGINE_URL.replace(/\/$/, ""),
-    timeoutMs: parsed.COLORING_ENGINE_TIMEOUT_MS,
-  };
-}
-
-export function isColoringEngineConfigured() {
-  return Boolean(process.env.COLORING_ENGINE_URL);
-}
-
 export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 }
@@ -481,25 +455,118 @@ export function getCanvaEnv(): CanvaEnv {
 // becomes required once Phase 0 assets are provisioned
 
 export type KlingEnv = {
-  apiKey: string | null;
+  accessKey: string | null;
+  secretKey: string | null;
   apiBaseUrl: string;
+  /** Monthly credit budget cap (defaults to 600). */
+  monthlyCreditBudget: number;
 };
 
+// Kling auth requires a JWT signed with HMAC-SHA256 — NOT a raw API key
+// header. The dashboard issues AccessKey + SecretKey as a pair; we mint
+// a 30-minute token per request. `KLING_API_KEY` is accepted as a
+// legacy alias for `KLING_ACCESS_KEY` so existing .env files don't
+// break, but new deployments should use the split names.
 const rawKlingEnvSchema = z.object({
-  KLING_API_KEY: z.string().optional(),
+  KLING_ACCESS_KEY: z.string().optional(),
+  KLING_SECRET_KEY: z.string().optional(),
   KLING_API_BASE_URL: z.string().url().default("https://api.klingai.com"),
+  KLING_MONTHLY_CREDIT_BUDGET: z.coerce.number().int().positive().default(600),
 });
 
 export function getKlingEnv(): KlingEnv {
   const parsed = rawKlingEnvSchema.parse({
-    KLING_API_KEY: process.env.KLING_API_KEY,
+    KLING_ACCESS_KEY: process.env.KLING_ACCESS_KEY ?? process.env.KLING_API_KEY,
+    KLING_SECRET_KEY: process.env.KLING_SECRET_KEY,
     KLING_API_BASE_URL: process.env.KLING_API_BASE_URL ?? "https://api.klingai.com",
+    KLING_MONTHLY_CREDIT_BUDGET: process.env.KLING_MONTHLY_CREDIT_BUDGET ?? "600",
   });
 
   return {
-    apiKey: parsed.KLING_API_KEY ?? null,
+    accessKey: parsed.KLING_ACCESS_KEY ?? null,
+    secretKey: parsed.KLING_SECRET_KEY ?? null,
     apiBaseUrl: parsed.KLING_API_BASE_URL.replace(/\/$/, ""),
+    monthlyCreditBudget: parsed.KLING_MONTHLY_CREDIT_BUDGET,
   };
+}
+
+export function isKlingConfigured(): boolean {
+  return Boolean(process.env.KLING_ACCESS_KEY ?? process.env.KLING_API_KEY) && Boolean(process.env.KLING_SECRET_KEY);
+}
+
+// ─── App URL env ──────────────────────────────────────────────────────────────
+// APP_URL must point at the canonical deployment URL. Setting it to an apex
+// domain that 301-redirects to www (or vice-versa) strips the Authorization
+// header on cross-origin redirects, which surfaces as silent 401s on
+// internal-HTTP job dispatch. See tasks/lessons.md (2026-04-20).
+//
+// In production this module asserts:
+//   - APP_URL is a valid URL
+//   - APP_URL uses https://
+//   - If APP_URL_CANONICAL_HOST is set, APP_URL's hostname matches it
+//     exactly (no redirect hop)
+//
+// APP_URL_CANONICAL_HOST is the one-env-var guardrail against accidental
+// apex/www swaps. Set it to `www.littlecolorbook.com` in prod; the first
+// boot with a mismatched APP_URL fails fast with a clear message.
+
+export type AppUrlEnv = {
+  appUrl: string;
+  canonicalHost: string | null;
+};
+
+const rawAppUrlEnvSchema = z.object({
+  APP_URL: z.string().url(),
+  APP_URL_CANONICAL_HOST: z.string().optional(),
+});
+
+export function getAppUrlEnv(): AppUrlEnv {
+  const parsed = rawAppUrlEnvSchema.parse({
+    APP_URL: process.env.APP_URL,
+    APP_URL_CANONICAL_HOST: process.env.APP_URL_CANONICAL_HOST,
+  });
+
+  const appUrl = parsed.APP_URL.replace(/\/$/, "");
+  const parsedUrl = new URL(appUrl);
+  const canonicalHost = parsed.APP_URL_CANONICAL_HOST?.trim() || null;
+
+  if (process.env.NODE_ENV === "production") {
+    if (parsedUrl.protocol !== "https:") {
+      throw new Error(
+        `APP_URL must use https:// in production (got ${parsedUrl.protocol}//). Update the APP_URL environment variable.`,
+      );
+    }
+
+    if (canonicalHost && parsedUrl.hostname !== canonicalHost) {
+      throw new Error(
+        `APP_URL hostname "${parsedUrl.hostname}" does not match APP_URL_CANONICAL_HOST "${canonicalHost}". ` +
+          `Point APP_URL at the canonical deployment URL so internal-HTTP job dispatch does not hit a redirect ` +
+          `that would strip the Authorization header.`,
+      );
+    }
+  }
+
+  return {
+    appUrl,
+    canonicalHost,
+  };
+}
+
+export function isAppUrlConfigured() {
+  return Boolean(process.env.APP_URL);
+}
+
+// Boot-time assertion. Call from instrumentation.ts so a misconfigured
+// APP_URL fails the Next.js server boot with a clear message instead of
+// surfacing as a silent 401 on the first internal-job dispatch.
+export function assertAppUrlAtBoot() {
+  if (!isAppUrlConfigured()) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("APP_URL must be configured in production.");
+    }
+    return;
+  }
+  getAppUrlEnv();
 }
 
 // ─── Luma env ─────────────────────────────────────────────────────────────────
@@ -559,15 +626,17 @@ export function getIntegrationStatus() {
   const luluApiBaseUrl = getResolvedLuluApiBaseUrl();
   const luluAuthTokenUrl = getNonEmptyEnvValue(process.env.LULU_AUTH_TOKEN_URL) ?? getDefaultLuluAuthTokenUrl(luluApiBaseUrl);
   const geminiConfigured = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-  const coloringEngineConfigured = isColoringEngineConfigured();
   const gcsConfigured = isStorageConfigured();
-  const rendererConfigured = geminiConfigured || coloringEngineConfigured;
+  // `rendererConfigured` historically OR-ed Gemini + the legacy custom-python
+  // coloring engine. The legacy engine was decommissioned 2026-04-16 — this
+  // is now just an alias for Gemini, kept as a named field so downstream
+  // gates in packages/jobs/src/*.ts don't need updates.
+  const rendererConfigured = geminiConfigured;
 
   return {
     luluConfigured: Boolean(process.env.LULU_CLIENT_KEY && process.env.LULU_CLIENT_SECRET),
     luluPodPackageConfigured: Boolean(process.env.LULU_POD_PACKAGE_ID),
     geminiConfigured,
-    coloringEngineConfigured,
     rendererConfigured,
     marketingRendererConfigured: rendererConfigured && gcsConfigured,
     elevenLabsConfigured: Boolean(process.env.ELEVENLABS_API_KEY),

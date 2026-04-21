@@ -1,6 +1,7 @@
 import "server-only";
 
 import Stripe from "stripe";
+import { getAppUrlEnv } from "@littlecolorbook/shared/env";
 
 const stripeApiVersion = "2026-02-25.clover";
 
@@ -13,7 +14,7 @@ export function isStripeConfigured() {
 
 export function getAppUrl() {
   if (process.env.APP_URL) {
-    return process.env.APP_URL;
+    return getAppUrlEnv().appUrl;
   }
 
   if (process.env.NODE_ENV === "production") {

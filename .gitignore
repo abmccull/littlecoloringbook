@@ -22,3 +22,10 @@ playwright-report/
 # Office / LibreOffice lock files
 .~lock.*#
 ~$*
+
+# Local scratch / debug artifacts
+tmp/
+audit-*.png
+design-audit-*/
+design-audit-*.png
+lighthouse-*/

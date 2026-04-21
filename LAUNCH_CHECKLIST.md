@@ -10,6 +10,7 @@
 
 ## Automated checks
 
+- Run `npm run db:migrate:verify` (exit 0 required — blocks deploy if migrations pending or schema drifted)
 - Run `npm run typecheck`
 - Run `npm run build`
 - Run `npm run smoke`
