@@ -47,7 +47,7 @@ export async function uploadAdImage(input: UploadAdImageInput): Promise<UploadAd
   void adAccountId;
 
   throw new Error(
-    "uploadAdImage must be called via uploadAdImageRaw or uploadAdImageBufferRaw â€” see adimages.ts for the raw signatures.",
+    "uploadAdImage must be called via uploadAdImageRaw or uploadAdImageBufferRaw - see adimages.ts for the raw signatures.",
   );
 }
 

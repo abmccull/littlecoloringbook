@@ -1,5 +1,6 @@
 import "server-only";
 
+import { asRecord } from "@littlecolorbook/shared";
 import { getLuluBasicAuthHeader, getLuluEnv } from "@littlecolorbook/shared/env";
 
 export const luluShippingLevels = ["MAIL", "PRIORITY_MAIL", "GROUND", "EXPEDITED", "EXPRESS"] as const;
@@ -84,10 +85,6 @@ function humanizeShippingLevel(level: LuluShippingLevel) {
     .split("_")
     .map((segment) => segment[0] + segment.slice(1).toLowerCase())
     .join(" ");
-}
-
-function asRecord(value: unknown) {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
 export function isLuluShippingConfigured() {

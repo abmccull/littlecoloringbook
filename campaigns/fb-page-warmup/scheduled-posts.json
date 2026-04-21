@@ -10,10 +10,10 @@
       "image": "campaigns/fb-page-warmup/images/13-family--voyJ5MBnnE.png",
       "purpose": "Founder intro (Alec voice)",
       "captions": {
-        "primary": "Hey — I'm Alec. I started little color book because the best photos on my phone were all just sitting there.\n\nThe idea's simple. You pick a favorite photo. We turn it into a clean, black-and-white coloring page your kid can actually color themselves — or their dog, their grandma, their cousins — whoever's in the shot.\n\nA screen-free activity for tonight. A keepsake worth keeping for later.\n\nA free sample is live at littlecolorbook.com if you want to try one. I'd love to see what you make.",
+        "primary": "Hey — I'm Alec. I started Little Color Book because the best photos on my phone were all just sitting there.\n\nThe idea's simple. You pick a favorite photo. We turn it into a clean, black-and-white coloring page your kid can actually color themselves — or their dog, their grandma, their cousins — whoever's in the shot.\n\nA screen-free activity for tonight. A keepsake worth keeping for later.\n\nA free sample is live at littlecolorbook.com if you want to try one. I'd love to see what you make.",
         "variants": [
-          "Hi — I'm Alec. little color book started with one thought: the best photos on my phone were just sitting there, and my kid would rather color than scroll.\n\nSo we built this. Pick a favorite photo. We turn it into a clean coloring page. Your kid colors themselves (or the dog, or grandma) onto the page. That's it.\n\nA free sample is up at littlecolorbook.com. Would love to see what you make.",
-          "Hey folks — founder of little color book here.\n\nHonestly? I was tired of photo books no one opens. I wanted something our kid would actually touch. So we made this: favorite photos, turned into coloring pages a kid can color themselves onto.\n\nFree sample at littlecolorbook.com. One photo, one page, no account — I'd love your feedback."
+          "Hi — I'm Alec. Little Color Book started with one thought: the best photos on my phone were just sitting there, and my kid would rather color than scroll.\n\nSo we built this. Pick a favorite photo. We turn it into a clean coloring page. Your kid colors themselves (or the dog, or grandma) onto the page. That's it.\n\nA free sample is up at littlecolorbook.com. Would love to see what you make.",
+          "Hey folks — founder of Little Color Book here.\n\nHonestly? I was tired of photo books no one opens. I wanted something our kid would actually touch. So we made this: favorite photos, turned into coloring pages a kid can color themselves onto.\n\nFree sample at littlecolorbook.com. One photo, one page, no account — I'd love your feedback."
         ]
       }
     },
@@ -22,12 +22,12 @@
       "day_offset": 1,
       "time": "08:00",
       "image": "campaigns/fb-page-warmup/images/20-kids-n9R0MN3XGvY.png",
-      "purpose": "What is little color book",
+      "purpose": "What is Little Color Book",
       "captions": {
-        "primary": "The easiest personal activity hiding in your camera roll.\n\nlittle color book turns favorite photos into personalized coloring pages kids actually want to use. Upload a photo, we send back a clean, printable page.\n\nTry one free → littlecolorbook.com",
+        "primary": "The easiest personal activity hiding in your camera roll.\n\nLittle Color Book turns favorite photos into personalized coloring pages kids actually want to use. Upload a photo, we send back a clean, printable page.\n\nTry one free → littlecolorbook.com",
         "variants": [
-          "Not a template. Not stock art. A coloring page made from your photo.\n\nlittle color book turns family photos into clean, printable coloring pages kids actually want to color.\n\nFree sample: littlecolorbook.com",
-          "Your kid. On the page. Coloring themselves.\n\nThat's little color book — personalized coloring pages made from the photos already on your phone. Free sample at littlecolorbook.com."
+          "Not a template. Not stock art. A coloring page made from your photo.\n\nLittle Color Book turns family photos into clean, printable coloring pages kids actually want to color.\n\nFree sample: littlecolorbook.com",
+          "Your kid. On the page. Coloring themselves.\n\nThat's Little Color Book — personalized coloring pages made from the photos already on your phone. Free sample at littlecolorbook.com."
         ]
       }
     },
@@ -38,7 +38,7 @@
       "image": "campaigns/fb-page-warmup/images/04-family-uA3eOWuQqOc.png",
       "purpose": "How it works — simple narrative in single-image form (was carousel in draft; simplified for Graph API scheduling)",
       "captions": {
-        "primary": "How little color book works, in 4 small steps:\n\n1. Pick a favorite photo from your camera roll.\n2. We turn it into a clean, printable coloring page.\n3. Your kid colors themselves (or the dog, or grandma) onto the page.\n4. Keep it on the fridge, frame it, or order a spiral-bound book.\n\nFree sample at littlecolorbook.com.",
+        "primary": "How Little Color Book works, in 4 small steps:\n\n1. Pick a favorite photo from your camera roll.\n2. We turn it into a clean, printable coloring page.\n3. Your kid colors themselves (or the dog, or grandma) onto the page.\n4. Keep it on the fridge, frame it, or order a spiral-bound book.\n\nFree sample at littlecolorbook.com.",
         "variants": [
           "Photo → coloring page → an hour of quiet → a keepsake.\n\nThat's the flow. Upload one favorite photo, we send back a clean page your kid can actually color. Print it tonight or save it for a birthday.\n\nlittlecolorbook.com",
           "No design project. No perfect-photo hunt. Just:\n\n• Upload\n• We generate\n• They color\n• You keep it\n\nStart with a free sample at littlecolorbook.com."
@@ -54,7 +54,7 @@
       "captions": {
         "primary": "Not generic coloring-book art. Made from the photo you sent us. That's the whole difference.\n\nFree sample → littlecolorbook.com",
         "variants": [
-          "This page started as a photo on someone's phone.\n\nThat's little color book: your favorite moments, turned into clean coloring pages your kid can actually use.\n\nTry one free at littlecolorbook.com.",
+          "This page started as a photo on someone's phone.\n\nThat's Little Color Book: your favorite moments, turned into clean coloring pages your kid can actually use.\n\nTry one free at littlecolorbook.com.",
           "The detail that matters: every coloring page starts with your photo. Your family. Your pets. Your people.\n\nlittlecolorbook.com"
         ]
       }
@@ -111,7 +111,7 @@
         "primary": "This is what a page looks like — your dog, your family, your favorite moment, turned into a clean coloring page a kid can actually push crayons on.\n\nFree sample at littlecolorbook.com.",
         "variants": [
           "Clean lines. Large colorable shapes. Real paper. Made from your photo.\n\nlittlecolorbook.com",
-          "A finished little color book page. Enough white space to breathe, enough detail to stay recognizable. Free sample at littlecolorbook.com."
+          "A finished Little Color Book page. Enough white space to breathe, enough detail to stay recognizable. Free sample at littlecolorbook.com."
         ]
       },
       "notes": "Original plan called for a spiral-bound product reveal — no product photo exists yet. Substitute when you have shots of the physical book; redeploy this slot as \"This is what lands on your doorstep\"."

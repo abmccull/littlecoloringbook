@@ -77,6 +77,7 @@ import {
   dmThreads,
   dmMessages,
   dmKeywordResponses,
+  klingUsage,
 } from "./schema";
 import type {
   CapiEventStatus,
@@ -107,6 +108,8 @@ import type {
   DmKeywordResponse,
   NewDmKeywordResponse,
   KeywordResponseMatchKind,
+  KlingJobStatus,
+  KlingUsage,
 } from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
@@ -367,6 +370,18 @@ function hashPortalToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+// Portal token expiry. Samples are a lead magnet and expire in 30 days so
+// tokens don't accumulate forever. Paid orders get "permanent" access (100
+// years) because the "Memory Vault" bonus promises re-download any time —
+// see apps/web/lib/consumer-content.ts `offerBonuses`.
+const SAMPLE_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const PERMANENT_TOKEN_TTL_MS = 100 * 365 * 24 * 60 * 60 * 1000;
+
+function computePortalTokenExpiry(orderType: OrderType | string | null | undefined): Date {
+  const ttl = orderType === "sample" ? SAMPLE_TOKEN_TTL_MS : PERMANENT_TOKEN_TTL_MS;
+  return new Date(Date.now() + ttl);
+}
+
 function allowDevelopmentFallbacks() {
   return process.env.NODE_ENV !== "production";
 }
@@ -511,7 +526,7 @@ export async function createOrderDraft(input: CreateOrderInput) {
     orderId: order.id,
     tokenHash: hashPortalToken(portalToken),
     email: customer.email,
-    expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+    expiresAt: computePortalTokenExpiry(order.orderType),
     usedAt: null,
     createdAt: now(),
   };
@@ -926,8 +941,6 @@ export async function getOrderById(orderId: string) {
 }
 
 export async function createPortalAccessForOrder(orderId: string) {
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
-
   if (!isDatabaseConfigured()) {
     if (!allowDevelopmentFallbacks()) {
       return null;
@@ -938,7 +951,7 @@ export async function createPortalAccessForOrder(orderId: string) {
       databaseConfigured: false,
       portalToken,
       portalHref: `/order/${portalToken}`,
-      expiresAt,
+      expiresAt: computePortalTokenExpiry("sample"),
     };
   }
 
@@ -961,6 +974,7 @@ export async function createPortalAccessForOrder(orderId: string) {
     throw new Error('Cannot create portal access without a customer email.');
   }
 
+  const expiresAt = computePortalTokenExpiry(order.orderType);
   const portalToken = createPortalTokenValue();
   const portalTokenRecord = {
     id: createId('ptok'),
@@ -5068,6 +5082,50 @@ export async function getAdMetricsSummary(
   };
 }
 
+// Batch metrics rollup across all campaigns in a date range. Used by
+// /admin/growth/campaigns so the table shows 7-day spend/purchases/
+// revenue/ROAS per campaign instead of zeros. Returns a Map keyed on
+// campaign meta_id.
+export type CampaignMetricsRow = {
+  entityMetaId: string;
+  spendCents: number;
+  purchases: number;
+  revenueCents: number;
+};
+
+export async function getCampaignMetricsSummaries(
+  range: { dateFrom: string; dateTo: string },
+): Promise<Map<string, CampaignMetricsRow>> {
+  if (!isDatabaseConfigured()) return new Map();
+  const db = getDatabase();
+  const rows = await db
+    .select({
+      entityMetaId: campaignDailyMetrics.entityMetaId,
+      spendCents: sql<number>`cast(coalesce(sum(${campaignDailyMetrics.spendCents}), 0) as integer)`,
+      purchases: sql<number>`cast(coalesce(sum(${campaignDailyMetrics.purchases}), 0) as integer)`,
+      revenueCents: sql<number>`cast(coalesce(sum(${campaignDailyMetrics.revenueCents}), 0) as integer)`,
+    })
+    .from(campaignDailyMetrics)
+    .where(
+      and(
+        gte(campaignDailyMetrics.date, range.dateFrom),
+        lte(campaignDailyMetrics.date, range.dateTo),
+      ),
+    )
+    .groupBy(campaignDailyMetrics.entityMetaId);
+
+  const map = new Map<string, CampaignMetricsRow>();
+  for (const row of rows) {
+    map.set(row.entityMetaId, {
+      entityMetaId: row.entityMetaId,
+      spendCents: row.spendCents,
+      purchases: row.purchases,
+      revenueCents: row.revenueCents,
+    });
+  }
+  return map;
+}
+
 export type TopPerformingAdsInput = {
   metric: "roas" | "cpa_cents" | "ctr" | "hook_rate";
   direction: "asc" | "desc";
@@ -6220,7 +6278,6 @@ export async function incrementDmKeywordResponseMatch(input: {
 
 // ─── Phase 3b — Organic Backfill helpers ─────────────────────────────────────
 
-export const organicPostApprovalStatusExported = organicPostApprovalStatusValues;
 export type { OrganicPostApprovalStatus };
 
 /**
@@ -7007,12 +7064,12 @@ export async function listTopPerformingTagCombos(input: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Processing-jobs queue — Postgres-backed replacement for BullMQ
+// Processing-jobs queue
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
  * Default backoff schedule for failed jobs — doubles with each
- * attempt (roughly mirrors the BullMQ default). Returns seconds.
+ * attempt. Returns seconds.
  */
 function defaultBackoffSeconds(attempt: number): number {
   const base = 30;
@@ -7052,18 +7109,27 @@ export async function enqueueProcessingJob<TKind extends ProcessingJobKind>(inpu
   if (!isDatabaseConfigured()) return null;
   const db = getDatabase();
   const id = createId("job");
-  const rows = await db
-    .insert(processingJobs)
-    .values({
-      id,
-      kind: input.kind,
-      payload: input.payload as Record<string, unknown>,
-      scheduledAt: input.scheduledAt ?? now(),
-      maxAttempts: input.maxAttempts ?? 3,
-      jobKey: input.jobKey ?? null,
-    })
-    .onConflictDoNothing({ target: processingJobs.jobKey })
-    .returning({ id: processingJobs.id });
+  const values = {
+    id,
+    kind: input.kind,
+    payload: input.payload as Record<string, unknown>,
+    scheduledAt: input.scheduledAt ?? now(),
+    maxAttempts: input.maxAttempts ?? 3,
+    jobKey: input.jobKey ?? null,
+  };
+  const rows = input.jobKey
+    ? await db
+        .insert(processingJobs)
+        .values(values)
+        .onConflictDoNothing({
+          target: processingJobs.jobKey,
+          where: sql`${processingJobs.jobKey} IS NOT NULL`,
+        })
+        .returning({ id: processingJobs.id })
+    : await db
+        .insert(processingJobs)
+        .values(values)
+        .returning({ id: processingJobs.id });
 
   if (rows[0]) return { id: rows[0].id, created: true };
 
@@ -7239,4 +7305,101 @@ export async function getProcessingJobCounts(): Promise<Array<{
     status: "pending" | "claimed" | "completed" | "failed";
     count: number;
   }>(result);
+}
+
+// ─── Kling AI usage tracking (Phase 2 creative production) ────────────────
+
+export type RecordKlingSubmissionInput = {
+  id: string;
+  providerTaskId?: string | null;
+  briefId?: string | null;
+  model: string;
+  mode: string;
+  resolution: string;
+  aspectRatio: string;
+  durationSeconds: number;
+  withAudio?: boolean;
+  creditsEstimated: number;
+  prompt: string;
+  negativePrompt?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export async function recordKlingSubmission(input: RecordKlingSubmissionInput): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db.insert(klingUsage).values({
+    id: input.id,
+    providerTaskId: input.providerTaskId ?? null,
+    briefId: input.briefId ?? null,
+    model: input.model,
+    mode: input.mode,
+    resolution: input.resolution,
+    aspectRatio: input.aspectRatio,
+    durationSeconds: input.durationSeconds,
+    withAudio: input.withAudio ?? false,
+    creditsEstimated: input.creditsEstimated,
+    creditsSpent: null,
+    status: "submitted",
+    errorMessage: null,
+    prompt: input.prompt,
+    negativePrompt: input.negativePrompt ?? null,
+    metadata: input.metadata ?? {},
+  });
+}
+
+export type UpdateKlingCompletionInput = {
+  /** Primary key of the kling_usage row set at submission. */
+  id: string;
+  providerTaskId?: string | null;
+  status: KlingJobStatus;
+  creditsSpent?: number | null;
+  videoAssetId?: string | null;
+  errorMessage?: string | null;
+};
+
+export async function updateKlingCompletion(input: UpdateKlingCompletionInput): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  const terminal = input.status === "succeeded" || input.status === "failed" || input.status === "cancelled";
+  await db
+    .update(klingUsage)
+    .set({
+      status: input.status,
+      ...(input.providerTaskId !== undefined ? { providerTaskId: input.providerTaskId } : {}),
+      ...(input.creditsSpent !== undefined ? { creditsSpent: input.creditsSpent } : {}),
+      ...(input.videoAssetId !== undefined ? { videoAssetId: input.videoAssetId } : {}),
+      ...(input.errorMessage !== undefined ? { errorMessage: input.errorMessage } : {}),
+      updatedAt: now(),
+      ...(terminal ? { completedAt: now() } : {}),
+    })
+    .where(eq(klingUsage.id, input.id));
+}
+
+/**
+ * Sum credits spent (or estimated if not yet completed) since `since`.
+ * Used by the budget tracker to decide whether a new job can launch.
+ * Failed jobs that actually consumed credits are counted; cancelled/
+ * submitted-but-rejected jobs with zero spend are not.
+ */
+export async function getKlingCreditsSpentSince(since: Date): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
+  const db = getDatabase();
+  const rows = await db.execute(sql`
+    SELECT COALESCE(SUM(COALESCE(credits_spent, credits_estimated)), 0)::int AS total
+    FROM kling_usage
+    WHERE created_at >= ${since.toISOString()}
+      AND status <> 'cancelled'
+  `);
+  const first = unwrapExecuteRows<{ total: number }>(rows)[0];
+  return first?.total ?? 0;
+}
+
+export async function listRecentKlingUsage(limit = 25): Promise<KlingUsage[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  return db.query.klingUsage.findMany({
+    orderBy: [desc(klingUsage.createdAt)],
+    limit,
+  });
 }

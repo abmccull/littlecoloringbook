@@ -105,11 +105,12 @@ export async function POST(request: NextRequest) {
     quantity,
     bundleSelection,
     coverStyle: parsed.data.coverStyle ?? null,
+    occasion: parsed.data.occasion ?? null,
+    occasionContext: parsed.data.occasionContext ?? null,
     copyNames: parsed.data.copyNames ?? null,
     childFirstName: parsed.data.childFirstName ?? null,
     dedicationText: parsed.data.dedicationText ?? null,
     shippingCents: parsed.data.shippingCents ?? 0,
-    // TODO: persist occasion + occasionContext to DB once schema columns are added
   });
 
   return NextResponse.json({
@@ -125,6 +126,8 @@ export async function POST(request: NextRequest) {
     quantity: result.order.quantity,
     bundleSelection: result.order.bundleSelection,
     coverStyle: result.order.coverStyle,
+    occasion: result.order.occasion,
+    occasionContext: result.order.occasionContext,
     copyNames: result.order.copyNames,
     subtotalCents: result.order.subtotalCents,
     shippingCents: result.order.shippingCents,

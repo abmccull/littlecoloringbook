@@ -27,5 +27,8 @@ export { validateOccasionContext } from "./occasions/validate";
 
 export { renderCoverPdf } from "./render/render-cover";
 export { renderInteriorPdf } from "./render/render-interior";
+export { renderPhotoPickerGuidePdf } from "./render/render-photo-picker-guide";
+export { renderPartyKitPdf } from "./render/render-party-kit";
+export type { PartyKitInput } from "./render/render-party-kit";
 
 export { milaSwordPlayFixture } from "./fixtures/mila-sword-play";

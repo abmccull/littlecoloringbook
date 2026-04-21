@@ -3,9 +3,6 @@
 // Sunshine visual style — React-PDF components
 // Palette: Helvetica (Fredoka fallback) / #F4B400 accent / #FFF8E1 secondary
 // ---------------------------------------------------------------------------
-// TODO: Register Fredoka web font with Font.register() once font assets are
-// bundled. Until then, Helvetica is used as a stand-in.
-// ---------------------------------------------------------------------------
 
 import React from "react";
 import { Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";

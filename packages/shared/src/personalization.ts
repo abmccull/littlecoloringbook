@@ -6,7 +6,6 @@ export type CopyNameList = Array<string | null>;
 export const defaultCoverStyle: CoverStyleCode = "storybook";
 
 export function normalizeCoverStyle(value?: string | null): CoverStyleCode {
-  // "adventure" was the legacy code for crayon — map it forward for backward compat
   if (value === "adventure") return "crayon";
   return coverStyleValues.includes(value as CoverStyleCode) ? (value as CoverStyleCode) : defaultCoverStyle;
 }

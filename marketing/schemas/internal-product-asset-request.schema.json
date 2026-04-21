@@ -43,7 +43,6 @@
       "type": "string",
       "enum": [
         "sample-free",
-        "pdf-10",
         "pdf-30",
         "pdf-50",
         "pdf-100",

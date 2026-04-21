@@ -1,6 +1,5 @@
 export type OfferCode =
   | "sample-free"
-  | "pdf-10"
   | "pdf-30"
   | "pdf-50"
   | "pdf-100"
@@ -59,14 +58,6 @@ export const offers: Offer[] = [
     subtotalCents: 0,
     priceLabel: "Free sample",
     format: "sample",
-  },
-  {
-    code: "pdf-10",
-    title: "10 Pages",
-    designs: 10,
-    subtotalCents: 1400,
-    priceLabel: "$14 Print Tonight PDF",
-    format: "pdf",
   },
   {
     code: "pdf-30",

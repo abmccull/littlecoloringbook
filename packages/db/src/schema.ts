@@ -1591,7 +1591,7 @@ export type BriefElementIds = {
   mix_match_parent_brief_id?: string;
 };
 
-// ─── Postgres-backed processing queue (replaces BullMQ) ─────────────────────
+// ─── Internal-job processing queue ──────────────────────────────────────────
 
 export const processingJobs = pgTable(
   "processing_jobs",
@@ -1631,10 +1631,7 @@ export const processingJobs = pgTable(
 export type ProcessingJob = typeof processingJobs.$inferSelect;
 export type NewProcessingJob = typeof processingJobs.$inferInsert;
 
-/**
- * Per-kind payload shapes. Mirror the ones BullMQ used to carry so
- * handlers can keep their current signatures during the cutover.
- */
+/** Per-kind payload shapes for the `processing_jobs` queue. */
 export type ProcessingJobPayloadMap = {
   "process-sample": { orderId: string };
   "process-paid-order": { orderId: string };
@@ -1642,3 +1639,45 @@ export type ProcessingJobPayloadMap = {
   "sync-lulu-status": { orderId: string; providerJobId?: string };
   "process-capi-event": { capiEventId: string };
 };
+
+// ─── Kling AI usage (Phase 2 — creative production) ────────────────────────
+
+export const klingJobStatusValues = ["submitted", "processing", "succeeded", "failed", "cancelled"] as const;
+export type KlingJobStatus = (typeof klingJobStatusValues)[number];
+export const klingJobStatusEnum = pgEnum("kling_job_status", klingJobStatusValues);
+
+export const klingUsage = pgTable(
+  "kling_usage",
+  {
+    id: text("id").primaryKey(),
+    providerTaskId: text("provider_task_id"),
+    briefId: text("brief_id"),
+    videoAssetId: text("video_asset_id"),
+    model: text("model").notNull(),
+    mode: text("mode").notNull(),
+    resolution: text("resolution").notNull(),
+    aspectRatio: text("aspect_ratio").notNull(),
+    durationSeconds: integer("duration_seconds").notNull(),
+    withAudio: boolean("with_audio").default(false).notNull(),
+    creditsEstimated: integer("credits_estimated").notNull(),
+    creditsSpent: integer("credits_spent"),
+    status: klingJobStatusEnum("status").default("submitted").notNull(),
+    errorMessage: text("error_message"),
+    prompt: text("prompt").notNull(),
+    negativePrompt: text("negative_prompt"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    createdIdx: index("kling_usage_created_idx").on(table.createdAt),
+    statusIdx: index("kling_usage_status_idx").on(table.status),
+    providerTaskUnique: uniqueIndex("kling_usage_provider_task_id_unique")
+      .on(table.providerTaskId)
+      .where(sql`${table.providerTaskId} IS NOT NULL`),
+  }),
+);
+
+export type KlingUsage = typeof klingUsage.$inferSelect;
+export type NewKlingUsage = typeof klingUsage.$inferInsert;

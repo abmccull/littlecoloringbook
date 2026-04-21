@@ -3,9 +3,6 @@
 // Crayon visual style — React-PDF components
 // Palette: Helvetica (Caveat fallback) / #E74C3C accent / #FFF3F0 secondary
 // ---------------------------------------------------------------------------
-// TODO: Register Caveat web font with Font.register() once font assets are
-// bundled. Until then, Helvetica is used as a playful stand-in.
-// ---------------------------------------------------------------------------
 
 import React from "react";
 import { Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";

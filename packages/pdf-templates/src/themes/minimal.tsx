@@ -3,9 +3,6 @@
 // Minimal visual style — React-PDF components
 // Palette: Helvetica (Inter fallback) / #111111 accent / #F5F5F5 secondary
 // ---------------------------------------------------------------------------
-// TODO: Register Inter web font with Font.register() once font assets are
-// bundled. Until then, Helvetica is used as a clean sans-serif stand-in.
-// ---------------------------------------------------------------------------
 
 import React from "react";
 import { Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";

@@ -286,9 +286,8 @@ export async function autoTagCreativeAsset(input: AutoTagInput): Promise<Semanti
  *     console.warn("[auto-tagger] fire-and-forget failed:", err),
  *   );
  *
- * Note: db is typed as `any` here to avoid importing the Drizzle NeonHTTP
- * client type directly. The actual repository call is done via the shared
- * updateCreativeAssetSemanticTags function from @littlecolorbook/db.
+ * Keep the persistence dependency as a narrow port here so this package does
+ * not import the db package and recreate the package cycle this helper avoids.
  */
 export async function autoTagAndPersist({
   asset,
@@ -301,8 +300,6 @@ export async function autoTagAndPersist({
     mimeType: string;
     tagsJson?: Record<string, string>;
   };
-  // Accepts the updateCreativeAssetSemanticTags function directly to avoid
-  // circular package imports.
   db: {
     updateCreativeAssetSemanticTags: (input: {
       id: string;

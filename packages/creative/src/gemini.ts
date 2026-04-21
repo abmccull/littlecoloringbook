@@ -1,3 +1,5 @@
+import { extractGeneratedImage } from "@littlecolorbook/shared";
+
 // Thin Gemini image-generation caller for the creative package.
 // Mirrors the fetch pattern in packages/pipeline/src/index.ts without
 // importing from there (pipeline is tightly coupled to order flows).
@@ -16,63 +18,6 @@ function getGeminiImageModel(): string {
   return process.env.GEMINI_IMAGE_MODEL ?? "gemini-3.1-flash-image-preview";
 }
 
-type GeneratedImagePart = {
-  data: string;
-  mimeType: string;
-};
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-}
-
-function extractGeneratedImage(payload: Record<string, unknown>): GeneratedImagePart {
-  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
-
-  for (const candidate of candidates) {
-    const content = asRecord(asRecord(candidate)?.content);
-    const parts = Array.isArray(content?.parts) ? content.parts : [];
-
-    for (const part of parts) {
-      const partRecord = asRecord(part);
-      const inlineData =
-        asRecord(partRecord?.inlineData) ?? asRecord(partRecord?.inline_data);
-      const data =
-        typeof inlineData?.data === "string" ? inlineData.data : null;
-      const mimeType =
-        typeof inlineData?.mimeType === "string"
-          ? inlineData.mimeType
-          : typeof inlineData?.mime_type === "string"
-            ? inlineData.mime_type
-            : null;
-
-      if (data && mimeType) {
-        return { data, mimeType };
-      }
-    }
-  }
-
-  const message = candidates
-    .map((candidate) => {
-      const parts = Array.isArray(
-        asRecord(asRecord(candidate)?.content)?.parts,
-      )
-        ? ((asRecord(candidate)?.content as Record<string, unknown>)
-            .parts as unknown[])
-        : [];
-      return parts
-        .map((part) => {
-          const text = asRecord(part)?.text;
-          return typeof text === "string" ? text : null;
-        })
-        .filter((v): v is string => Boolean(v))
-        .join(" ");
-    })
-    .filter(Boolean)
-    .join(" ");
-
-  throw new Error(message || "Gemini did not return an image.");
-}
-
 export type RenderColoringPageImageInput = {
   sourceImageBuffer: Buffer;
   mimeType: string;
@@ -86,7 +31,7 @@ export type RenderColoringPageImageResult = {
   mimeType: string;
 };
 
-// 429 backoff: 1s → 2s → 4s, matching the pipeline's pattern.
+// 429 backoff: 1s -> 2s -> 4s, matching the pipeline pattern.
 const BACKOFF_DELAYS_MS = [1000, 2000, 4000];
 
 export async function renderColoringPageImage(

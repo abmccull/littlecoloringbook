@@ -4,7 +4,6 @@ import type { OfferCode } from "./offers";
 
 export const marketingOfferIds = [
   "sample-free",
-  "pdf-10",
   "pdf-30",
   "pdf-50",
   "pdf-100",

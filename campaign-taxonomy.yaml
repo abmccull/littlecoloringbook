@@ -1,6 +1,19 @@
-version: 1
+# campaign-taxonomy.yaml
+#
+# Machine-readable taxonomy. AGENTS.md defines the starting set of
+# approved personas, voice families, pillars, and formats; this file
+# holds the full working set (which can extend beyond AGENTS.md's
+# "start with" lists as the business tests new segments and occasions).
+#
+# Invariants (enforced by packages/ads/src/__tests__/campaign-taxonomy.test.ts):
+#   - Every persona name listed as "Approved" in AGENTS.md must appear here
+#   - Every pillar in AGENTS.md "Core Content Pillars" must appear here
+#   - No duplicate ids within any list
+#   - bundled TS mirror (packages/ads/src/campaign-taxonomy.ts) matches this file
+
+version: 2
 brand:
-  name: "little color book"
+  name: "Little Color Book"
   category: "personalized memory coloring books"
   primary_offer: "Free Sample Page"
 
@@ -27,6 +40,9 @@ offers:
     name: "Sibling Trio"
     type: print_bundle
 
+# Distribution platforms only. Gamma is a tool for affiliate kits,
+# creator briefs, and internal reporting, not a distribution channel
+# (see AGENTS.md "Tool Use Rules").
 platforms:
   - tiktok
   - instagram_reels
@@ -41,6 +57,8 @@ funnel_stages:
   - upsell
   - reorder
 
+# Core Content Pillars — every asset must map to one of these five
+# (AGENTS.md "Core Content Pillars"). This set is canonical.
 pillars:
   - product_proof
   - emotional_resonance
@@ -48,6 +66,11 @@ pillars:
   - direct_response
   - social_proof
 
+# Occasions the taxonomy may target. AGENTS.md "Occasion Intent" pillar
+# lists birthdays, holidays, vacations, rainy day, travel, grandparent
+# gifts, sibling set, and sibling conflict as the canonical anchors;
+# additional real-world occasions (Mother's / Father's Day, pet books,
+# new sibling arrival, etc.) are tested as extensions.
 occasions:
   - evergreen
   - birthday
@@ -57,6 +80,7 @@ occasions:
   - travel_activity
   - grandparent_gift
   - sibling_conflict
+  - sibling_set
   - back_to_school
   - mothers_day
   - fathers_day
@@ -69,8 +93,12 @@ occasions:
   - first_day_of_school
   - in_memory_pet
 
+# Personas. AGENTS.md names 6 "start with" personas — they must all
+# appear here. Additional personas listed below are extensions being
+# tested for the full family-gift market (dads, grandpas, extended
+# family, occasion-specific gift givers, adult self-purchase).
 personas:
-  # — Moms (primary buyer segment)
+  # — AGENTS.md approved "start with" set (6)
   - id: warm_millennial_mom
     name: "Warm Millennial Mom"
     family_role: parent
@@ -83,12 +111,20 @@ personas:
     name: "Emotional Keepsake Mom"
     family_role: parent
     gender_lean: female
+  - id: grandma_gift_buyer
+    name: "Grandma Gift Buyer"
+    family_role: grandparent
+    gender_lean: female
   - id: homeschool_screenfree_mom
     name: "Homeschool or Screen-Free Mom"
     family_role: parent
     gender_lean: female
+  - id: lifestyle_gift_creator
+    name: "Lifestyle Creator or Gift Recommender"
+    family_role: influencer
+    gender_lean: any
 
-  # — Dads
+  # — Extensions: dads
   - id: dad_primary_shopper
     name: "Dad Primary Shopper"
     family_role: parent
@@ -98,17 +134,11 @@ personas:
     family_role: parent
     gender_lean: any
 
-  # — Grandparents
-  - id: grandma_gift_buyer
-    name: "Grandma Gift Buyer"
-    family_role: grandparent
-    gender_lean: female
+  # — Extensions: grandparents + extended family
   - id: grandpa_gift_buyer
     name: "Grandpa Gift Buyer"
     family_role: grandparent
     gender_lean: male
-
-  # — Extended family
   - id: aunt_uncle_gifter
     name: "Aunt / Uncle Gift Giver"
     family_role: extended_family
@@ -118,7 +148,7 @@ personas:
     family_role: extended_family
     gender_lean: any
 
-  # — Special-occasion & gift mindsets
+  # — Extensions: special-occasion gift mindsets
   - id: birthday_party_host
     name: "Birthday Party Host (kids' party parent)"
     family_role: parent
@@ -132,35 +162,36 @@ personas:
     family_role: parent
     gender_lean: any
 
-  # — Adult self-purchase
+  # — Extensions: adult self-purchase
   - id: adult_self_reward
     name: "Adult Self-Reward Colorer (stress-relief)"
     family_role: self
     gender_lean: any
 
-  # — Content creators
-  - id: lifestyle_gift_creator
-    name: "Lifestyle Creator or Gift Recommender"
-    family_role: influencer
-    gender_lean: any
-
+# Voice families. AGENTS.md lists 4 "start with"; scale only voices
+# that outperform baseline. Kept at 4 until data supports expansion.
 voice_families:
   - warm_conversational_female
   - upbeat_female
   - calm_premium_female
   - friendly_gift_guide
 
+# Content Formats To Rotate — includes the 13 patterns from AGENTS.md
+# "Content Formats To Rotate" (family_photos_reveal + screen_free_mom_pov
+# were previously missing from this file).
 formats:
   - before_after
   - talking_head
-  - proof_montage
-  - slideshow_narration
-  - faq_objection
-  - print_flipthrough
+  - family_photos_reveal
+  - screen_free_mom_pov
   - sibling_angle
   - grandparent_gift
   - birthday_angle
   - vacation_angle
+  - print_flipthrough
+  - slideshow_narration
+  - proof_montage
+  - faq_objection
   - comparison_generic_books
 
 kpi_targets:
@@ -173,6 +204,8 @@ kpi_targets:
   cold_paid_cac_target: 30
   blended_cac_target: 25
 
+# Explore vs Exploit — AGENTS.md bandit allocation. Use early_account
+# defaults until the account has sustained purchase volume.
 allocation:
   mature_account:
     exploit: 0.70

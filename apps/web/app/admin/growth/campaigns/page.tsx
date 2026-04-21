@@ -1,28 +1,7 @@
-import { listNonDeletedCampaigns } from "@littlecolorbook/db";
+import { getCampaignMetricsSummaries, listNonDeletedCampaigns } from "@littlecolorbook/db";
 import { formatMoney, formatRoas, dateNDaysAgo, today } from "../../../../lib/growth-format";
 
 export const dynamic = "force-dynamic";
-
-// ─── Campaign metrics ─────────────────────────────────────────────────────────
-// campaign_daily_metrics has no dedicated repo helper. drizzle-orm is not a
-// direct dependency of @littlecolorbook/web, so we cannot import `sql` here
-// to run a raw aggregation. Metrics show as zero until a
-// getCampaignMetricsSummary helper is added to packages/db/src/repositories.ts
-// (suggested follow-up PR). Paid tables are empty until May 2 anyway.
-
-type CampaignMetric = {
-  entityMetaId: string;
-  spendCents: number;
-  purchases: number;
-  revenueCents: number;
-};
-
-async function fetchCampaignMetrics(
-  _dateFrom: string,
-  _dateTo: string,
-): Promise<Map<string, CampaignMetric>> {
-  return new Map();
-}
 
 // ─── Status pill ─────────────────────────────────────────────────────────────
 
@@ -58,7 +37,7 @@ export default async function GrowthCampaignsPage() {
 
   const [campaigns, metricsMap] = await Promise.all([
     listNonDeletedCampaigns(),
-    fetchCampaignMetrics(dateFrom, dateTo),
+    getCampaignMetricsSummaries({ dateFrom, dateTo }),
   ]);
 
   const thStyle: React.CSSProperties = {

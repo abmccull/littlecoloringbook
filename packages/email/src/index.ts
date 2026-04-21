@@ -97,6 +97,9 @@ Download: ${input.downloadUrl ?? input.portalUrl}
 Portal: ${input.portalUrl}${input.accountUrl ? `
 Manage your order: ${input.accountUrl}` : ""}
 
+The three bonuses that came with your book — the Coloring Party Kit (printable cover sheet, coloring tips, and About the Artist page), the Memory Vault (re-download this book any time, the link doesn't expire), and the Best Photo Picker Guide — are all available from your portal:
+${input.portalUrl}
+
 ${signoff(supportEmail)}`;
       }
       break;
