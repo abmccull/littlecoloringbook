@@ -151,6 +151,7 @@ export type ProviderQualityMetrics = {
 
 export type PageQualityMetrics = {
   finalBlackRatio: number;
+  finalLargestDarkComponentRatio: number;
   finalSpeckleRatio: number;
   finalNoisyComponentCount: number;
   providerBlackRatio: number | null;
@@ -182,6 +183,7 @@ export type MaterializedPlan = {
 type ProcessedPageAsset = {
   blackRatio: number;
   finalPng: Buffer;
+  largestDarkComponentRatio: number;
   noisyComponentCount: number;
   previewJpeg: Buffer;
   speckleRatio: number;
@@ -467,6 +469,7 @@ function pagePassesQa(blackRatio: number) {
 }
 
 const QA_THRESHOLDS = {
+  maxLargestDarkComponentRatio: 0.08,
   maxNoisyComponentCount: 110,
   maxSpeckleRatio: 0.005,
 } as const;
@@ -541,18 +544,86 @@ async function measureNoiseMetrics(input: Buffer) {
   };
 }
 
+async function measureDarkMassMetrics(input: Buffer) {
+  const { data, info } = await sharp(input)
+    .grayscale()
+    .resize({
+      width: 320,
+      height: 414,
+      fit: "inside",
+      background: "#ffffff",
+      withoutEnlargement: true,
+    })
+    .threshold(96)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const width = info.width;
+  const height = info.height;
+  const visited = new Uint8Array(width * height);
+  let largestDarkComponent = 0;
+
+  for (let index = 0; index < data.length; index += 1) {
+    if (data[index] !== 0 || visited[index]) {
+      continue;
+    }
+
+    let componentSize = 0;
+    const stack = [index];
+    visited[index] = 1;
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      componentSize += 1;
+      const x = current % width;
+      const y = Math.floor(current / width);
+
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          if (offsetX === 0 && offsetY === 0) {
+            continue;
+          }
+
+          const nextX = x + offsetX;
+          const nextY = y + offsetY;
+
+          if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) {
+            continue;
+          }
+
+          const nextIndex = nextY * width + nextX;
+
+          if (data[nextIndex] === 0 && !visited[nextIndex]) {
+            visited[nextIndex] = 1;
+            stack.push(nextIndex);
+          }
+        }
+      }
+    }
+
+    if (componentSize > largestDarkComponent) {
+      largestDarkComponent = componentSize;
+    }
+  }
+
+  return {
+    largestDarkComponentRatio: largestDarkComponent / data.length,
+  };
+}
+
 function processedPagePassesQa(
-  input: { blackRatio: number; noisyComponentCount: number; speckleRatio: number },
+  input: { blackRatio: number; largestDarkComponentRatio: number; noisyComponentCount: number; speckleRatio: number },
 ) {
   return (
     pagePassesQa(input.blackRatio) &&
+    input.largestDarkComponentRatio <= QA_THRESHOLDS.maxLargestDarkComponentRatio &&
     input.noisyComponentCount <= QA_THRESHOLDS.maxNoisyComponentCount &&
     input.speckleRatio <= QA_THRESHOLDS.maxSpeckleRatio
   );
 }
 
 function getPostProcessQaFlags(
-  input: { blackRatio: number; noisyComponentCount: number; speckleRatio: number },
+  input: { blackRatio: number; largestDarkComponentRatio: number; noisyComponentCount: number; speckleRatio: number },
 ) {
   const flags: string[] = [];
 
@@ -561,6 +632,9 @@ function getPostProcessQaFlags(
   }
   if (input.blackRatio > 0.33) {
     flags.push("final_too_dense");
+  }
+  if (input.largestDarkComponentRatio > QA_THRESHOLDS.maxLargestDarkComponentRatio) {
+    flags.push("final_large_dark_mass");
   }
   if (input.noisyComponentCount > QA_THRESHOLDS.maxNoisyComponentCount) {
     flags.push("final_fragmented");
@@ -574,6 +648,8 @@ function getPostProcessQaFlags(
 
 function calculateQaScore(input: { qaFlags: string[]; qaMetrics: PageQualityMetrics }) {
   const densityPenalty = Math.min(Math.abs(input.qaMetrics.finalBlackRatio - 0.12) / 0.18, 1) * 38;
+  const darkMassPenalty =
+    Math.min(input.qaMetrics.finalLargestDarkComponentRatio / QA_THRESHOLDS.maxLargestDarkComponentRatio, 1) * 26;
   const specklePenalty = Math.min(input.qaMetrics.finalSpeckleRatio / QA_THRESHOLDS.maxSpeckleRatio, 1) * 24;
   const fragmentationPenalty = Math.min(input.qaMetrics.finalNoisyComponentCount / QA_THRESHOLDS.maxNoisyComponentCount, 1) * 18;
   const providerNoisePenalty =
@@ -583,7 +659,10 @@ function calculateQaScore(input: { qaFlags: string[]; qaMetrics: PageQualityMetr
   const flagPenalty = Math.min(input.qaFlags.length * 6, 18);
 
   return Number(
-    Math.max(0, 100 - densityPenalty - specklePenalty - fragmentationPenalty - providerNoisePenalty - providerClosurePenalty - flagPenalty).toFixed(1),
+    Math.max(
+      0,
+      100 - densityPenalty - darkMassPenalty - specklePenalty - fragmentationPenalty - providerNoisePenalty - providerClosurePenalty - flagPenalty,
+    ).toFixed(1),
   );
 }
 
@@ -692,11 +771,13 @@ async function cleanupGeneratedPage(input: {
     .jpeg({ quality: 84, mozjpeg: true })
     .toBuffer();
 
+  const darkMassMetrics = await measureDarkMassMetrics(finalPng);
   const noiseMetrics = await measureNoiseMetrics(finalPng);
 
   return {
     blackRatio: await measureBlackRatio(finalPng),
     finalPng,
+    largestDarkComponentRatio: darkMassMetrics.largestDarkComponentRatio,
     noisyComponentCount: noiseMetrics.noisyComponentCount,
     previewJpeg,
     speckleRatio: noiseMetrics.speckleRatio,
@@ -828,6 +909,7 @@ async function renderSourceWithConfiguredProvider(
       });
       const qaMetrics: PageQualityMetrics = {
         finalBlackRatio: processed.blackRatio,
+        finalLargestDarkComponentRatio: processed.largestDarkComponentRatio,
         finalSpeckleRatio: processed.speckleRatio,
         finalNoisyComponentCount: processed.noisyComponentCount,
         providerBlackRatio: rendered.providerQa?.blackRatio ?? null,
@@ -843,7 +925,7 @@ async function renderSourceWithConfiguredProvider(
 
       if ((input.enforceQa ?? true) && !processedPagePassesQa(processed)) {
         lastError = new Error(
-          `[${strategy.provider}:${strategy.model}] Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}, noisy components ${processed.noisyComponentCount}, and speckle ratio ${processed.speckleRatio.toFixed(4)}.`,
+          `[${strategy.provider}:${strategy.model}] Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}, largest dark component ratio ${processed.largestDarkComponentRatio.toFixed(4)}, noisy components ${processed.noisyComponentCount}, and speckle ratio ${processed.speckleRatio.toFixed(4)}.`,
         );
         strategyErrors.push(lastError.message);
         continue;

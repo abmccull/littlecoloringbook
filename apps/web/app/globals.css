@@ -1897,6 +1897,8 @@ textarea:focus-visible {
   display: grid;
   gap: 12px;
   text-align: center;
+  justify-items: center;
+  align-content: center;
 }
 
 .sample-upload-flow {
@@ -2135,8 +2137,74 @@ textarea:focus-visible {
   align-self: stretch;
 }
 
-.sample-ready-actions .hero-actions {
+.sample-ready-cta-stack {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  justify-items: center;
   margin-top: 20px;
+}
+
+.sample-ready-cta-stack .offer-checkout-action {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  justify-items: center;
+}
+
+.sample-ready-cta-stack .button,
+.sample-ready-cta-stack a.button {
+  width: min(100%, 320px);
+  margin: 0 auto;
+}
+
+.sample-ready-actions .mini-note {
+  max-width: 26rem;
+}
+
+.sample-print-main {
+  width: 100%;
+  max-width: none;
+  padding: 20px 0 48px;
+}
+
+.sample-print-shell {
+  width: min(calc(8.5in + 40px), calc(100% - 24px));
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.sample-print-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sample-print-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sample-print-sheet {
+  width: 8.5in;
+  min-height: 11in;
+  margin: 0 auto;
+  padding: 0.35in;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(43, 31, 26, 0.14);
+}
+
+.sample-print-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
 }
 
 .selection-summary {
@@ -3241,6 +3309,32 @@ select.text-input {
     margin: 0;
   }
 
+  .sample-print-shell {
+    width: min(100%, calc(100% - 20px));
+  }
+
+  .sample-print-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sample-print-toolbar-actions {
+    justify-content: stretch;
+  }
+
+  .sample-print-toolbar-actions .button,
+  .sample-print-toolbar-actions a.button {
+    width: 100%;
+  }
+
+  .sample-print-sheet {
+    width: 100%;
+    min-height: auto;
+    aspect-ratio: 8.5 / 11;
+    padding: 14px;
+    border-radius: 20px;
+  }
+
   .builder-card {
     gap: 14px;
   }
@@ -3411,5 +3505,39 @@ select.text-input {
 
   .topbar-flow {
     display: flex;
+  }
+}
+
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 0;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .sample-print-main {
+    padding: 0;
+  }
+
+  .sample-print-toolbar {
+    display: none !important;
+  }
+
+  .sample-print-shell {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+  }
+
+  .sample-print-sheet {
+    width: 8.5in;
+    min-height: 11in;
+    margin: 0;
+    padding: 0.35in;
+    border-radius: 0;
+    box-shadow: none;
   }
 }

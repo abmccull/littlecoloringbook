@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
 import { BrandLogo } from "../../../components/brand-logo";
 import { BookMockupBlock, ParentQuoteBlock } from "../../../components/proof-modules";
+import { OpenSamplePrintButton } from "../../../components/sample-print-controls";
 import { SampleOfferCheckoutButton } from "../../../components/sample-offer-checkout-button";
 import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
@@ -35,6 +36,7 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
   }
 
   const previewHref = `/api/orders/portal/${token}/preview`;
+  const canPrintSample = Boolean(summary.assets.generatedPagePaths[0]);
   const primaryOffer = getConsumerOffer("pdf-50");
   const bonusTotalValue = offerBonuses.reduce((total, bonus) => total + bonus.value, 0);
   const primaryPrice = primaryOffer.pdfPrice ?? 0;
@@ -82,7 +84,7 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
             <span className="pill pill-coral">Family Memory Book</span>
             <h2>Love the preview? Turn your camera roll into the full book.</h2>
             <p className="muted">{primaryOffer.description}</p>
-            <div className="hero-actions">
+            <div className="sample-ready-cta-stack">
               <SampleOfferCheckoutButton
                 offerCode="pdf-50"
                 deliveryMode="pdf"
@@ -94,6 +96,11 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
               >
                 {primaryOffer.ctaLabel}
               </SampleOfferCheckoutButton>
+              {canPrintSample ? (
+                <OpenSamplePrintButton className="button button-secondary" token={token}>
+                  Print This Sample Page
+                </OpenSamplePrintButton>
+              ) : null}
             </div>
             {urgencyMessages.seasonalCover ? (
               <p className="mini-note"><strong>{urgencyMessages.seasonalCover}</strong></p>
