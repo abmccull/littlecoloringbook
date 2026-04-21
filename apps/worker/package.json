@@ -12,9 +12,7 @@
     "@littlecolorbook/db": "file:../../packages/db",
     "@littlecolorbook/jobs": "file:../../packages/jobs",
     "@littlecolorbook/meta": "file:../../packages/meta",
-    "@littlecolorbook/queue": "file:../../packages/queue",
     "@littlecolorbook/shared": "file:../../packages/shared",
-    "bullmq": "^5.56.0",
     "tsx": "^4.19.2"
   }
 }

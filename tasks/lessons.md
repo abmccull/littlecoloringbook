@@ -103,6 +103,13 @@ The `git stash --keep-index` technique is the single-step version of the audit �
 
 5. Adding a proper `_drizzle_migrations` tracking table + an idempotent `npm run migrate:apply:prod` is the real fix. Until that exists, the apply-script-per-migration + verify-columns ritual is mandatory.
 
+**2026-04-20 update — tracking + CLI landed.** `_lcb_migrations` tracking table + `db:migrate:apply` / `db:migrate:verify` / `db:migrate:bootstrap` scripts now exist. New ritual:
+
+- **New migration workflow:** add the `.sql` file → `git add` it → `npm run db:migrate:apply` (idempotent, safe to re-run) → `npm run db:migrate:verify` (asserts all files applied + critical columns present, exit code gates the deploy).
+- **Pre-deploy gate:** `npm run db:migrate:verify` before every production deploy. Exit 0 = ship; exit 1 = apply pending then re-verify; exit 2 = drift, investigate before shipping.
+- **Bootstrap once:** the first time this runs against prod, `npm run db:migrate:bootstrap` seeds `_lcb_migrations` with every file currently on disk (after confirming critical columns exist — refuses to seed if the DB is behind).
+- **Never edit an applied migration file.** `migrate-apply` detects sha256 drift and aborts; the fix is always a new migration file, not editing an old one.
+
 ---
 
 ## How to use this file

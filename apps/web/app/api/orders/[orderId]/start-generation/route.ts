@@ -71,13 +71,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
   }
 
   let jobQueued = false;
-  let dispatchMode: "queue" | "direct" | "postgres" | null = null;
+  let dispatchMode: "direct" | "postgres" | null = null;
+  const allowDirectFallback = process.env.NODE_ENV !== "production";
 
   try {
     const queued = await enqueueInternalJob({
       job: "process-paid-order",
       payload: { orderId },
-      fallbackToDirectOnQueueError: true,
+      fallbackToDirectOnQueueError: allowDirectFallback,
     });
     jobQueued = queued.accepted;
     dispatchMode = queued.mode;
@@ -89,10 +90,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     );
   }
 
-  // Flip into preprocessing for any async dispatch path (queue or
-  // postgres). The synchronous direct path manages its own state
-  // transitions inside the dispatched job.
-  const asyncDispatch = dispatchMode === "queue" || dispatchMode === "postgres";
+  // Flip into preprocessing for the async (Postgres) path. The
+  // synchronous direct path manages its own state transitions inside
+  // the dispatched job.
+  const asyncDispatch = dispatchMode === "postgres";
   if (jobQueued && asyncDispatch) {
     await setOrderStatus(orderId, "preprocessing", "order.generation_started", {
       uploadedCount,
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
 
   return NextResponse.json({
     orderId,
-    status: dispatchMode === "queue" ? "preprocessing" : summary.order.status,
+    status: asyncDispatch ? "preprocessing" : summary.order.status,
     uploadedCount,
     jobQueued,
     mode: dispatchMode,

@@ -63,7 +63,8 @@ export async function runProcessCapiEventJob(input: ProcessCapiEventInput) {
         errorMessage,
         retryCount: newRetryCount,
       });
-      // Re-throw so BullMQ retries the job.
+      // Re-throw so the Postgres worker retries the job (attempt_count
+      // increments up to max_attempts, then it lands in `failed`).
       throw error;
     }
 
@@ -73,8 +74,9 @@ export async function runProcessCapiEventJob(input: ProcessCapiEventInput) {
       retryCount: newRetryCount,
     });
 
-    // Do NOT re-throw for terminal errors — BullMQ will mark job as failed
-    // but we've already recorded the final state in DB.
+    // Do NOT re-throw for terminal errors — the Postgres worker will
+    // mark the job as failed but we've already recorded the final
+    // state in DB.
     return { failed: true, reason: errorMessage };
   }
 }

@@ -9,7 +9,6 @@ const nextConfig: NextConfig = {
     "@littlecolorbook/pipeline",
     "@littlecolorbook/meta",
     "@littlecolorbook/ads",
-    "@littlecolorbook/queue",
     "@littlecolorbook/jobs",
     "@littlecolorbook/social",
     "@littlecolorbook/creative",
@@ -25,8 +24,6 @@ const nextConfig: NextConfig = {
     "sharp",
     "@anthropic-ai/sdk",
     "@google-cloud/storage",
-    "bullmq",
-    "ioredis",
   ],
 };
 

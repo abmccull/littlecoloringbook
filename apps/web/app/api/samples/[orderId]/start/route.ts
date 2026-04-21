@@ -44,16 +44,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
   }
 
   let jobQueued = false;
-  let dispatchMode: "queue" | "direct" | "postgres" | null = null;
+  let dispatchMode: "direct" | "postgres" | null = null;
+  const allowDirectFallback = process.env.NODE_ENV !== "production";
 
   try {
     const queued = await enqueueInternalJob({
       job: "process-sample",
       payload: {
         orderId,
-        uploadIds: selectedUploads.map((upload) => upload.id),
       },
-      fallbackToDirectOnQueueError: true,
+      fallbackToDirectOnQueueError: allowDirectFallback,
     });
     jobQueued = queued.accepted;
     dispatchMode = queued.mode;
@@ -62,11 +62,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     return NextResponse.json({ error: "We could not start the sample. Please try again." }, { status: 500 });
   }
 
-  // For async paths (queue, postgres) the worker runs the job after we
+  // For the async (Postgres) path the worker runs the job after we
   // return — flip the order into preprocessing so the portal shows the
   // correct state immediately. For the synchronous direct path, the
   // dispatched job has already transitioned state itself.
-  const asyncDispatch = dispatchMode === "queue" || dispatchMode === "postgres";
+  const asyncDispatch = dispatchMode === "postgres";
   if (jobQueued && asyncDispatch) {
     await setOrderStatus(orderId, "preprocessing", "generation.sample_requested", {
       uploadCount: selectedUploads.length,

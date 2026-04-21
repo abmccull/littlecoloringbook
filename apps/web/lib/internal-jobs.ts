@@ -1,9 +1,11 @@
 import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
-import { enqueueInternalJob as enqueueQueuedInternalJob, isQueueConfigured, type InternalJobName, type InternalJobPayloadMap } from "@littlecolorbook/queue";
 import { enqueueProcessingJob, isDatabaseConfigured } from "@littlecolorbook/db";
 import type { ProcessingJobKind, ProcessingJobPayloadMap } from "@littlecolorbook/db";
+
+type InternalJobName = ProcessingJobKind;
+type InternalJobPayloadMap = ProcessingJobPayloadMap;
 
 export function getInternalJobSecret() {
   return process.env.CRON_SECRET ?? process.env.INTERNAL_JOB_SECRET ?? null;
@@ -37,12 +39,25 @@ export function authorizeInternalJobRequest(request: NextRequest) {
 }
 
 function getInternalJobBaseUrl() {
+  const productionCandidates = [
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null,
+    process.env.APP_URL ?? null,
+  ];
+
+  if (process.env.NODE_ENV === "production") {
+    const resolved = productionCandidates.find(Boolean);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
   if (process.env.APP_URL) {
     return process.env.APP_URL;
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error("APP_URL must be configured before dispatching internal jobs in production.");
+    throw new Error("APP_URL or a Vercel deployment URL must be configured before dispatching internal jobs in production.");
   }
 
   return "http://127.0.0.1:3000";
@@ -103,93 +118,100 @@ export async function dispatchInternalJob<TResponse>(input: {
   return payload as TResponse;
 }
 
+function shouldPreferDirectDispatchInDev(fallbackToDirectOnQueueError?: boolean) {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
+  if (!fallbackToDirectOnQueueError) {
+    return false;
+  }
+
+  return process.env.FORCE_ASYNC_INTERNAL_JOBS_IN_DEV !== "true";
+}
+
 /**
- * Enqueue an internal job. Postgres is the source of truth —
- * enqueueProcessingJob writes a row that the dedicated Postgres
- * polling worker will pick up within ~2s.
+ * Enqueue an internal job onto the Postgres-backed processing queue.
+ * `enqueueProcessingJob` writes a row that the dedicated worker polls
+ * every ~2s and hands off to the handlers in packages/jobs.
  *
- * Legacy paths (BullMQ + synchronous HTTP dispatch) remain gated
- * behind env flags so we have a quick escape hatch during cutover:
- *
- *   FORCE_LEGACY_BULLMQ=true   → skip Postgres, use the BullMQ path
- *                                 (with HTTP fallback on enqueue error)
- *
- * Default (both flags unset): Postgres only. BullMQ is ignored.
+ * In local dev, defaults to synchronous HTTP dispatch so sample /
+ * order generation remains testable without a second worker process.
+ * Set FORCE_ASYNC_INTERNAL_JOBS_IN_DEV=true to use the Postgres queue
+ * locally.
  */
 export async function enqueueInternalJob<TName extends InternalJobName>(input: {
   job: TName;
   payload: InternalJobPayloadMap[TName];
-  /** Optional deduplication key. Writes the same job_key column used by the Postgres worker. */
+  /** Optional deduplication key. Writes to the job_key column so repeat enqueues collapse. */
   jobKey?: string;
-  /** @deprecated — retained for signature compatibility during the cutover. Ignored on the Postgres path. */
+  /** When true, fall back to synchronous HTTP dispatch if the DB is unreachable. */
   fallbackToDirectOnQueueError?: boolean;
 }) {
-  // Legacy escape hatch — flip this if the Postgres worker is down
-  // and we need to re-enable BullMQ as a temporary fallback.
-  if (process.env.FORCE_LEGACY_BULLMQ === "true") {
-    return enqueueViaLegacyBullMQ(input);
+  if (shouldPreferDirectDispatchInDev(input.fallbackToDirectOnQueueError)) {
+    return dispatchInternalJobByName(input.job, input.payload);
   }
 
-  // Default path — Postgres-backed queue. The worker polls this table
-  // every ~2s and dispatches to the same internal-job handlers the
-  // BullMQ worker used to call.
   if (!isDatabaseConfigured()) {
-    throw new Error("DATABASE_URL must be configured to enqueue internal jobs (Postgres-backed queue).");
+    if (!input.fallbackToDirectOnQueueError) {
+      throw new Error("DATABASE_URL must be configured to enqueue internal jobs (Postgres-backed queue).");
+    }
+
+    console.warn(
+      `[internal-jobs] postgres queue unavailable for ${input.job} (DATABASE_URL missing), falling back to direct dispatch`,
+    );
+    return dispatchInternalJobByName(input.job, input.payload);
   }
 
-  const enqueued = await enqueueProcessingJob({
-    kind: input.job as ProcessingJobKind,
-    payload: input.payload as ProcessingJobPayloadMap[ProcessingJobKind],
-    jobKey: input.jobKey,
-  });
+  try {
+    const enqueued = await enqueueProcessingJob({
+      kind: input.job,
+      payload: input.payload,
+      jobKey: input.jobKey,
+    });
 
-  if (!enqueued) {
-    throw new Error(`Failed to enqueue processing job (${input.job}).`);
+    if (!enqueued) {
+      throw new Error(`Failed to enqueue processing job (${input.job}).`);
+    }
+
+    return {
+      accepted: true,
+      jobId: enqueued.id,
+      mode: "postgres" as const,
+      queueName: "processing_jobs" as const,
+      created: enqueued.created,
+    };
+  } catch (error) {
+    if (!input.fallbackToDirectOnQueueError) {
+      throw error;
+    }
+
+    console.warn(
+      `[internal-jobs] postgres enqueue failed for ${input.job}, falling back to direct dispatch`,
+      error,
+    );
+    return dispatchInternalJobByName(input.job, input.payload);
   }
-
-  return {
-    accepted: true,
-    jobId: enqueued.id,
-    mode: "postgres" as const,
-    queueName: "processing_jobs" as const,
-    created: enqueued.created,
-  };
 }
 
-async function enqueueViaLegacyBullMQ<TName extends InternalJobName>(input: {
-  job: TName;
-  payload: InternalJobPayloadMap[TName];
-  fallbackToDirectOnQueueError?: boolean;
-}) {
-  if (isQueueConfigured()) {
-    try {
-      const queuedJob = await enqueueQueuedInternalJob(input.job, input.payload);
-      return {
-        accepted: true,
-        jobId: queuedJob.id ?? null,
-        mode: "queue" as const,
-        queueName: queuedJob.queueName,
-      };
-    } catch (error) {
-      if (!input.fallbackToDirectOnQueueError) throw error;
-      console.warn(`[internal-jobs] legacy queue enqueue failed for ${input.job}, falling back to direct dispatch`, error);
-    }
-  }
-
-  const payload = await dispatchInternalJob<{
+async function dispatchInternalJobByName<TName extends InternalJobName>(
+  job: TName,
+  jobPayload: InternalJobPayloadMap[TName],
+) {
+  const responsePayload = await dispatchInternalJob<{
     accepted?: boolean;
     failed?: boolean;
     status?: string;
   }>({
-    path: internalJobPathByName[input.job],
-    body: input.payload as Record<string, unknown>,
+    path: internalJobPathByName[job],
+    body: jobPayload as Record<string, unknown>,
   });
 
   return {
-    accepted: payload?.accepted ?? !payload?.failed,
+    accepted: responsePayload?.accepted ?? !responsePayload?.failed,
     jobId: null,
     mode: "direct" as const,
     queueName: null,
-    status: payload?.status ?? null,
+    status: responsePayload?.status ?? null,
   };
 }

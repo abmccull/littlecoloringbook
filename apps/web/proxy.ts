@@ -6,7 +6,7 @@ const ADMIN_PATH = /^\/admin(?:$|\/|\?)/;
 const HANDLER_SIGNIN_PATH = /^\/api\/auth\/(?:sign-in|send-magic-link|otp|magic-link)/;
 
 // Naive in-memory sliding window. Fine for a single Vercel instance;
-// swap for Upstash/Redis once we need global rate limiting.
+// swap for a distributed KV store once we need global rate limiting.
 const signInWindow = new Map<string, number[]>();
 const SIGN_IN_WINDOW_MS = 60_000;
 const SIGN_IN_MAX_REQUESTS = 5;

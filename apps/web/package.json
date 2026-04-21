@@ -10,7 +10,6 @@
     "@littlecolorbook/jobs": "file:../../packages/jobs",
     "@littlecolorbook/pdf-templates": "file:../../packages/pdf-templates",
     "@littlecolorbook/pipeline": "file:../../packages/pipeline",
-    "@littlecolorbook/queue": "file:../../packages/queue",
     "@littlecolorbook/shared": "file:../../packages/shared",
     "@neondatabase/auth": "0.2.0-beta.1",
     "@sentry/nextjs": "^10.49.0",
@@ -29,9 +28,7 @@
     "@littlecolorbook/ads": "file:../../packages/ads",
     "@littlecolorbook/creative": "file:../../packages/creative",
     "@littlecolorbook/gamma": "file:../../packages/gamma",
-    "@littlecolorbook/voiceover": "file:../../packages/voiceover",
-    "bullmq": "^5.58.5",
-    "ioredis": "^5.8.0"
+    "@littlecolorbook/voiceover": "file:../../packages/voiceover"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",

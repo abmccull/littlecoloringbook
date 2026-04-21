@@ -10,7 +10,6 @@ import {
   type DeliveryMode,
   type RenderFallback,
 } from "@littlecolorbook/shared";
-import { getColoringEngineEnv } from "@littlecolorbook/shared/env";
 import { downloadObject } from "@littlecolorbook/shared/storage";
 import { getTrim, getSpineWidth, ensurePageCountParity } from "@littlecolorbook/pdf-templates";
 import type { BookPayload, OccasionId, OccasionContext, StyleId, TrimSpec } from "@littlecolorbook/pdf-templates";
@@ -35,7 +34,10 @@ export const pipelinePromptVersion = "2026-04-19.d";
 export const pipelineCleanupVersion = "2026-04-12.a";
 
 export type PipelineJobKind = "sample" | "full_book";
-export type PipelineProvider = "gemini" | "custom-python";
+// Kept as a type alias (vs an inline literal) so adding a future provider
+// doesn't require a wide refactor. The custom-python coloring engine was
+// decommissioned 2026-04-16 per HANDOFF.md.
+export type PipelineProvider = "gemini";
 
 type GeminiImageSize = "1K" | "2K" | "4K";
 
@@ -236,233 +238,6 @@ function isGeminiConfigured() {
   return Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 }
 
-function isCustomPythonConfigured() {
-  return Boolean(process.env.COLORING_ENGINE_URL);
-}
-
-function isPipelineFallbackDisabled() {
-  return process.env.PIPELINE_DISABLE_FALLBACK === "true";
-}
-
-function getRequestedPipelineProvider(): PipelineProvider {
-  return process.env.PIPELINE_RENDER_PROVIDER === "custom-python" ? "custom-python" : "gemini";
-}
-
-function getCustomPythonModelName() {
-  return process.env.COLORING_ENGINE_MODEL ?? "littlecolorbook-coloring-engine";
-}
-
-function getColoringEngineRenderProfile() {
-  const profile = process.env.COLORING_ENGINE_PROFILE;
-
-  if (profile === "balanced" || profile === "subject-focus" || profile === "scene-preserving") {
-    return profile;
-  }
-
-  return "scene-preserving";
-}
-
-function getColoringEngineContourCore() {
-  const contourCore = process.env.COLORING_ENGINE_CONTOUR_CORE;
-
-  if (
-    contourCore === "opencv-hybrid" ||
-    contourCore === "controlnet-lineart-realistic" ||
-    contourCore === "controlnet-lineart-coarse" ||
-    contourCore === "controlnet-softedge-pidinet" ||
-    contourCore === "paired-pix2pix-turbo"
-  ) {
-    return contourCore;
-  }
-
-  return "controlnet-lineart-realistic";
-}
-
-function isDenseSceneContourRerouteEnabled() {
-  const value = process.env.COLORING_ENGINE_ENABLE_DENSE_SCENE_REROUTE;
-  return value === undefined ? true : !["0", "false", "no", "off"].includes(value.trim().toLowerCase());
-}
-
-function getDenseSceneBlackRatioThreshold() {
-  const value = Number(process.env.COLORING_ENGINE_DENSE_SCENE_BLACK_RATIO_THRESHOLD ?? "0.16");
-  return Number.isFinite(value) && value > 0 ? value : 0.16;
-}
-
-function getDenseSceneBlackRatioImprovementThreshold() {
-  const value = Number(process.env.COLORING_ENGINE_DENSE_SCENE_MIN_BLACK_RATIO_IMPROVEMENT ?? "0.03");
-  return Number.isFinite(value) && value > 0 ? value : 0.03;
-}
-
-function getDenseSceneClosureTolerance() {
-  const value = Number(process.env.COLORING_ENGINE_DENSE_SCENE_CLOSURE_TOLERANCE ?? "0.05");
-  return Number.isFinite(value) && value >= 0 ? value : 0.05;
-}
-
-function getDenseSceneNoiseTolerance() {
-  const value = Number(process.env.COLORING_ENGINE_DENSE_SCENE_NOISE_TOLERANCE ?? "0.0005");
-  return Number.isFinite(value) && value >= 0 ? value : 0.0005;
-}
-
-function isSubjectFocusRerouteEnabled() {
-  const value = process.env.COLORING_ENGINE_ENABLE_SUBJECT_FOCUS_REROUTE;
-  return value === undefined ? true : !["0", "false", "no", "off"].includes(value.trim().toLowerCase());
-}
-
-function getSubjectFocusClosureThreshold() {
-  const value = Number(process.env.COLORING_ENGINE_SUBJECT_FOCUS_CLOSURE_THRESHOLD ?? "0.87");
-  return Number.isFinite(value) && value > 0 ? value : 0.87;
-}
-
-function getSubjectFocusMaxBlackRatio() {
-  const value = Number(process.env.COLORING_ENGINE_SUBJECT_FOCUS_MAX_BLACK_RATIO ?? "0.15");
-  return Number.isFinite(value) && value > 0 ? value : 0.15;
-}
-
-function getSubjectFocusMinAlternateBlackRatio() {
-  const value = Number(process.env.COLORING_ENGINE_SUBJECT_FOCUS_MIN_ALTERNATE_BLACK_RATIO ?? "0.07");
-  return Number.isFinite(value) && value > 0 ? value : 0.07;
-}
-
-function getSubjectFocusMaxAlternateBlackRatio() {
-  const value = Number(process.env.COLORING_ENGINE_SUBJECT_FOCUS_MAX_ALTERNATE_BLACK_RATIO ?? "0.2");
-  return Number.isFinite(value) && value > 0 ? value : 0.2;
-}
-
-function getSubjectFocusClosureTolerance() {
-  const value = Number(process.env.COLORING_ENGINE_SUBJECT_FOCUS_CLOSURE_TOLERANCE ?? "0.05");
-  return Number.isFinite(value) && value >= 0 ? value : 0.05;
-}
-
-function getSubjectFocusNoiseTolerance() {
-  const value = Number(process.env.COLORING_ENGINE_SUBJECT_FOCUS_NOISE_TOLERANCE ?? "0.0005");
-  return Number.isFinite(value) && value >= 0 ? value : 0.0005;
-}
-
-function getSubjectFocusMinScoreImprovement() {
-  const value = Number(process.env.COLORING_ENGINE_SUBJECT_FOCUS_MIN_SCORE_IMPROVEMENT ?? "0.02");
-  return Number.isFinite(value) && value >= 0 ? value : 0.02;
-}
-
-function getProviderQualityScore(metrics: ProviderQualityMetrics | null) {
-  if (!metrics) {
-    return Number.NEGATIVE_INFINITY;
-  }
-
-  const blackRatio = metrics.blackRatio ?? 0.12;
-  const closure = metrics.lineClosureScore ?? 0.8;
-  const noiseRatio = metrics.noiseRatio ?? 0.002;
-
-  return closure - Math.abs(blackRatio - 0.12) * 3.5 - noiseRatio * 40;
-}
-
-function shouldProbeDenseSceneAlternate(rendered: RenderedPage, contourCore: string) {
-  if (!isDenseSceneContourRerouteEnabled() || contourCore !== "controlnet-lineart-realistic" || rendered.provider !== "custom-python") {
-    return false;
-  }
-
-  const blackRatio = rendered.providerQa?.blackRatio;
-  return typeof blackRatio === "number" && blackRatio >= getDenseSceneBlackRatioThreshold();
-}
-
-function shouldProbeSubjectFocusAlternate(rendered: RenderedPage, contourCore: string) {
-  if (!isSubjectFocusRerouteEnabled() || contourCore !== "controlnet-lineart-realistic" || rendered.provider !== "custom-python") {
-    return false;
-  }
-
-  const blackRatio = rendered.providerQa?.blackRatio;
-  const closure = rendered.providerQa?.lineClosureScore;
-
-  if (typeof blackRatio !== "number" || typeof closure !== "number") {
-    return false;
-  }
-
-  // Skip if dense-scene reroute would fire (that path handles over-dense scenes).
-  if (blackRatio >= getDenseSceneBlackRatioThreshold()) {
-    return false;
-  }
-
-  // Skip if the primary is clearly over-dense beyond the subject-focus trigger band.
-  if (blackRatio > getSubjectFocusMaxBlackRatio()) {
-    return false;
-  }
-
-  return closure < getSubjectFocusClosureThreshold();
-}
-
-function shouldPreferSubjectFocusAlternate(current: RenderedPage, alternate: RenderedPage) {
-  const currentMetrics = current.providerQa;
-  const alternateMetrics = alternate.providerQa;
-
-  if (!currentMetrics || !alternateMetrics) {
-    return false;
-  }
-
-  const currentClosure = currentMetrics.lineClosureScore;
-  const alternateClosure = alternateMetrics.lineClosureScore;
-  const currentNoise = currentMetrics.noiseRatio;
-  const alternateNoise = alternateMetrics.noiseRatio;
-  const alternateBlackRatio = alternateMetrics.blackRatio;
-
-  if (
-    typeof currentClosure !== "number" ||
-    typeof alternateClosure !== "number" ||
-    typeof currentNoise !== "number" ||
-    typeof alternateNoise !== "number" ||
-    typeof alternateBlackRatio !== "number"
-  ) {
-    return false;
-  }
-
-  // Guard against over-sparse alternates (e.g., seed-006 false positive during probing).
-  if (alternateBlackRatio < getSubjectFocusMinAlternateBlackRatio()) {
-    return false;
-  }
-
-  if (alternateBlackRatio > getSubjectFocusMaxAlternateBlackRatio()) {
-    return false;
-  }
-
-  const closurePreserved = alternateClosure >= currentClosure - getSubjectFocusClosureTolerance();
-  const noisePreserved = alternateNoise <= currentNoise + getSubjectFocusNoiseTolerance();
-  const scoreImproved =
-    getProviderQualityScore(alternateMetrics) - getProviderQualityScore(currentMetrics) >= getSubjectFocusMinScoreImprovement();
-
-  return closurePreserved && noisePreserved && scoreImproved;
-}
-
-function shouldPreferDenseSceneAlternate(current: RenderedPage, alternate: RenderedPage) {
-  const currentMetrics = current.providerQa;
-  const alternateMetrics = alternate.providerQa;
-
-  if (!currentMetrics || !alternateMetrics) {
-    return false;
-  }
-
-  const currentBlackRatio = currentMetrics.blackRatio;
-  const alternateBlackRatio = alternateMetrics.blackRatio;
-  const currentClosure = currentMetrics.lineClosureScore;
-  const alternateClosure = alternateMetrics.lineClosureScore;
-  const currentNoiseRatio = currentMetrics.noiseRatio;
-  const alternateNoiseRatio = alternateMetrics.noiseRatio;
-
-  if (
-    typeof currentBlackRatio !== "number" ||
-    typeof alternateBlackRatio !== "number" ||
-    typeof currentClosure !== "number" ||
-    typeof alternateClosure !== "number" ||
-    typeof currentNoiseRatio !== "number" ||
-    typeof alternateNoiseRatio !== "number"
-  ) {
-    return false;
-  }
-
-  const improvedDensity = alternateBlackRatio <= currentBlackRatio - getDenseSceneBlackRatioImprovementThreshold();
-  const preservedClosure = alternateClosure >= currentClosure - getDenseSceneClosureTolerance();
-  const acceptableNoise = alternateNoiseRatio <= currentNoiseRatio + getDenseSceneNoiseTolerance();
-
-  return improvedDensity && preservedClosure && acceptableNoise && getProviderQualityScore(alternateMetrics) > getProviderQualityScore(currentMetrics);
-}
-
 function inferUploadMimeType(upload: SourceUpload) {
   if (upload.contentType?.startsWith("image/")) {
     return upload.contentType;
@@ -509,23 +284,11 @@ export function getPipelineRenderSettings(deliveryMode: DeliveryMode, jobKind: P
         ? process.env.GEMINI_IMAGE_MODEL_SAMPLE ?? process.env.GEMINI_IMAGE_MODEL ?? PRIMARY_IMAGE_MODEL
         : process.env.GEMINI_IMAGE_MODEL ?? PRIMARY_IMAGE_MODEL;
 
-  const requestedProvider = getRequestedPipelineProvider();
-  const geminiConfigured = isGeminiConfigured();
-  const customPythonConfigured = isCustomPythonConfigured();
-
-  const provider: PipelineProvider =
-    requestedProvider === "custom-python" && customPythonConfigured
-      ? "custom-python"
-      : geminiConfigured
-        ? "gemini"
-        : customPythonConfigured
-          ? "custom-python"
-          : "gemini";
-
-  const fallbackProvider: PipelineProvider | null =
-    provider === "custom-python" && geminiConfigured && !isPipelineFallbackDisabled() ? "gemini" : null;
-  const selectedModel = provider === "custom-python" ? getCustomPythonModelName() : model;
-  const fallbackModel = fallbackProvider === "gemini" ? model : null;
+  // Gemini is the only supported provider since 2026-04-16.
+  const provider: PipelineProvider = "gemini";
+  const fallbackProvider: PipelineProvider | null = null;
+  const selectedModel = model;
+  const fallbackModel = null;
 
   return {
     fallbackModel,
@@ -614,7 +377,7 @@ async function renderImageWithGemini(input: {
   model: string;
   prompt: string;
   sourceBuffer: Buffer;
-}) {
+}): Promise<RenderedPage> {
   const maxRateLimitRetries = 3;
 
   let response: Response | null = null;
@@ -686,139 +449,6 @@ async function renderImageWithGemini(input: {
   } satisfies RenderedPage;
 }
 
-async function requestColoringEngineRender(input: {
-  childFirstName?: string | null;
-  contourCore: string;
-  deliveryMode: DeliveryMode;
-  jobKind: PipelineJobKind;
-  pageNumber: number;
-  renderProfile?: string;
-  source: RenderingSource;
-}) {
-  const env = getColoringEngineEnv();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.timeoutMs);
-
-  try {
-    const response = await fetch(`${env.apiUrl}/v1/render`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        request_id: `render-${input.jobKind}-${input.pageNumber}-${Date.now()}`,
-        page_number: input.pageNumber,
-        delivery_mode: input.deliveryMode,
-        job_kind: input.jobKind,
-        render_profile: input.renderProfile ?? getColoringEngineRenderProfile(),
-        contour_core: input.contourCore,
-        child_first_name: input.childFirstName ?? null,
-        image_base64: input.source.buffer.toString("base64"),
-        debug: false,
-      }),
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
-    const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-
-    if (!response.ok || !payload) {
-      const detail =
-        (payload && typeof payload.detail === "string" ? payload.detail : null) ??
-        (payload && typeof payload.error === "string" ? payload.error : null) ??
-        `Coloring engine request failed with status ${response.status}.`;
-      throw new Error(detail);
-    }
-
-    const imageBase64 = typeof payload.line_art_base64 === "string" ? payload.line_art_base64 : null;
-    const mimeType = typeof payload.mime_type === "string" ? payload.mime_type : "image/png";
-    const engine = typeof payload.engine === "string" ? payload.engine : "littlecolorbook-coloring-engine";
-    const engineVersion = typeof payload.engine_version === "string" ? payload.engine_version : "unknown";
-    const engineVariant = typeof payload.engine_variant === "string" ? payload.engine_variant : null;
-    const quality = asRecord(payload.quality);
-    const providerQa: ProviderQualityMetrics | null = quality
-      ? {
-          blackRatio: typeof quality.black_ratio === "number" ? quality.black_ratio : null,
-          edgeDensity: typeof quality.edge_density === "number" ? quality.edge_density : null,
-          lineClosureScore: typeof quality.line_closure_score === "number" ? quality.line_closure_score : null,
-          noiseRatio: typeof quality.noise_ratio === "number" ? quality.noise_ratio : null,
-        }
-      : null;
-    const providerQaFlags = Array.isArray(payload.quality_flags)
-      ? payload.quality_flags.filter((flag): flag is string => typeof flag === "string" && flag.length > 0)
-      : [];
-
-    if (!imageBase64) {
-      throw new Error("Coloring engine did not return line_art_base64.");
-    }
-
-    return {
-      buffer: Buffer.from(imageBase64, "base64"),
-      mimeType,
-      model: engineVariant ? `${engine}:${engineVersion}:${engineVariant}` : `${engine}:${engineVersion}`,
-      provider: "custom-python",
-      providerQa,
-      providerQaFlags,
-      renderAttempts: 1,
-    } satisfies RenderedPage;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`Coloring engine timed out after ${env.timeoutMs}ms.`);
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function renderImageWithCustomPython(input: {
-  childFirstName?: string | null;
-  deliveryMode: DeliveryMode;
-  jobKind: PipelineJobKind;
-  pageNumber: number;
-  source: RenderingSource;
-}) {
-  const primaryContourCore = getColoringEngineContourCore();
-  const primary = await requestColoringEngineRender({
-    ...input,
-    contourCore: primaryContourCore,
-  });
-
-  if (shouldProbeDenseSceneAlternate(primary, primaryContourCore)) {
-    let alternate: RenderedPage;
-
-    try {
-      alternate = await requestColoringEngineRender({
-        ...input,
-        contourCore: "controlnet-lineart-coarse",
-      });
-    } catch {
-      return primary;
-    }
-
-    return shouldPreferDenseSceneAlternate(primary, alternate) ? alternate : primary;
-  }
-
-  if (shouldProbeSubjectFocusAlternate(primary, primaryContourCore)) {
-    let alternate: RenderedPage;
-
-    try {
-      alternate = await requestColoringEngineRender({
-        ...input,
-        contourCore: "controlnet-lineart-coarse",
-        renderProfile: "subject-focus",
-      });
-    } catch {
-      return primary;
-    }
-
-    return shouldPreferSubjectFocusAlternate(primary, alternate) ? alternate : primary;
-  }
-
-  return primary;
-}
-
 async function measureBlackRatio(input: Buffer) {
   const { data } = await sharp(input).grayscale().raw().toBuffer({ resolveWithObject: true });
   let darkPixels = 0;
@@ -836,19 +466,10 @@ function pagePassesQa(blackRatio: number) {
   return blackRatio >= 0.012 && blackRatio <= 0.33;
 }
 
-function getQaThresholds(provider: PipelineProvider) {
-  if (provider === "custom-python") {
-    return {
-      maxNoisyComponentCount: 220,
-      maxSpeckleRatio: 0.012,
-    };
-  }
-
-  return {
-    maxNoisyComponentCount: 110,
-    maxSpeckleRatio: 0.005,
-  };
-}
+const QA_THRESHOLDS = {
+  maxNoisyComponentCount: 110,
+  maxSpeckleRatio: 0.005,
+} as const;
 
 async function measureNoiseMetrics(input: Buffer) {
   const { data, info } = await sharp(input)
@@ -922,23 +543,18 @@ async function measureNoiseMetrics(input: Buffer) {
 
 function processedPagePassesQa(
   input: { blackRatio: number; noisyComponentCount: number; speckleRatio: number },
-  provider: PipelineProvider,
 ) {
-  const thresholds = getQaThresholds(provider);
-
   return (
     pagePassesQa(input.blackRatio) &&
-    input.noisyComponentCount <= thresholds.maxNoisyComponentCount &&
-    input.speckleRatio <= thresholds.maxSpeckleRatio
+    input.noisyComponentCount <= QA_THRESHOLDS.maxNoisyComponentCount &&
+    input.speckleRatio <= QA_THRESHOLDS.maxSpeckleRatio
   );
 }
 
 function getPostProcessQaFlags(
-  provider: PipelineProvider,
   input: { blackRatio: number; noisyComponentCount: number; speckleRatio: number },
 ) {
   const flags: string[] = [];
-  const thresholds = getQaThresholds(provider);
 
   if (input.blackRatio < 0.012) {
     flags.push("final_too_sparse");
@@ -946,21 +562,20 @@ function getPostProcessQaFlags(
   if (input.blackRatio > 0.33) {
     flags.push("final_too_dense");
   }
-  if (input.noisyComponentCount > thresholds.maxNoisyComponentCount) {
+  if (input.noisyComponentCount > QA_THRESHOLDS.maxNoisyComponentCount) {
     flags.push("final_fragmented");
   }
-  if (input.speckleRatio > thresholds.maxSpeckleRatio) {
+  if (input.speckleRatio > QA_THRESHOLDS.maxSpeckleRatio) {
     flags.push("final_noisy");
   }
 
   return flags;
 }
 
-function calculateQaScore(provider: PipelineProvider, input: { qaFlags: string[]; qaMetrics: PageQualityMetrics }) {
-  const thresholds = getQaThresholds(provider);
+function calculateQaScore(input: { qaFlags: string[]; qaMetrics: PageQualityMetrics }) {
   const densityPenalty = Math.min(Math.abs(input.qaMetrics.finalBlackRatio - 0.12) / 0.18, 1) * 38;
-  const specklePenalty = Math.min(input.qaMetrics.finalSpeckleRatio / thresholds.maxSpeckleRatio, 1) * 24;
-  const fragmentationPenalty = Math.min(input.qaMetrics.finalNoisyComponentCount / thresholds.maxNoisyComponentCount, 1) * 18;
+  const specklePenalty = Math.min(input.qaMetrics.finalSpeckleRatio / QA_THRESHOLDS.maxSpeckleRatio, 1) * 24;
+  const fragmentationPenalty = Math.min(input.qaMetrics.finalNoisyComponentCount / QA_THRESHOLDS.maxNoisyComponentCount, 1) * 18;
   const providerNoisePenalty =
     input.qaMetrics.providerNoiseRatio !== null ? Math.min(input.qaMetrics.providerNoiseRatio / 0.01, 1) * 8 : 0;
   const providerClosurePenalty =
@@ -970,35 +585,6 @@ function calculateQaScore(provider: PipelineProvider, input: { qaFlags: string[]
   return Number(
     Math.max(0, 100 - densityPenalty - specklePenalty - fragmentationPenalty - providerNoisePenalty - providerClosurePenalty - flagPenalty).toFixed(1),
   );
-}
-
-function getCustomPythonCleanupThreshold(providerBlackRatio: number | null | undefined) {
-  const br = typeof providerBlackRatio === "number" ? providerBlackRatio : 0.12;
-  if (br < 0.08) return 205;
-  if (br < 0.12) return 215;
-  if (br < 0.16) return 220;
-  return 225;
-}
-
-function getCustomPythonSpeckleMinComponentSize() {
-  const value = Number(process.env.COLORING_ENGINE_CLEANUP_SPECKLE_MIN_COMPONENT ?? "1200");
-  return Number.isFinite(value) && value >= 1 ? Math.floor(value) : 1200;
-}
-
-function getCustomPythonAggressiveCleanupNoiseThreshold() {
-  const value = Number(process.env.COLORING_ENGINE_CLEANUP_AGGRESSIVE_NOISE_THRESHOLD ?? "0.0003");
-  return Number.isFinite(value) && value >= 0 ? value : 0.0003;
-}
-
-function getCustomPythonAggressiveCleanupClosureThreshold() {
-  const value = Number(process.env.COLORING_ENGINE_CLEANUP_AGGRESSIVE_CLOSURE_THRESHOLD ?? "0.9");
-  return Number.isFinite(value) && value > 0 ? value : 0.9;
-}
-
-function shouldUseAggressiveCleanup(providerNoise: number | null | undefined, providerClosure: number | null | undefined) {
-  if (typeof providerNoise === "number" && providerNoise >= getCustomPythonAggressiveCleanupNoiseThreshold()) return true;
-  if (typeof providerClosure === "number" && providerClosure < getCustomPythonAggressiveCleanupClosureThreshold()) return true;
-  return false;
 }
 
 async function removeSmallBlackComponents(pngBuffer: Buffer, minComponentSize: number, foregroundThreshold: number = 128) {
@@ -1061,38 +647,21 @@ async function cleanupGeneratedPage(input: {
   const margin = input.deliveryMode === "print" ? 170 : 150;
 
   const basePipeline = sharp(input.imageBuffer).rotate().flatten({ background: "#ffffff" }).grayscale();
-  const customPythonThreshold = getCustomPythonCleanupThreshold(input.providerBlackRatio);
-  const cleaned =
-    input.provider === "custom-python"
-      ? await removeSmallBlackComponents(
-          await basePipeline
-            .threshold(customPythonThreshold)
-            .resize({
-              width: FINAL_PAGE_SIZE.width - margin * 2,
-              height: FINAL_PAGE_SIZE.height - margin * 2,
-              fit: "inside",
-              background: "#ffffff",
-              withoutEnlargement: false,
-            })
-            .png()
-            .toBuffer(),
-          getCustomPythonSpeckleMinComponentSize(),
-        )
-      : await basePipeline
-          .normalise()
-          .linear(1.18, -12)
-          .median(1)
-          .threshold(208)
-          .erode(1)
-          .resize({
-            width: FINAL_PAGE_SIZE.width - margin * 2,
-            height: FINAL_PAGE_SIZE.height - margin * 2,
-            fit: "inside",
-            background: "#ffffff",
-            withoutEnlargement: false,
-          })
-          .png()
-          .toBuffer();
+  const cleaned = await basePipeline
+    .normalise()
+    .linear(1.18, -12)
+    .median(1)
+    .threshold(208)
+    .dilate(1)
+    .resize({
+      width: FINAL_PAGE_SIZE.width - margin * 2,
+      height: FINAL_PAGE_SIZE.height - margin * 2,
+      fit: "inside",
+      background: "#ffffff",
+      withoutEnlargement: false,
+    })
+    .png()
+    .toBuffer();
 
   const metadata = await sharp(cleaned).metadata();
   const placedWidth = metadata.width ?? FINAL_PAGE_SIZE.width - margin * 2;
@@ -1239,24 +808,15 @@ async function renderSourceWithConfiguredProvider(
 
   for (const strategy of strategies) {
     try {
-      const rendered =
-        strategy.provider === "custom-python"
-          ? await renderImageWithCustomPython({
-              childFirstName: input.childFirstName,
-              deliveryMode: input.deliveryMode,
-              jobKind: input.jobKind,
-              pageNumber: input.pageNumber,
-              source: input.source,
-            })
-          : await renderImageWithGeminiWithRetries({
-              childFirstName: input.childFirstName,
-              deliveryMode: input.deliveryMode,
-              jobKind: input.jobKind,
-              pageNumber: input.pageNumber,
-              primaryModel: strategy.model,
-              imageSize: input.imageSize,
-              source: input.source,
-            });
+      const rendered = await renderImageWithGeminiWithRetries({
+        childFirstName: input.childFirstName,
+        deliveryMode: input.deliveryMode,
+        jobKind: input.jobKind,
+        pageNumber: input.pageNumber,
+        primaryModel: strategy.model,
+        imageSize: input.imageSize,
+        source: input.source,
+      });
 
       const processed = await cleanupGeneratedPage({
         deliveryMode: input.deliveryMode,
@@ -1275,13 +835,13 @@ async function renderSourceWithConfiguredProvider(
         providerLineClosureScore: rendered.providerQa?.lineClosureScore ?? null,
         providerNoiseRatio: rendered.providerQa?.noiseRatio ?? null,
       };
-      const qaFlags = Array.from(new Set([...rendered.providerQaFlags, ...getPostProcessQaFlags(rendered.provider, processed)]));
-      const qaScore = calculateQaScore(rendered.provider, {
+      const qaFlags = Array.from(new Set([...rendered.providerQaFlags, ...getPostProcessQaFlags(processed)]));
+      const qaScore = calculateQaScore({
         qaFlags,
         qaMetrics,
       });
 
-      if ((input.enforceQa ?? true) && !processedPagePassesQa(processed, rendered.provider)) {
+      if ((input.enforceQa ?? true) && !processedPagePassesQa(processed)) {
         lastError = new Error(
           `[${strategy.provider}:${strategy.model}] Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}, noisy components ${processed.noisyComponentCount}, and speckle ratio ${processed.speckleRatio.toFixed(4)}.`,
         );

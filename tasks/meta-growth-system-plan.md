@@ -28,7 +28,7 @@ Build a closed-loop Meta growth system inside the `littlecoloringbook` monorepo 
 
 ## 1. Guiding design principles
 
-1. **Don't reinvent what's already there.** The repo already has BullMQ queues, cron route pattern with `authorizeInternalJobRequest`, Drizzle schema with `adSpendEntries` + `metricsDailyRow` shapes, a mature `campaign-taxonomy.yaml`, and Neon-Auth-protected admin UI. The Meta system plugs into *these*, not a parallel stack.
+1. **Don't reinvent what's already there.** The repo already has a Postgres-backed internal-job queue (`processing_jobs` table), cron route pattern with `authorizeInternalJobRequest`, Drizzle schema with `adSpendEntries` + `metricsDailyRow` shapes, a mature `campaign-taxonomy.yaml`, and Neon-Auth-protected admin UI. The Meta system plugs into *these*, not a parallel stack.
 2. **One-way door decisions get architecture review. Two-way doors ship.** Schema changes, token scopes, CAPI event names, and ad account structure are one-way. Creative prompt templates and hourly routines are two-way.
 3. **Slow, boring signal beats fast, noisy action.** Meta's learning phase needs ~50 conversions/adset/week. 20 creatives/day at $5–10 each is our *discovery* layer, not our *scaling* layer. Winners graduate into CBO/ASC only after validated.
 4. **The AI agent loop is a tool, not the driver.** Design the data + action layer first; agents call it. Never let an agent mutate the ad account without a human approval gate above ~$50/day budget change or >3× duplication.
@@ -74,7 +74,7 @@ Deliverables:
 - Rate-limit aware client: respects `X-Business-Use-Case-Usage` and `X-Ad-Account-Usage` headers, auto-backoff on err 613 and 17, per-operation BUC bucket tracking.
 - CAPI pipeline:
   - Server-side event dispatcher in `packages/meta/capi` with hashed PII normalization (SHA-256 lowercase-trim for `em`/`ph`/`fn`/`ln`/`db`/`ge`/`ct`/`st`/`zp`/`country`), raw `fbp`/`fbc`/`client_ip_address`/`client_user_agent`.
-  - Browser helper (`apps/web/lib/pixel.ts`) that generates a UUID `event_id` per event, fires pixel, and enqueues a matching CAPI event to a new BullMQ queue `capi-events`.
+  - Browser helper (`apps/web/lib/pixel.ts`) that generates a UUID `event_id` per event, fires pixel, and enqueues a matching CAPI event onto the `processing_jobs` queue (kind `process-capi-event`).
   - Worker processor `process-capi-event` that POSTs to the dataset events endpoint with deduplication.
   - Hook every existing conversion point: sample request (→ `Lead`), checkout open (→ `InitiateCheckout`), Stripe `checkout.session.completed` webhook (→ `Purchase` with value + currency + content_ids), add-to-cart, product view.
 - EMQ dashboard in admin UI showing live EMQ per event type (scraped from Events Manager via Graph API `match_quality` field if available, else manual paste for now).

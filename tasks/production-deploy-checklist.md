@@ -81,7 +81,6 @@ Issues from the code review that remain unfixed in Phase 1 (tracked in `tasks/cu
 - **No refund handling** (Phase 3)
 - **Ticket system not built yet** (Phase 2)
 - **`/api/uploads/presign` has no auth binding** — still a launch risk; prioritize before doing any ad spend
-- **BullMQ workers never started** — leave `REDIS_URL` UNSET in production or paid orders freeze
 - **Playwright smoke tests not installed** — `test:smoke` npm script will fail on CI
 
 ## 8. Rollback plan

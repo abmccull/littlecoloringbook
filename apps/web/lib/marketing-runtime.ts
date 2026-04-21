@@ -466,7 +466,7 @@ async function persistBinaryAsset(input: {
   durationMs?: number | null;
   renderProfile?: string | null;
   suffix: string;
-  provider: "internal-renderer" | "gemini" | "custom-python" | "video-api";
+  provider: "internal-renderer" | "gemini" | "video-api";
 }) {
   const extension = inferExtension(input.contentType);
   const assetId = createMarketingRequestId("mktast");
@@ -503,8 +503,8 @@ async function persistBinaryAsset(input: {
     occasion: input.request.occasion ?? null,
     renderProfile:
       input.renderProfile ??
-      (input.provider === "gemini" || input.provider === "custom-python"
-        ? `${input.provider}:${getPipelineRenderSettings(input.request.deliveryMode ?? (input.request.offerId.startsWith("print-") ? "print" : "pdf"), "sample").model}`
+      (input.provider === "gemini"
+        ? `gemini:${getPipelineRenderSettings(input.request.deliveryMode ?? (input.request.offerId.startsWith("print-") ? "print" : "pdf"), "sample").model}`
         : input.provider),
     createdAt: new Date().toISOString(),
   } satisfies InternalProductAssetResponseAsset;

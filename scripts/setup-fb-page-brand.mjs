@@ -67,7 +67,7 @@ console.log("3. Setting About Us...");
 try {
   const about = "Personalized coloring books made from your favorite photos. Screen-free wins tonight, keepsakes for later.";
   const description = [
-    "little color book turns the photos already on your phone into personalized coloring pages.",
+    "Little Color Book turns the photos already on your phone into personalized coloring pages.",
     "",
     "Upload a favorite photo. We generate a clean, printable page. Your kid colors themselves, their dog, their grandma — whoever's in the shot.",
     "",
@@ -84,7 +84,7 @@ const SEEDS = [
   {
     image: "campaigns/fb-page-warmup/images/44-pets-VzG64C5T7p4.png",
     scheduledUnix: null, // immediate
-    caption: "Hi — we're little color book.\n\nWe turn favorite photos into personalized coloring pages kids actually want to use. Your dog, your family, your kid's best friend — any photo, any page.\n\nA free sample is live at littlecolorbook.com. Would love to see what you make.",
+    caption: "Hi — we're Little Color Book.\n\nWe turn favorite photos into personalized coloring pages kids actually want to use. Your dog, your family, your kid's best friend — any photo, any page.\n\nA free sample is live at littlecolorbook.com. Would love to see what you make.",
   },
   {
     image: "campaigns/fb-page-warmup/images/04-family-uA3eOWuQqOc.png",

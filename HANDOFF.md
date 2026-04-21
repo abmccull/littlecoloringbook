@@ -28,17 +28,14 @@
 littlecolorbook/
   apps/
     web/          -- Next.js 16 frontend + API routes (deployed to Vercel)
-    worker/       -- BullMQ job processor (deployed to Railway)
+    worker/       -- Postgres-queue worker (deployed to Railway)
   packages/
-    db/           -- Drizzle ORM schema, migrations, database client
+    db/           -- Drizzle ORM schema, migrations, database client, processing_jobs queue
     email/        -- Transactional email templates (Resend)
-    jobs/         -- BullMQ job definitions and types
+    jobs/         -- Internal job handler functions
     pdf-templates/-- PDF assembly: cover, interior, occasion themes, fonts
     pipeline/     -- Gemini image generation + post-processing pipeline
-    queue/        -- BullMQ queue setup and Redis connection
     shared/       -- Shared types, env config, GCS storage helpers, offer codes
-  services/
-    coloring-engine/ -- Legacy/experimental ControlNet-based pipeline (not active)
   scripts/        -- Benchmarking, training, seed, smoke tests
 ```
 
@@ -49,7 +46,7 @@ littlecolorbook/
 | Frontend | Next.js 16, React 19, Tailwind CSS |
 | Database | PostgreSQL on Neon (serverless) |
 | ORM | Drizzle ORM with migration files |
-| Job Queue | BullMQ + Redis |
+| Job Queue | Postgres `processing_jobs` table polled by worker |
 | AI Generation | Google Gemini (gemini-3.1-flash-image-preview, gemini-3-pro-image-preview) |
 | Image Processing | Sharp (normalize, threshold, erode, speckle cleanup) |
 | PDF Assembly | pdf-lib |
@@ -67,9 +64,8 @@ littlecolorbook/
 | Service | Platform | Details |
 |---------|----------|---------|
 | Web app | Vercel | Project ID: `prj_BCpXxVrgR5hMiFtRUrHJ4D0Mc8tC`, Team: `team_dCOrrpLuYaV6tvTwJ3ursC29`, Root directory: `apps/web` |
-| Worker | Railway | Runs BullMQ processor, connects to same Neon DB and Redis |
-| Database | Neon | Serverless PostgreSQL |
-| Redis | Railway (or external) | Used by BullMQ for job queuing |
+| Worker | Railway | Polls Neon `processing_jobs` table, runs handlers from packages/jobs |
+| Database | Neon | Serverless PostgreSQL — also hosts the internal job queue |
 | File Storage | Google Cloud Storage | Two buckets: uploads (private) and exports (private) |
 
 ---
@@ -123,7 +119,13 @@ littlecolorbook/
 - Decision: Gemini produces near-perfect coloring pages. The 60-90s latency is acceptable with engaging wait-state UI (gallery carousel, rotating facts, progress bar).
 - Cost tradeoff: ~$0.02-0.05/image on Gemini vs ~$0.003-0.005/image on dedicated GPU. Accepted for now given quality difference.
 - The Vast.ai GPU instance has been shut down.
-- All SDXL/IP-Adapter/LoRA code and the `services/coloring-engine/` directory remain in the repo but are NOT the active production path.
+
+**April 21, 2026: BullMQ + Redis backend retired**
+- Since migration 0028 (April 2026), internal jobs run on a Postgres-backed `processing_jobs` table polled by the worker. BullMQ stayed as an escape hatch via `FORCE_LEGACY_BULLMQ` / `LEGACY_BULLMQ_WORKER` flags.
+- BullMQ was never actually used in production and Postgres has been stable. The escape hatch was removed on 2026-04-21: `packages/queue/` deleted, `bullmq` + `ioredis` dependencies removed from `apps/web` and `apps/worker`, `FORCE_LEGACY_BULLMQ` + `LEGACY_BULLMQ_WORKER` + `REDIS_URL` env vars retired. Postgres is now the only internal-job backend.
+
+**April 21, 2026: Dead custom-python code path removed**
+- `packages/pipeline/src/index.ts`, `packages/shared/src/env.ts`, `apps/web/lib/marketing-runtime.ts`, and `apps/web/app/api/uploads/complete/route.ts` had ~700 LOC of dead custom-python / coloring engine code behind triple-negative feature flags. All removed. Gemini is now the only `PipelineProvider`. `.env.example` no longer mentions COLORING_ENGINE_* vars. Plan: `tasks/dead-coloring-engine-removal.md`.
 
 ### Why Gemini won
 1. Perfect coloring page quality with consistent style.
@@ -343,7 +345,6 @@ Also: `failed`, `support_required`, `refunded`
 | `GCS_BUCKET_UPLOADS` | GCS bucket for customer photo uploads |
 | `GCS_BUCKET_EXPORTS` | GCS bucket for generated PDFs and assets |
 | `RESEND_API_KEY` | Resend email API key |
-| `REDIS_URL` | Redis connection URL for BullMQ |
 | `WORKER_CONCURRENCY_PROCESS_SAMPLE` | Worker concurrency for sample jobs (default: 2) |
 | `WORKER_CONCURRENCY_PROCESS_PAID_ORDER` | Worker concurrency for paid order jobs (default: 1) |
 | `WORKER_CONCURRENCY_SUBMIT_LULU` | Worker concurrency for Lulu submissions (default: 1) |
@@ -351,7 +352,6 @@ Also: `failed`, `support_required`, `refunded`
 | `NEXT_PUBLIC_POSTHOG_KEY` | PostHog analytics project key for the browser client |
 | `POSTHOG_API_KEY` | PostHog project key for server-side capture/identify calls |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics measurement ID |
-| `COLORING_ENGINE_*` | Legacy coloring engine config (not used in production Gemini path) |
 
 See `.env.example` for the complete list with placeholder values.
 
@@ -454,14 +454,13 @@ e3c81f0 Use real proof assets in homepage hero
 | `packages/pdf-templates/` | Templates | Cover design, interior layout, occasion themes, fonts, Lulu trim specs |
 | `packages/shared/` | Types, env | Shared types (OfferCode, etc.), env config, GCS storage helpers |
 | `packages/email/` | Templates | Transactional email templates via Resend |
-| `packages/jobs/` | Job defs | BullMQ job type definitions |
-| `packages/queue/` | Queue setup | BullMQ queue creation and Redis connection |
+| `packages/jobs/` | Job handlers | Functions that process internal jobs (process-sample, process-paid-order, submit-lulu, sync-lulu-status, process-capi-event) |
 
 ### Worker (`apps/worker/`)
 
 | Purpose |
 |---------|
-| BullMQ processor that handles: sample generation, paid order generation, Lulu submission, Lulu status sync |
+| Polls Postgres `processing_jobs` table and runs handlers from `packages/jobs` |
 
 ### Legacy (Not Active Production Path)
 
@@ -487,11 +486,10 @@ All secrets are stored as environment variables. Never commit actual values. See
 | Google Cloud (Gemini) | `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` | Same key, two env vars for different SDK entry points. |
 | Google Cloud (Storage) | `GCS_PROJECT_ID`, `GCS_CLIENT_EMAIL`, `GCS_PRIVATE_KEY`, `GCS_BUCKET_UPLOADS`, `GCS_BUCKET_EXPORTS` | Service account credentials. Two buckets: one for raw uploads, one for generated exports. |
 | Resend (Email) | `RESEND_API_KEY` | Transactional email. From address: `hello@littlecolorbook.com`. |
-| Redis | `REDIS_URL` or `RAILWAY_REDIS_URL` | Used by BullMQ. Railway provides Redis; external Redis also supported. |
 | PostHog | `NEXT_PUBLIC_POSTHOG_KEY`, `POSTHOG_API_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | Product analytics. US cloud instance. |
 | Google Analytics | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Web analytics. |
 | Vercel | Managed via Vercel dashboard | Project: `littlecolorbook`, Team: `team_dCOrrpLuYaV6tvTwJ3ursC29` |
-| Railway | Managed via Railway dashboard | Hosts the worker process and Redis |
+| Railway | Managed via Railway dashboard | Hosts the worker process |
 
 ---
 
@@ -502,7 +500,7 @@ All secrets are stored as environment variables. Never commit actual values. See
 3. `npm install` (workspaces will install all packages).
 4. `npm run db:push` to sync schema to your database.
 5. `npm run dev:web` to start the Next.js dev server.
-6. `npm run dev:worker` to start the BullMQ worker (requires Redis).
+6. `npm run dev:worker` to start the Postgres-queue worker (polls `processing_jobs`).
 7. Set up Stripe webhook forwarding: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
 
 ### Key Commands
