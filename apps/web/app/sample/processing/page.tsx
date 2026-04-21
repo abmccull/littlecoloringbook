@@ -134,7 +134,6 @@ export default async function SampleProcessingPage({ searchParams }: SampleProce
           initialStatusLabel={STATUS_LABEL[status] ?? "Processing"}
           initialProgressPercent={STATUS_PROGRESS[status] ?? 5}
           initialEstimatedSeconds={estimateSecondsRemaining(status, summary.order.createdAt)}
-          exampleSeedAudience="family"
           customerEmail={summary.customer?.email ?? null}
         />
       </>

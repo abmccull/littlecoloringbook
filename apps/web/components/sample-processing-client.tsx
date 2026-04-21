@@ -78,6 +78,8 @@ type ExamplesCarouselProps = {
   audience: "family" | "kids" | "pets" | undefined;
 };
 
+const EXAMPLE_ROTATION_MS = 5000;
+
 function ExamplesCarousel({ audience }: ExamplesCarouselProps) {
   const [examples, setExamples] = useState<CreativeExample[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -87,7 +89,7 @@ function ExamplesCarousel({ audience }: ExamplesCarouselProps) {
 
   useEffect(() => {
     const audienceQuery = audience ? `&audience=${audience}` : "";
-    fetch(`/api/public/creative-examples?limit=12${audienceQuery}`)
+    fetch(`/api/public/creative-examples?limit=15${audienceQuery}`)
       .then((res) => res.json())
       .then((data: { examples: CreativeExample[] }) => {
         if (Array.isArray(data.examples) && data.examples.length > 0) {
@@ -111,7 +113,7 @@ function ExamplesCarousel({ audience }: ExamplesCarouselProps) {
 
   useEffect(() => {
     if (!loaded || examples.length <= 1) return;
-    timerRef.current = setTimeout(advance, 4000);
+    timerRef.current = setTimeout(advance, EXAMPLE_ROTATION_MS);
     return () => {
       if (timerRef.current !== null) clearTimeout(timerRef.current);
     };
@@ -289,32 +291,34 @@ export function SampleProcessingClient({
             </div>
           </>
         ) : (
-          <>
-            <h1 className="processing-headline">{getHeadline(status)}</h1>
-            <p className="lede processing-sublabel" aria-live="polite">
-              {statusLabel}
-            </p>
+          <div className="processing-layout">
+            <div className="processing-copy">
+              <h1 className="processing-headline">{getHeadline(status)}</h1>
+              <p className="lede processing-sublabel" aria-live="polite">
+                {statusLabel}
+              </p>
 
-            <ProgressBar percent={progressPercent} estimatedSeconds={estimatedSeconds} />
+              <ProgressBar percent={progressPercent} estimatedSeconds={estimatedSeconds} />
+
+              {customerEmail ? (
+                <p className="processing-email-note muted">
+                  We&rsquo;ll also send a copy to{" "}
+                  <strong>{customerEmail}</strong> when it&rsquo;s ready.
+                </p>
+              ) : null}
+
+              <div className="processing-upsell">
+                <Link
+                  className="button button-secondary"
+                  href="/create?source=processing-wait&acquisitionPath=sample_first"
+                >
+                  Build My Family Memory Book
+                </Link>
+              </div>
+            </div>
 
             <ExamplesCarousel audience={exampleSeedAudience} />
-
-            {customerEmail ? (
-              <p className="processing-email-note muted">
-                We&rsquo;ll also send a copy to{" "}
-                <strong>{customerEmail}</strong> when it&rsquo;s ready.
-              </p>
-            ) : null}
-
-            <div className="processing-upsell">
-              <Link
-                className="button button-secondary"
-                href="/create?source=processing-wait&acquisitionPath=sample_first"
-              >
-                Build My Family Memory Book
-              </Link>
-            </div>
-          </>
+          </div>
         )}
       </section>
     </main>
