@@ -10,11 +10,7 @@ import {
 } from "@littlecolorbook/db";
 import { executeProposal } from "@littlecolorbook/ads";
 import { GraphClient } from "@littlecolorbook/meta";
-import crypto from "node:crypto";
-
-function makeId(prefix: string): string {
-  return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
-}
+import { generateId } from "@littlecolorbook/shared";
 
 function todayString(): string {
   return new Date().toISOString().slice(0, 10);
@@ -107,7 +103,7 @@ export async function POST(
       });
 
       await insertAgentBaseline({
-        id: makeId("bsl"),
+        id: generateId("bsl"),
         proposalId: id,
         targetMetaId: proposal.targetMetaId,
         targetEntityType: proposal.targetEntityType,
@@ -116,7 +112,7 @@ export async function POST(
     }
 
     await insertAgentJournalEntry({
-      id: makeId("jrn"),
+      id: generateId("jrn"),
       kind: "proposal_executed",
       relatedProposalId: id,
       targetEntityType: proposal.targetEntityType,
@@ -133,7 +129,7 @@ export async function POST(
     await updateAgentProposalStatus({ id, status: "failed", errorMessage });
 
     await insertAgentJournalEntry({
-      id: makeId("jrn"),
+      id: generateId("jrn"),
       kind: "proposal_rejected",
       relatedProposalId: id,
       targetEntityType: proposal.targetEntityType,

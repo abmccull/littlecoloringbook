@@ -69,6 +69,10 @@
     {
       "path": "/api/cron/ingest-consented-samples",
       "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/agent-review",
+      "schedule": "0 14 * * *"
     }
   ]
 }

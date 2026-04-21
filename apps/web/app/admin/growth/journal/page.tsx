@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listAgentJournal } from "@littlecolorbook/db";
 import type { AgentJournalEntryKind } from "@littlecolorbook/db";
 import { formatDateTime } from "../../../../lib/growth-format";
+import { RunAgentNowButton } from "./run-agent-now-button";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,10 @@ export default async function GrowthJournalPage({
 
   return (
     <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto", display: "grid", gap: "16px" }}>
-      <h1 style={{ margin: 0 }}>Agent journal</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0 }}>Agent journal</h1>
+        <RunAgentNowButton />
+      </div>
 
       {/* Kind filter */}
       <nav

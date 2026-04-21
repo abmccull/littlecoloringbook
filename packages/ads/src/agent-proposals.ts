@@ -155,3 +155,33 @@ export async function classifyProposalApproval(
     reason: `${kind} requires human approval`,
   };
 }
+
+// ─── Proposal target extraction ──────────────────────────────────────────────
+// Narrow an AgentProposalInput into the optional target_entity_type + target_meta_id
+// fields used by the agent_proposals table. Callers previously inlined these
+// switch-based casts in apps/web/app/api/agent/propose/route.ts AND
+// apps/web/app/api/cron/agent-review/route.ts — which silently defeated the
+// discriminated-union typing. This helper narrows off `input.kind` so each
+// branch sees the correctly-typed payload without casts.
+export type ProposalTarget = {
+  entityType: string | null;
+  metaId: string | null;
+};
+
+export function extractProposalTarget(input: AgentProposalInput): ProposalTarget {
+  switch (input.kind) {
+    case "pause_ad":
+      return { entityType: "ad", metaId: input.payload.adId };
+    case "scale_budget":
+      return { entityType: input.payload.entity, metaId: input.payload.entityId };
+    case "duplicate_to_scaling_campaign":
+      return { entityType: "ad", metaId: input.payload.adId };
+    case "update_targeting":
+    case "update_audience":
+      return { entityType: "adset", metaId: input.payload.adSetId };
+    case "request_creative":
+    case "report_insight":
+    case "flag_risk":
+      return { entityType: null, metaId: null };
+  }
+}

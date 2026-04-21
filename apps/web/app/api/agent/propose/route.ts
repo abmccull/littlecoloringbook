@@ -5,13 +5,9 @@ import {
   insertAgentProposal,
   insertAgentJournalEntry,
 } from "@littlecolorbook/db";
-import { agentProposalInputSchema, classifyProposalApproval } from "@littlecolorbook/ads";
+import { agentProposalInputSchema, classifyProposalApproval, extractProposalTarget } from "@littlecolorbook/ads";
 import { GraphClient } from "@littlecolorbook/meta";
-import crypto from "node:crypto";
-
-function makeId(prefix: string): string {
-  return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
-}
+import { EXPIRY_24H_MS, generateId } from "@littlecolorbook/shared";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const unauthorized = authorizeAgentRequest(request);
@@ -84,27 +80,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     lookups,
   );
 
-  // Determine targetEntityType and targetMetaId from payload where obvious
-  let targetEntityType: string | null = null;
-  let targetMetaId: string | null = null;
+  const { entityType: targetEntityType, metaId: targetMetaId } = extractProposalTarget(parsed.data);
 
-  if (kind === "pause_ad") {
-    targetEntityType = "ad";
-    targetMetaId = (payload as { adId?: string }).adId ?? null;
-  } else if (kind === "scale_budget") {
-    const p = payload as { entity?: string; entityId?: string };
-    targetEntityType = p.entity ?? null;
-    targetMetaId = p.entityId ?? null;
-  } else if (kind === "duplicate_to_scaling_campaign") {
-    targetEntityType = "ad";
-    targetMetaId = (payload as { adId?: string }).adId ?? null;
-  } else if (kind === "update_targeting" || kind === "update_audience") {
-    targetEntityType = "adset";
-    targetMetaId = (payload as { adSetId?: string }).adSetId ?? null;
-  }
-
-  const proposalId = makeId("prop");
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const proposalId = generateId("prop");
+  const expiresAt = new Date(Date.now() + EXPIRY_24H_MS);
 
   const rationale =
     request.headers.get("x-rationale") ??
@@ -133,7 +112,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   await insertAgentJournalEntry({
-    id: makeId("jrn"),
+    id: generateId("jrn"),
     kind: "proposal_created",
     relatedProposalId: proposal.id,
     targetEntityType,

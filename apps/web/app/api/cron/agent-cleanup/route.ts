@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { authorizeInternalJobRequest } from "../../../../lib/internal-jobs";
 import { isDatabaseConfigured, expirePendingAgentProposals } from "@littlecolorbook/db";
 
-// TODO: prune agent_journal rows older than 180 days once volume warrants it.
-// The query would be:
-//   DELETE FROM agent_journal WHERE created_at < NOW() - INTERVAL '180 days'
-// Skip for now — journal is append-only and row counts are low in Phase 4.
+// Journal retention is intentionally not enforced here yet; this cron only
+// expires stale proposals while agent_journal remains append-only.
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const unauthorized = authorizeInternalJobRequest(request);

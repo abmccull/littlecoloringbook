@@ -6,11 +6,7 @@ import {
   updateAgentProposalStatus,
   insertAgentJournalEntry,
 } from "@littlecolorbook/db";
-import crypto from "node:crypto";
-
-function makeId(prefix: string): string {
-  return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
-}
+import { generateId } from "@littlecolorbook/shared";
 
 export async function POST(
   request: NextRequest,
@@ -63,7 +59,7 @@ export async function POST(
   });
 
   await insertAgentJournalEntry({
-    id: makeId("jrn"),
+    id: generateId("jrn"),
     kind: "proposal_rejected",
     relatedProposalId: id,
     targetEntityType: proposal.targetEntityType,

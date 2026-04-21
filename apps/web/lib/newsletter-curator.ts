@@ -10,6 +10,7 @@ import {
   isDatabaseConfigured,
   orders,
 } from "@littlecolorbook/db";
+import { generateId } from "@littlecolorbook/shared";
 
 const SUNDAY_LOOKBACK_DAYS = 7;
 const THURSDAY_LOOKBACK_DAYS = 14;
@@ -22,11 +23,6 @@ const THURSDAY_MAX_PAGES = 6;
 
 function daysAgo(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-}
-
-function createId(prefix: string) {
-  const rand = crypto.randomUUID().replace(/-/g, "");
-  return `${prefix}_${rand}`;
 }
 
 /**
@@ -231,7 +227,7 @@ export async function recordBroadcastDraft(input: {
   if (!isDatabaseConfigured()) return "demo";
 
   const db = getDatabase();
-  const id = createId("bsd");
+  const id = generateId("bsd");
   await db.insert(broadcastSends).values({
     id,
     archetype: input.archetype,

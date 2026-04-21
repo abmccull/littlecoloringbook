@@ -57,5 +57,12 @@ export {
   flagRiskPayloadSchema,
 } from "./agent-proposals";
 export type { AgentProposalInput, AgentProposalKind } from "./agent-proposals";
+export { extractProposalTarget } from "./agent-proposals";
+export type { ProposalTarget } from "./agent-proposals";
 export { computeOutcomeDelta } from "./outcome-reflection";
 export type { MetricsSummary, OutcomeDelta } from "./outcome-reflection";
+
+// Phase 4 — Claude-powered brief agent (the decision loop that reads
+// /api/agent/context and submits proposals via /api/agent/propose).
+// Caching strategy documented in ./agent/brief-agent.ts.
+export * as agent from "./agent";

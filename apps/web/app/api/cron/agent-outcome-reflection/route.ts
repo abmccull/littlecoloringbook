@@ -7,11 +7,7 @@ import {
   insertAgentJournalEntry,
 } from "@littlecolorbook/db";
 import { computeOutcomeDelta } from "@littlecolorbook/ads";
-import crypto from "node:crypto";
-
-function makeId(prefix: string): string {
-  return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
-}
+import { generateId } from "@littlecolorbook/shared";
 
 function nDaysAgo(n: number): string {
   const d = new Date();
@@ -98,7 +94,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const note = formatDeltaNote(windowLabel, direction, delta);
 
       await insertAgentJournalEntry({
-        id: makeId("jrn"),
+        id: generateId("jrn"),
         kind: baseline.observationKind,
         relatedProposalId: baseline.proposalId,
         targetEntityType: baseline.targetEntityType,
