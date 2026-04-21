@@ -132,10 +132,24 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
 
   return (
     <div className="upload-stack">
-      {errorMessage ? <div className="status-banner status-banner-warning">{errorMessage}</div> : null}
+      {errorMessage ? (
+        <div className="status-banner status-banner-warning" role="alert">
+          <div className="status-banner-copy">
+            <strong>We couldn't start the free page yet.</strong>
+            <p>{errorMessage}</p>
+          </div>
+        </div>
+      ) : null}
 
       {isReady ? (
         <div className="sample-ready-actions">
+          <div className="status-banner status-banner-success status-banner-compact">
+            <span className="pill pill-mint">Free page ready</span>
+            <div className="status-banner-copy">
+              <strong>Your sample is finished and ready to download.</strong>
+              <p>If the result feels like your family, the full book builder is the next move.</p>
+            </div>
+          </div>
           <Link className="button button-primary" href={readyHref}>
             Download My Free Page
           </Link>
@@ -156,6 +170,7 @@ export function SampleProcessingPanel({ orderId, readyHref, status, uploadCount 
 
       {showProgress && !isReady ? (
         <div aria-live="polite" className="processing-progress surface">
+          <span className="pill pill-sky">Making your page now</span>
           <strong>Creating your free coloring page</strong>
           <div className="progress-bar" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
             <div className="progress-bar-fill" style={{ width: `${progress}%` }} />

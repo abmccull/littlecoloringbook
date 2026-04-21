@@ -5,7 +5,7 @@ import { BookMockupBlock } from "../../components/proof-modules";
 import { TrackBuyerJourneyStage } from "../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../components/track-page-event";
 import { getAcquisitionPayloadFromRecord } from "../../lib/acquisition";
-import { proofAssets } from "../../lib/consumer-content";
+import { offerBonuses, proofAssets } from "../../lib/consumer-content";
 
 export default async function CreatePage({
   searchParams,
@@ -68,6 +68,24 @@ export default async function CreatePage({
               title="Pick the size by how full the memory stack feels."
               copy="30 keeps it lighter. 50 feels fuller. 100 is the best-value keepsake when the camera roll is already packed."
             />
+          </div>
+          <div className="surface">
+            <span className="pill pill-coral">
+              Included with every book — ${offerBonuses.reduce((sum, b) => sum + b.value, 0)} in bonuses
+            </span>
+            <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+              {offerBonuses.map((bonus) => (
+                <li key={bonus.name} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                  <strong style={{ flex: "0 0 auto" }}>{bonus.name}</strong>
+                  <span className="muted" style={{ fontSize: "0.85rem" }}>
+                    (${bonus.value} value)
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mini-note" style={{ marginTop: 10 }}>
+              Bonuses auto-deliver to your order portal the moment checkout clears. No extra cart step.
+            </p>
           </div>
         </aside>
       </section>

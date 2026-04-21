@@ -306,6 +306,64 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
         </div>
       </section>
 
+      {summary.order.orderType !== "sample" ? (
+        <section className="section">
+          <div className="section-copy">
+            <span className="pill pill-coral">Your bonuses</span>
+            <h2>Three extras that come with every book.</h2>
+            <p className="lede">
+              Print the Party Kit alongside the book. Keep the Photo Picker Guide near your camera roll. The
+              Memory Vault is this page — your book stays downloadable here forever.
+            </p>
+          </div>
+          <div className="detail-grid three-up">
+            <article className="surface detail-card">
+              <span className="pill pill-sun">$29 value</span>
+              <strong>The Coloring Party Kit</strong>
+              <p className="muted">
+                A printable cover sheet, six coloring-session tips, and a kid-fillable &ldquo;About the Artist&rdquo;
+                page — personalized with the cover name.
+              </p>
+              <TrackedAnchor
+                className="button button-secondary"
+                href={`/api/orders/portal/${token}/party-kit`}
+                eventName="portal_bonus_download_clicked"
+                eventProperties={{ orderId: summary.order.id, bonus: "party_kit" }}
+              >
+                Download Party Kit (PDF)
+              </TrackedAnchor>
+            </article>
+            <article className="surface detail-card">
+              <span className="pill pill-sun">$19 value</span>
+              <strong>The Memory Vault</strong>
+              <p className="muted">
+                Bookmark this page. Your book stays downloadable here — no expiry, no account hunting. Come
+                back any time to re-download or re-order.
+              </p>
+              <p className="mini-note">
+                <strong>Permanent access.</strong> Your link doesn&rsquo;t expire.
+              </p>
+            </article>
+            <article className="surface detail-card">
+              <span className="pill pill-sun">$9 value</span>
+              <strong>Best Photo Picker Guide</strong>
+              <p className="muted">
+                A one-page cheat sheet of which photo types make the cleanest coloring pages — keep it near
+                your camera roll for the next book.
+              </p>
+              <TrackedAnchor
+                className="button button-secondary"
+                href={`/api/orders/portal/${token}/photo-picker-guide`}
+                eventName="portal_bonus_download_clicked"
+                eventProperties={{ orderId: summary.order.id, bonus: "photo_picker_guide" }}
+              >
+                Download Guide (PDF)
+              </TrackedAnchor>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
       <section className="section">
         <div className="section-copy">
           <span className="pill pill-sun">Recent updates</span>

@@ -139,11 +139,6 @@ export const funnelCtas = {
     href: "/create?offer=print-100&source=sample-ready-print&acquisitionPath=sample_first",
     eventName: "sample_ready_print_upsell_clicked",
   },
-  startMiniPdf: {
-    label: "Keep It Light With 10 Pages",
-    href: "/create?offer=pdf-10&source=sample-ready-downsell&acquisitionPath=sample_first",
-    eventName: "sample_ready_downsell_clicked",
-  },
 } satisfies Record<string, FunnelCta>;
 
 export const consumerOffers: ConsumerOffer[] = [
@@ -189,7 +184,7 @@ export const consumerOffers: ConsumerOffer[] = [
 export const homepageContent = {
   hero: {
     badge: "Free sample in 30 seconds",
-    title: "Turn the photos on your phone into a screen-free activity they actually want to do.",
+    title: "Turn favorite phone photos into a screen-free activity kids actually want to do.",
     description:
       "Upload one favorite photo. Watch it become a coloring page in about 30 seconds. If your kid lights up, turn the rest of your camera roll into the full book.",
     supporting:
@@ -244,16 +239,78 @@ export const useCaseCards: UseCaseCard[] = [
   },
 ];
 
+// Real customer testimonials collected 2026-04-21. `parentQuotes` is the
+// curated homepage/sample-ready set (6 strongest, each covering a
+// distinct angle: screen-free, differentiation, face-lit-up, objection
+// handler for older kids, sibling bundle, travel use-case). The full
+// set lives in `parentQuotesArchive` for rotation into ads, email, and
+// landing-page variants.
 export const parentQuotes: ParentQuote[] = [
   {
-    quote: "My daughter grabbed the crayon before I even finished explaining what it was.",
-    name: "Sarah M.",
-    context: "Austin, TX",
+    quote: "This has become our go-to quiet activity after preschool. Liam loves seeing pages that feel made just for him, and I love that it keeps him focused without a screen.",
+    name: "Maya R.",
+    context: "mom of Liam, 4",
   },
   {
-    quote: "He kept saying 'that's ME!' on every page. Worth every penny for the reaction alone.",
-    name: "Jess T.",
-    context: "Portland, OR",
+    quote: "Emma usually rushes through coloring books, but this one actually held her attention. She kept pointing out little details and asking to color 'just one more page.'",
+    name: "Daniel P.",
+    context: "dad of Emma, 6",
+  },
+  {
+    quote: "Ava's face lit up when she saw her coloring book. The pages are cute, easy for little hands, and give us a nice activity to do together before bedtime.",
+    name: "Chris L.",
+    context: "dad of Ava, 3",
+  },
+  {
+    quote: "Mason is very picky about art activities, but he loved this. He said the pages felt 'cool, not babyish,' which is high praise from a seven-year-old.",
+    name: "Jenna K.",
+    context: "mom of Mason, 7",
+  },
+  {
+    quote: "I got one for each of my kids, and they both loved it for different reasons. Ben liked the easy pages, and Ellie got really creative with the details.",
+    name: "Lauren D.",
+    context: "mom of Ben, 5 and Ellie, 7",
+  },
+  {
+    quote: "We brought Little Color Book on a road trip and it saved us. Ethan stayed busy in the car, and the pages were fun enough that he came back to them later at the hotel.",
+    name: "Marcus B.",
+    context: "dad of Ethan, 5",
+  },
+];
+
+// Additional real testimonials, held for rotation into ads, email
+// sequences, landing-page variants, and A/B tests. Same shape as
+// parentQuotes — safe to inline anywhere a ParentQuote is expected.
+export const parentQuotesArchive: ParentQuote[] = [
+  {
+    quote: "The designs are simple enough for Noah to enjoy but still creative enough that he doesn't get bored. It's been perfect for rainy afternoons and restaurant waits.",
+    name: "Sophie M.",
+    context: "mom of Noah, 5",
+  },
+  {
+    quote: "I bought this as a small surprise, and Olivia has been carrying it around the house all week. It's sweet, calming, and such a nice break from tablets.",
+    name: "Rachel T.",
+    context: "mom of Olivia, 4",
+  },
+  {
+    quote: "Harper loves anything creative, and this coloring book felt special right away. The artwork is adorable, and it gave her a confidence boost because she could finish each page on her own.",
+    name: "Alyssa G.",
+    context: "mom of Harper, 6",
+  },
+  {
+    quote: "Jack is still learning to color inside the lines, and these pages are great for him. They're playful without being too complicated, which keeps him from getting frustrated.",
+    name: "Nina C.",
+    context: "mom of Jack, 3",
+  },
+  {
+    quote: "Mia said this was one of her favorite coloring books because the pictures felt different from the ones she already has. She spent almost an hour coloring quietly, which never happens.",
+    name: "Kevin S.",
+    context: "dad of Mia, 8",
+  },
+  {
+    quote: "This has been such a sweet activity for us after dinner. Arjun picks a page, tells me what colors he wants to use, and we sit together without any distractions.",
+    name: "Priya N.",
+    context: "mom of Arjun, 4",
   },
 ];
 
@@ -408,6 +465,5 @@ export function getPrintOfferCodeFor(designs: number): OfferCode {
 export function getPdfOfferCodeFor(designs: number): OfferCode {
   if (designs >= 100) return "pdf-100";
   if (designs >= 50) return "pdf-50";
-  if (designs >= 30) return "pdf-30";
-  return "pdf-10";
+  return "pdf-30";
 }

@@ -148,6 +148,20 @@ function formatMoney(cents: number) {
   }).format(cents / 100);
 }
 
+function getEmailError(value: string) {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return "Add the email where we should keep this book and send the next step.";
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedValue)) {
+    return "Use a valid email so the upload and checkout links land in the right inbox.";
+  }
+
+  return null;
+}
+
 function findOfferForMode(mode: DeliveryMode, designs: number) {
   return offerOptions[mode].find((offer) => offer.designs === designs) ?? offerOptions[mode][0];
 }
@@ -184,6 +198,7 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
   const [dedicationText, setDedicationText] = useState("");
   const [currentStep, setCurrentStep] = useState<BuilderStep>("format");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectedOffer = useMemo(
@@ -242,6 +257,7 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
   }, [childFirstName, coverNameMode, selectedPrintBundle.quantity]);
 
   const currentStepIndex = Math.max(0, steps.indexOf(currentStep));
+  const emailError = emailTouched ? getEmailError(email) : null;
 
   const resolvedCopyNames =
     deliveryMode === "print" && selectedPrintBundle.quantity > 1
@@ -357,7 +373,8 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
   }
 
   function handleDetailsContinue() {
-    if (!email.trim()) {
+    if (getEmailError(email)) {
+      setEmailTouched(true);
       setErrorMessage("Enter your email so we can keep the book and the uploads tied to the right inbox.");
       return;
     }
@@ -369,6 +386,13 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
     event.preventDefault();
 
     if (currentStep !== "review") {
+      return;
+    }
+
+    if (getEmailError(email)) {
+      setEmailTouched(true);
+      setErrorMessage("Add your email before you move into the upload step.");
+      setCurrentStep("details");
       return;
     }
 
@@ -566,8 +590,12 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
         </div>
       </div>
 
-      <form className="upload-stack" id={formId} onSubmit={handleSubmit}>
+      <form className="upload-stack" id={formId} noValidate onSubmit={handleSubmit}>
         <div className="builder-step-intro">
+          <div className="builder-step-kicker">
+            <span className="pill pill-coral">Step {currentStepIndex + 1} of {steps.length}</span>
+            <span className="builder-step-context">{selectedMerchOffer.title}</span>
+          </div>
           <h1>{stepContent[currentStep].title}</h1>
           <p className="lede">{stepContent[currentStep].description}</p>
         </div>
@@ -686,6 +714,14 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
               <p className="mini-note">You will upload {selectedOffer.designs} photos right after this step.</p>
             </div>
 
+            <div className="status-banner status-banner-progress status-banner-compact">
+              <span className="pill pill-sky">Next after this</span>
+              <div className="status-banner-copy">
+                <strong>Photo upload opens immediately after review.</strong>
+                <p>We use this email to keep the builder, upload step, and checkout links tied to one place.</p>
+              </div>
+            </div>
+
             {deliveryMode === "print" && selectedPrintBundle.quantity > 1 ? (
               <div className="upload-stack">
                 <div className="stack-tight">
@@ -716,23 +752,42 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
             ) : null}
 
             <div className="form-grid">
-              <label>
-                <span className="muted">Email</span>
+              <div className={`field-shell${emailError ? " field-shell-invalid" : ""}`}>
+                <div className="field-head">
+                  <span className="field-label">Email</span>
+                  <span className="field-note">Required for the next step</span>
+                </div>
                 <input
                   autoComplete="email"
+                  aria-describedby={emailError ? "builder-email-error" : "builder-email-note"}
+                  aria-invalid={emailError ? true : undefined}
                   className="input"
                   name="email"
                   inputMode="email"
                   placeholder="you@example.com"
-                  required
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onBlur={() => setEmailTouched(true)}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (errorMessage) {
+                      setErrorMessage(null);
+                    }
+                  }}
                 />
-              </label>
+                {emailError ? (
+                  <p className="field-error" id="builder-email-error" role="alert">
+                    {emailError}
+                  </p>
+                ) : (
+                  <p className="field-note" id="builder-email-note">
+                    This is where we send the upload link, order portal, and delivery updates.
+                  </p>
+                )}
+              </div>
               {!(deliveryMode === "print" && selectedPrintBundle.quantity > 1 && coverNameMode === "different") ? (
-                <label>
-                  <span className="muted">
+                <div className="field-shell">
+                  <span className="field-label">
                     {deliveryMode === "print" && selectedPrintBundle.quantity > 1 && coverNameMode === "same"
                       ? "Name on every cover"
                       : "Name on the cover"}
@@ -745,15 +800,16 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
                     value={childFirstName}
                     onChange={(event) => setChildFirstName(event.target.value)}
                   />
-                </label>
+                  <p className="field-note">Optional. Leave it blank if you want to finalize the cover wording later.</p>
+                </div>
               ) : null}
             </div>
 
             {deliveryMode === "print" && selectedPrintBundle.quantity > 1 && coverNameMode === "different" ? (
               <div className="form-grid">
                 {Array.from({ length: selectedPrintBundle.quantity }, (_, index) => (
-                  <label key={`copy-name-${index + 1}`}>
-                    <span className="muted">Copy {index + 1} cover name</span>
+                  <div className="field-shell" key={`copy-name-${index + 1}`}>
+                    <span className="field-label">Copy {index + 1} cover name</span>
                     <input
                       autoComplete="given-name"
                       className="input"
@@ -772,14 +828,15 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
                         }
                       }}
                     />
-                  </label>
+                    <p className="field-note">Leave blank if that copy should ship without a name on the cover.</p>
+                  </div>
                 ))}
               </div>
             ) : null}
 
             {occasion === "birthday" ? (
-              <label>
-                <span className="muted">Age (optional)</span>
+              <div className="field-shell">
+                <span className="field-label">Age (optional)</span>
                 <input
                   className="input"
                   inputMode="numeric"
@@ -794,12 +851,13 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
                     setAge(isNaN(parsed) ? undefined : parsed);
                   }}
                 />
-              </label>
+                <p className="field-note">Helpful for birthday covers, but not required.</p>
+              </div>
             ) : null}
 
             {occasion === "vacation" ? (
-              <label>
-                <span className="muted">Destination (optional)</span>
+              <div className="field-shell">
+                <span className="field-label">Destination (optional)</span>
                 <input
                   className="input"
                   name="destination"
@@ -808,12 +866,13 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
                   value={destination}
                   onChange={(event) => setDestination(event.target.value)}
                 />
-              </label>
+                <p className="field-note">Use the city, trip name, or place you want the cover to nod to.</p>
+              </div>
             ) : null}
 
             {occasion === "pet-keepsake" ? (
-              <label>
-                <span className="muted">Pet name (optional)</span>
+              <div className="field-shell">
+                <span className="field-label">Pet name (optional)</span>
                 <input
                   autoComplete="off"
                   className="input"
@@ -823,11 +882,12 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
                   value={petName}
                   onChange={(event) => setPetName(event.target.value)}
                 />
-              </label>
+                <p className="field-note">Helpful when the book is centered around one favorite pet.</p>
+              </div>
             ) : null}
 
-            <label>
-              <span className="muted">Dedication (optional)</span>
+            <div className="field-shell">
+              <span className="field-label">Dedication (optional)</span>
               <textarea
                 className="textarea"
                 name="dedicationText"
@@ -835,7 +895,8 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
                 value={dedicationText}
                 onChange={(event) => setDedicationText(event.target.value)}
               />
-            </label>
+              <p className="field-note">A short line for the inside page if you want the book to feel more gift-ready.</p>
+            </div>
           </div>
         ) : null}
 
@@ -866,6 +927,13 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
               <p className="muted">
                 After you confirm this setup, you will upload the photos for the book. PDF orders move straight into page-making. Spiral books move into delivery and checkout after upload.
               </p>
+              <div className="status-banner status-banner-progress status-banner-compact">
+                <span className="pill pill-sky">Ready after one click</span>
+                <div className="status-banner-copy">
+                  <strong>Confirm this setup, then move straight into the upload step.</strong>
+                  <p>No extra detour. The next screen is where the actual photos go in.</p>
+                </div>
+              </div>
               <div className="builder-review-list">
                 {summaryItems.map((item) => (
                   <div className="builder-review-line" key={item.label}>
@@ -892,7 +960,14 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
           </div>
         ) : null}
 
-        {errorMessage ? <div className="status-banner status-banner-warning">{errorMessage}</div> : null}
+        {errorMessage ? (
+          <div className="status-banner status-banner-warning" role="alert">
+            <div className="status-banner-copy">
+              <strong>We still need one thing before you continue.</strong>
+              <p>{errorMessage}</p>
+            </div>
+          </div>
+        ) : null}
       </form>
     </section>
   );

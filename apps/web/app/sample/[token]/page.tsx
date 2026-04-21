@@ -2,11 +2,19 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
 import { BrandLogo } from "../../../components/brand-logo";
-import { BookMockupBlock } from "../../../components/proof-modules";
+import { BookMockupBlock, ParentQuoteBlock } from "../../../components/proof-modules";
 import { SampleOfferCheckoutButton } from "../../../components/sample-offer-checkout-button";
 import { TrackBuyerJourneyStage } from "../../../components/track-buyer-journey-stage";
 import { TrackPageEvent } from "../../../components/track-page-event";
-import { consumerOffers, getConsumerOffer, guarantees, proofAssets } from "../../../lib/consumer-content";
+import {
+  consumerOffers,
+  getConsumerOffer,
+  guarantees,
+  offerBonuses,
+  parentQuotes,
+  proofAssets,
+  urgencyMessages,
+} from "../../../lib/consumer-content";
 
 type SampleReadyPageProps = {
   params: Promise<{ token: string }>;
@@ -28,6 +36,9 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
 
   const previewHref = `/api/orders/portal/${token}/preview`;
   const primaryOffer = getConsumerOffer("pdf-50");
+  const bonusTotalValue = offerBonuses.reduce((total, bonus) => total + bonus.value, 0);
+  const primaryPrice = primaryOffer.pdfPrice ?? 0;
+  const stackedValue = primaryPrice + bonusTotalValue;
 
   return (
     <main>
@@ -84,8 +95,41 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
                 {primaryOffer.ctaLabel}
               </SampleOfferCheckoutButton>
             </div>
-            <p className="mini-note">Your preview is saved for 48 hours.</p>
+            {urgencyMessages.seasonalCover ? (
+              <p className="mini-note"><strong>{urgencyMessages.seasonalCover}</strong></p>
+            ) : null}
+            <p className="mini-note">{urgencyMessages.sampleExpiry}</p>
           </div>
+        </div>
+
+        <div className="stack">
+          <div className="section-copy">
+            <p className="eyebrow">Included with every book</p>
+            <h2>You're also getting ${bonusTotalValue} in bonuses.</h2>
+            <p className="lede">Three small things that make the book easier to give, easier to keep, and easier to finish.</p>
+          </div>
+          <div className="detail-grid three-up">
+            {offerBonuses.map((bonus) => (
+              <article className="surface detail-card" key={bonus.name}>
+                <span className="pill pill-sun">${bonus.value} value</span>
+                <strong>{bonus.name}</strong>
+                <p className="muted">{bonus.description}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mini-note">
+            Total value: <s>${stackedValue}</s>
+            {" · "}
+            Your price today: <strong>${primaryPrice}</strong>
+          </p>
+        </div>
+
+        <div className="stack">
+          <div className="section-copy">
+            <p className="eyebrow">What other parents are saying</p>
+            <h2>&ldquo;Held her attention&hellip; just one more page.&rdquo;</h2>
+          </div>
+          <ParentQuoteBlock quotes={parentQuotes.slice(0, 3)} />
         </div>
 
         <div className="detail-grid three-up">

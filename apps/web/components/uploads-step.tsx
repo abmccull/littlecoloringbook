@@ -97,7 +97,7 @@ export function UploadsStep({ deliveryMode, orderId, selectedOffer, initialUploa
 
       <div className="progress-callout">
         <span className="pill pill-sky">Step 2</span>
-        <div className="stack-tight">
+        <div className="status-banner-copy">
           <strong>This is the part where the book becomes real.</strong>
           <p className="muted">
             {uploadsReady
@@ -133,19 +133,27 @@ export function UploadsStep({ deliveryMode, orderId, selectedOffer, initialUploa
         <p className="mini-note">
           {uploadsReady
             ? `${uploadedCount} photos are ready for this book.`
-            : `${uploadedCount} of ${requiredUploads} photos added so far.`}
+          : `${uploadedCount} of ${requiredUploads} photos added so far.`}
         </p>
       </div>
 
-      {errorMessage ? <div className="status-banner status-banner-warning">{errorMessage}</div> : null}
+      {errorMessage ? (
+        <div className="status-banner status-banner-warning" role="alert">
+          <div className="status-banner-copy">
+            <strong>You're almost there.</strong>
+            <p>{errorMessage}</p>
+          </div>
+        </div>
+      ) : null}
 
       {showAddOns && resolvedMode === "pdf" ? (
         <div className="upload-stack">
-          <div className="status-banner">
+          <div className="status-banner status-banner-compact">
             <span className="pill pill-mint">One more step</span>
-            <p className="muted">
-              Review these options before we take you to checkout. Skip them by scrolling to the checkout button below.
-            </p>
+            <div className="status-banner-copy">
+              <strong>Review these options before checkout.</strong>
+              <p>Skip them by scrolling to the checkout button below if you want to keep moving.</p>
+            </div>
           </div>
           <AddOnsCheckoutPanel
             orderId={orderId}

@@ -6,9 +6,12 @@ import { HeroProofModule, ParentQuoteBlock, ProofStrip, UseCaseModule } from "..
 import { Section } from "../components/section";
 import { TrackVisibilityStage } from "../components/track-visibility-stage";
 import { TrackedLink } from "../components/tracked-link";
-import { consumerOffers, faqs, founderStory, funnelCtas, guarantees, homepageContent, parentQuotes, useCaseCards } from "../lib/consumer-content";
+import { consumerOffers, faqs, founderStoryShort, funnelCtas, guarantees, homepageContent, parentQuotes, useCaseCards } from "../lib/consumer-content";
 
 const coreOffers = consumerOffers.filter((offer) => offer.code === "pdf-30" || offer.code === "pdf-50" || offer.code === "pdf-100");
+const heroCallouts = homepageContent.hero.callouts.slice(0, 2);
+const homepageFaqs = faqs.slice(0, 6);
+const homepageQuotes = parentQuotes.slice(0, 3);
 
 export default function HomePage() {
   return (
@@ -18,26 +21,49 @@ export default function HomePage() {
       <section className="hero-home-shell" id="homepage-proof-module">
         <div className="hero-home-surface">
           <div className="hero-copy hero-home-heading">
+            <span className="pill pill-coral hero-home-priority">{homepageContent.hero.badge}</span>
             <h1>{homepageContent.hero.title}</h1>
-            <p className="lede">{homepageContent.hero.description}</p>
+            <p className="lede">Start with one favorite photo or jump straight to the full book. Either way, the goal is the same: familiar family moments become coloring pages kids instantly recognize.</p>
+            <div className="hero-actions hero-home-actions">
+              <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName={funnelCtas.freeSample.eventName}>
+                {funnelCtas.freeSample.label}
+              </TrackedLink>
+              <TrackedLink
+                className="button button-secondary"
+                href="/create?offer=pdf-50&source=homepage-builder-primary&acquisitionPath=direct_buy"
+                eventName="home_builder_cta_clicked"
+              >
+                Build My Family Memory Book
+              </TrackedLink>
+            </div>
+            <div className="hero-home-proof-points">
+              <span>Start with one favorite photo</span>
+              <span>See proof before you buy the full book</span>
+              <span>Move to PDF or spiral keepsake next</span>
+            </div>
           </div>
           <div className="hero-proof-column">
             <HeroProofModule embedded />
           </div>
           <div className="hero-home-details">
-            <div className="hero-home-story">
-              <p className="support-note">{homepageContent.hero.supporting}</p>
-            </div>
+            <article className="surface hero-home-story-card">
+              <span className="pill pill-sky">Best first move</span>
+              <strong>{homepageContent.hero.supporting}</strong>
+              <p className="muted">The free page gives you proof fast. The builder is there for the moments when the gift is already obvious and you just want to keep moving.</p>
+            </article>
             <div className="hero-home-cta">
-              <div className="hero-actions">
-                <TrackedLink className="button button-primary" href={funnelCtas.freeSample.href} eventName={funnelCtas.freeSample.eventName}>
-                  {funnelCtas.freeSample.label}
+              <div className="surface hero-home-action-card">
+                <span className="pill pill-coral">If you already know</span>
+                <strong>Go straight to the builder when you already have enough favorite photos for the full keepsake.</strong>
+                <p className="muted">Start with 50 when you want the safer full-book choice. Move to 100 when the camera roll is already packed.</p>
+                <TrackedLink className="topbar-link" href="#book-sizes" eventName={funnelCtas.seeBookSizes.eventName}>
+                  {funnelCtas.seeBookSizes.label}
                 </TrackedLink>
               </div>
             </div>
             <div className="hero-home-trust">
-              <div className="hero-callout-row">
-                {homepageContent.hero.callouts.map((callout) => (
+              <div className="hero-callout-row hero-callout-row-compact">
+                {heroCallouts.map((callout) => (
                   <article className={`hero-callout hero-callout-${callout.tone}`} key={callout.title}>
                     <span className="hero-callout-badge">{callout.badge}</span>
                     <strong>{callout.title}</strong>
@@ -62,12 +88,12 @@ export default function HomePage() {
         <ProofStrip />
       </Section>
 
-      <Section eyebrow={founderStory.eyebrow} title={founderStory.title}>
-        <article className="surface founder-story">
-          {founderStory.paragraphs.map((paragraph, index) => (
+      <Section eyebrow={founderStoryShort.eyebrow} title={founderStoryShort.title}>
+        <article className="surface founder-story founder-story-compact">
+          {founderStoryShort.paragraphs.map((paragraph, index) => (
             <p key={index}>{paragraph}</p>
           ))}
-          <p className="founder-signature">{founderStory.signature}</p>
+          <p className="founder-signature">{founderStoryShort.signature}</p>
         </article>
       </Section>
 
@@ -97,7 +123,7 @@ export default function HomePage() {
         title="An easy screen-free win now. A keepsake worth saving later."
         copy="Your kid recognizes the faces on every page. That's why they actually want to color it. You end up with something nice enough to print, gift, and keep."
       >
-        <ParentQuoteBlock quotes={parentQuotes} />
+        <ParentQuoteBlock quotes={homepageQuotes} />
       </Section>
 
       <Section
@@ -140,7 +166,7 @@ export default function HomePage() {
         title="Questions parents ask before they upload."
         copy="Timing, print versus PDF, multiple kids, gift copies. The details most parents want before they start."
       >
-        <FaqAccordion items={faqs} />
+        <FaqAccordion items={homepageFaqs} />
       </Section>
 
       <MarketingFooter />

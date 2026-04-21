@@ -63,6 +63,13 @@ export default async function SampleLimitReachedPage({ searchParams }: LimitReac
         <h1>{heading}</h1>
         <p className="lede">{lede}</p>
 
+        <div className="status-banner status-banner-warning status-banner-compact">
+          <div className="status-banner-copy">
+            <strong>The free page is capped so real families can still use it.</strong>
+            <p>The full book flow is still open below, and support can review anything that looks wrong for your household.</p>
+          </div>
+        </div>
+
         <ul className="checklist">
           <li>50 personalized pages from your camera roll</li>
           <li>Print tonight or order the spiral-bound book</li>
