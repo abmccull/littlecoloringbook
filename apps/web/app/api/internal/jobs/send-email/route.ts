@@ -5,7 +5,7 @@ import { authorizeInternalJobRequest } from "../../../../../lib/internal-jobs";
 
 const sendEmailSchema = z.object({
   orderId: z.string().trim().min(1),
-  template: z.enum(["order-paid", "pdf-ready", "print-submitted", "order-shipped", "order-delivered"]),
+  template: z.enum(["order-paid", "order-processing", "pdf-ready", "print-submitted", "order-shipped", "order-delivered"]),
   force: z.boolean().optional(),
 });
 

@@ -33,6 +33,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    try {
+      await deliverLifecycleEmail({
+        orderId: parsed.data.orderId,
+        template: "order-processing",
+      });
+    } catch (error) {
+      console.error("Failed to send order-processing email", error);
+    }
+
     const result = await runProcessPaidOrderJob(
       {
         orderId: parsed.data.orderId,
@@ -41,11 +50,22 @@ export async function POST(request: NextRequest) {
       // Print orders are batched daily via the batch-submit-lulu cron job.
       // Do not pass submitPrintOrder here so print orders land in
       // awaiting_print_submission. PDF-only orders trigger pdf-ready
-      // email as soon as the interior PDF is assembled.
+      // inside the job as soon as the interior PDF is assembled.
       {
         sendLifecycleEmail: deliverLifecycleEmail,
       },
     );
+
+    if (result.accepted && result.finalStatus === "awaiting_print_submission") {
+      try {
+        await deliverLifecycleEmail({
+          orderId: parsed.data.orderId,
+          template: "pdf-ready",
+        });
+      } catch (error) {
+        console.error("Failed to send print pdf-ready email", error);
+      }
+    }
 
     return NextResponse.json(result);
   } catch (error) {

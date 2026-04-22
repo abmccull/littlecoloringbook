@@ -117,8 +117,9 @@ async function handleCheckoutCompleted(event: Stripe.Event, session: Stripe.Chec
 
   // Note: Neon Auth sends its own sign-in email when ensureCustomerAccount
   // triggers sendSignInOtp. We no longer send a separate account-welcome
-  // email from Resend here — Neon's email + the existing order-paid email
-  // cover the ground without duplicating an inbox hit.
+  // email from Resend here. The post-checkout lifecycle email now points
+  // the customer into photo upload / order setup, so that plus Neon's
+  // sign-in email cover the needed next steps without duplicating inbox hits.
 
   // Post-purchase sequence enrollment — fires the first "thank you" email
   // 1 day after checkout. For PDF orders this runs before delivery is

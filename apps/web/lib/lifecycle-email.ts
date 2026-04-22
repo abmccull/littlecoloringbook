@@ -50,6 +50,7 @@ export async function deliverLifecycleEmail(input: {
   }
 
   const portalUrl = `${getAppUrl()}${portalAccess.portalHref}`;
+  const setupUrl = `${getAppUrl()}${portalAccess.portalHref}/setup`;
   const supportEmail = process.env.SUPPORT_EMAIL ?? "support@littlecolorbook.com";
   const emailProvider = isEmailConfigured() ? "resend" : "stub";
   let downloadUrl: string | null = null;
@@ -71,6 +72,7 @@ export async function deliverLifecycleEmail(input: {
     provider: emailProvider,
     payload: {
       portalUrl,
+      setupUrl,
       downloadUrl,
       trackingUrl: summary.fulfillment?.trackingUrl ?? null,
     },
@@ -93,6 +95,7 @@ export async function deliverLifecycleEmail(input: {
       trackingUrl: summary.fulfillment?.trackingUrl ?? null,
       supportEmail,
       accountUrl,
+      setupUrl,
       magicLinkUrl: input.magicLinkUrl ?? null,
     });
 
@@ -105,6 +108,7 @@ export async function deliverLifecycleEmail(input: {
       subject: result.subject,
       payload: {
         portalUrl,
+        setupUrl,
         downloadUrl,
         trackingUrl: summary.fulfillment?.trackingUrl ?? null,
       },
@@ -131,6 +135,7 @@ export async function deliverLifecycleEmail(input: {
       payload: {
         error: message,
         portalUrl,
+        setupUrl,
       },
     });
 

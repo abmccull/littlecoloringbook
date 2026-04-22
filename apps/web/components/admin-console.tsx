@@ -124,7 +124,7 @@ export function AdminConsole({
   const [rerenderReason, setRerenderReason] = useState("");
   const [rerenderPage, setRerenderPage] = useState(1);
   const [emailTemplate, setEmailTemplate] = useState<
-    "order-paid" | "pdf-ready" | "print-submitted" | "order-shipped" | "order-delivered"
+    "order-paid" | "order-processing" | "pdf-ready" | "print-submitted" | "order-shipped" | "order-delivered"
   >("order-paid");
   const [isPending, startTransition] = useTransition();
 
@@ -512,7 +512,8 @@ export function AdminConsole({
                       onChange={(event) => setEmailTemplate(event.target.value as typeof emailTemplate)}
                       value={emailTemplate}
                     >
-                      <option value="order-paid">Order paid</option>
+                      <option value="order-paid">Order confirmed / upload photos</option>
+                      <option value="order-processing">Order processing</option>
                       <option value="pdf-ready">PDF ready</option>
                       <option value="print-submitted">Print submitted</option>
                       <option value="order-shipped">Order shipped</option>

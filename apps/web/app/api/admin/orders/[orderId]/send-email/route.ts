@@ -5,7 +5,7 @@ import { requireAdminApiSession } from "../../../../../../lib/auth";
 import { deliverLifecycleEmail } from "../../../../../../lib/lifecycle-email";
 
 const sendEmailSchema = z.object({
-  template: z.enum(["order-paid", "pdf-ready", "print-submitted", "order-shipped", "order-delivered"]),
+  template: z.enum(["order-paid", "order-processing", "pdf-ready", "print-submitted", "order-shipped", "order-delivered"]),
   force: z.boolean().optional(),
 });
 
