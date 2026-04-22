@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, doublePrecision, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, jsonb, numeric, pgEnum, pgTable, smallint, text, timestamp, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const orderTypeValues = ["sample", "pdf", "print"] as const;
 export const deliveryModeValues = ["sample", "pdf", "print"] as const;
@@ -189,7 +189,7 @@ export const uploads = pgTable(
   "uploads",
   {
     id: text("id").primaryKey(),
-    orderId: text("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    orderId: text("order_id").references(() => orders.id, { onDelete: "cascade" }),
     kind: uploadKindEnum("kind").default("original").notNull(),
     status: uploadStatusEnum("status").default("presigned").notNull(),
     fileName: text("file_name").notNull(),
@@ -1681,3 +1681,52 @@ export const klingUsage = pgTable(
 
 export type KlingUsage = typeof klingUsage.$inferSelect;
 export type NewKlingUsage = typeof klingUsage.$inferInsert;
+
+// ─── Prompt-eval A/B harness (migration 0031) ─────────────────────────────
+
+export const promptEvalVariantValues = [
+  "old_historical",
+  "new_flash_minimal",
+  "new_pro_minimal",
+] as const;
+export type PromptEvalVariant = (typeof promptEvalVariantValues)[number];
+
+export type PromptEvalScoreDimensions = {
+  faceQuality?: number;
+  lineQuality?: number;
+  sceneFaithfulness?: number;
+  artifactFree?: number;
+};
+
+export const promptEvalSamples = pgTable(
+  "prompt_eval_samples",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id").notNull(),
+    sourceUploadId: text("source_upload_id").notNull(),
+    sourceObjectPath: text("source_object_path").notNull(),
+    orderIdHint: text("order_id_hint"),
+    variant: text("variant").notNull().$type<PromptEvalVariant>(),
+    model: text("model").notNull(),
+    promptText: text("prompt_text"),
+    outputObjectPath: text("output_object_path").notNull(),
+    overallScore: smallint("overall_score"),
+    scoreDimensions: jsonb("score_dimensions").$type<PromptEvalScoreDimensions | null>(),
+    notes: text("notes"),
+    scoredAt: timestamp("scored_at", { withTimezone: true }),
+    scoredBy: text("scored_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    runIdx: index("prompt_eval_samples_run_id_idx").on(table.runId),
+    scoredIdx: index("prompt_eval_samples_scored_at_idx").on(table.scoredAt),
+    runSourceVariantUnique: uniqueIndex("prompt_eval_samples_run_source_variant_unique").on(
+      table.runId,
+      table.sourceUploadId,
+      table.variant,
+    ),
+  }),
+);
+
+export type PromptEvalSample = typeof promptEvalSamples.$inferSelect;
+export type NewPromptEvalSample = typeof promptEvalSamples.$inferInsert;

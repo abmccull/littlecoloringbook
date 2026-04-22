@@ -98,7 +98,7 @@ export const guaranteePoints = [
 export const sampleBenefits = [
   "Made from one real family photo",
   "Printable page delivered by email",
-  "Usually ready in about 5 to 15 minutes",
+  "Usually ready in about 2 minutes",
   "No full album required up front",
 ];
 
@@ -109,7 +109,7 @@ export const faqs = [
   },
   {
     question: "How fast is the PDF?",
-    answer: "Free samples are targeted for 5 to 15 minutes. Paid PDFs range from roughly 15 minutes for 10 designs to about 90 minutes for 100 designs.",
+    answer: "Free samples are usually ready in about 2 minutes. Paid PDFs (30, 50, or 100 designs) are targeted for 15 to 30 minutes.",
   },
   {
     question: "How long does the printed book take?",

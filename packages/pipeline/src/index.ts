@@ -30,7 +30,13 @@ export const qaChecklist = [
   "kid-friendly-detail-level",
 ] as const;
 
-export const pipelinePromptVersion = "2026-04-19.d";
+// 2026-04-21: promoted the minimal prompt to production after a 50-photo
+// A/B run (see `tmp/eval-run-eval-2026-04-21-local/scores.json`): Gemini
+// 3 Pro with the minimal 5-sentence prompt averaged 4.92/5 vs the old
+// prompt's 3.30/5 on the same sources, with zero losses. Same run showed
+// 2.5 Flash + minimal underperformed the old prompt (2.68/5), so the
+// escalation ladder now starts at 3 Pro instead of climbing up to it.
+export const pipelinePromptVersion = "2026-04-21.minimal";
 export const pipelineCleanupVersion = "2026-04-12.a";
 
 export type PipelineJobKind = "sample" | "full_book";
@@ -84,21 +90,15 @@ const PRINT_COVER_PAGE = {
 const TIER_1_MODEL = "gemini-2.5-flash-image";
 const TIER_2_MODEL = "gemini-3.1-flash-image-preview";
 const TIER_3_MODEL = "gemini-3-pro-image-preview";
-const ESCALATION_LADDER = [TIER_1_MODEL, TIER_2_MODEL, TIER_3_MODEL] as const;
+// Post-2026-04-21: ladder contains only Pro. Flash tiers kept as named
+// constants so env overrides (GEMINI_IMAGE_ATTEMPT_N_MODEL) still resolve,
+// but the default path never escalates to or from them.
+const ESCALATION_LADDER = [TIER_3_MODEL] as const;
 
-const PRIMARY_IMAGE_MODEL = TIER_1_MODEL;
+const PRIMARY_IMAGE_MODEL = TIER_3_MODEL;
 const FALLBACK_IMAGE_MODEL = TIER_3_MODEL;
-const MAX_RENDER_ATTEMPTS = 3;
+const MAX_RENDER_ATTEMPTS = 2;
 const DEFAULT_ASPECT_RATIO = "3:4";
-
-const compositionGoals = [
-  "if the photo shows a real environment around the subjects, include it — plants, animals, buildings, furniture, props — as clean colorable line-art shapes; if the background is plain, studio, or blurred, keep it minimal and let the subject stand on clean paper",
-  "keep faces large and readable; when the photo includes a real setting, render the scene behind them as simplified colorable outlines; when the background is a studio backdrop or bokeh, leave it empty",
-  "translate only what is actually visible in the photograph into line art — subjects plus any real pets, nearby objects, landscape, or interior details that are genuinely present, nothing invented",
-  "when the original setting is visible (landscape, room, street, park), layer it behind the subjects as a clean colorable backdrop; when the original background is plain or out-of-focus, preserve that simplicity",
-  "when the photo contains real contextual props, weather, flora, or small details, outline them faithfully; do not add environmental storytelling that is not in the source image",
-  "preserve the real sense of place from the photo — recognizable architectural or natural features if they exist, or a clean studio-style presentation if the source is a portrait",
-];
 
 export type PlannedGenerationPage = {
   cleanupSteps: readonly string[];
@@ -258,14 +258,6 @@ function inferUploadMimeType(upload: SourceUpload) {
   return "image/jpeg";
 }
 
-function getCompositionGoal(jobKind: PipelineJobKind, pageNumber: number) {
-  if (jobKind === "sample") {
-    return compositionGoals[0]!;
-  }
-
-  return compositionGoals[(pageNumber - 1) % compositionGoals.length];
-}
-
 function supportsImageSize(model: string) {
   return !model.startsWith("gemini-2.5-flash-image");
 }
@@ -317,7 +309,14 @@ function getEscalationModel(primaryModel: string, attempt: number): string {
   return ESCALATION_LADDER[targetIdx];
 }
 
-export function buildColoringPrompt(input: {
+// Kept for callers that already accept the shaped input (render loop,
+// tests). The body returns the minimal 5-sentence prompt regardless of
+// inputs — `childFirstName`, `deliveryMode`, `jobKind`, `pageNumber`,
+// `qcCorrection`, and `sourceLabel` are accepted for signature compat
+// but ignored: the 50-source A/B showed minimal-only beat every
+// prompt-engineered variant. If a future change needs per-call
+// variation, reintroduce it here deliberately, not as drift.
+export function buildColoringPrompt(_input: {
   attempt: number;
   childFirstName?: string | null;
   deliveryMode: DeliveryMode;
@@ -326,52 +325,10 @@ export function buildColoringPrompt(input: {
   qcCorrection?: string | null;
   sourceLabel: string;
 }) {
-  const personalization = input.childFirstName
-    ? `Make the page feel personalized for ${input.childFirstName}, while keeping the real people or pets from the photo recognizable.`
-    : "Keep the real people or pets from the photo recognizable.";
-
-  const retryLine = input.qcCorrection
-    ? `RETRY CORRECTION — the previous attempt failed automated QC. ${input.qcCorrection} Fix these specific issues in this attempt.`
-    : input.attempt > 0
-      ? "The previous result was not premium enough. Tighten the closed contours, enlarge and clarify the faces, and only include environmental details that are actually visible in the source photo — do not invent a scene that isn't there."
-      : null;
-
-  return [
-    "OUTPUT CONTRACT — this is the single most important instruction. The output must be a pure black-and-white line drawing on white paper, suitable for a child to color with crayons. The output is NOT a photo, NOT a sketch, NOT a pencil drawing, NOT a filtered photograph. The output contains only: (1) black ink outline strokes and (2) white paper. Nothing else.",
-    "HARD RULES — all four must hold or the page is rejected:",
-    "  RULE 1 (NO COLOR): The image must be monochrome. No hues, no tints, no colored backgrounds, no blue, green, red, yellow, brown, or any color whatsoever. Only black and white pixels.",
-    "  RULE 2 (NO GRAY FILL): No gray shading, no tonal wash, no halftones, no stippling, no crosshatching anywhere on the page. No area may be filled with gray, tan, beige, or any mid-tone. Faces, skin, hair, fur, muzzles, clothing, and backgrounds must remain clean white paper between black outline strokes. Suggest tonality with outline detail only, never with fill.",
-    "  RULE 3 (NO SOLID BLACK FILLS): No region of the image may be filled solid black — not T-shirts, not dark fur patches, not dark eye masks, not dark clothing, not dark furniture, not dark backgrounds, not dark foliage. Even when the source photo shows a region as nearly black, break it into open colorable shapes bounded by black outlines. A child must be able to color every single region of the page.",
-    "  RULE 4 (LINE ART ONLY): The output must read as clean coloring-book line art, not as a photo-sketch or pencil-rendering of the photograph. Every mark is a deliberate black contour stroke. No photographic texture, no soft gradients, no smudges, no sketchy hatching.",
-    "Now, within those hard rules, make the page:",
-    "Priority order — spend ink in this order: (1) recognizable, expressive faces with clearly drawn eyes (including pupils and brows), nose, mouth, and hair; (2) subject bodies, clothing, and pose; (3) any environmental details that actually exist in the source photo; (4) overall clean closed contours with consistent line weight. Never let scenery compete with facial features.",
-    personalization,
-    `Composition goal: ${getCompositionGoal(input.jobKind, input.pageNumber)}.`,
-    "Preserve the subject's pose, expression, clothing, hair, and overall identity from the original photo.",
-    "Faces are the highest-priority element. Draw every face with enough line detail to be clearly recognizable and expressive, with pupils inside the eyes, a readable nose, and a readable mouth.",
-    "Do not hallucinate backgrounds. Render only the environmental details that are actually visible in the source photo. If the source background is plain, solid-color, studio-lit, paper backdrop, blurred bokeh, or otherwise minimal, keep the background empty or near-empty in the coloring page. Do NOT invent plants, trees, grass, vegetation, buildings, furniture, props, weather, clouds, landscapes, rooms, or any scene elements that do not appear in the original photograph. A studio portrait should produce a studio-style coloring page with a clean empty background, not a fabricated outdoor or indoor scene.",
-    "When the photo does show a real setting (landscape, room, street, park, backyard, beach, etc.), render it faithfully as clean simplified line-art shapes — the actual plants, animals, buildings, landscape, furniture, and props the subjects are with, not generic substitutes.",
-    input.jobKind === "sample"
-      ? "Optimize for the strongest single sellable page the child will want to spend time coloring."
-      : "Keep the page consistent with a premium keepsake book.",
-    "Use smooth, continuous, closed black contours with medium-thick, consistent line weight.",
-    "Include interesting, colorable details on elements that are actually in the photo (clothing patterns, visible toys, real foliage if the subject is outdoors, etc.) — but never fabricate details that aren't there.",
-    "Keep every mark intentional and connected to something real in the source photo — avoid random floating fragments, invented decoration, or sketchy noise.",
-    "Keep the image friendly and easy for a child to color: large colorable areas for faces and subjects.",
-    "If the photo contains multiple people, enlarge the primary one to three subjects so each face reads clearly at coloring-book scale.",
-    "Compose the artwork vertically for an 8.5 x 11 coloring page with generous outer margins and trim-safe spacing.",
-    input.deliveryMode === "print"
-      ? "The page must hold up in print. Favor crisp outlines and stable line weight over fine photographic texture."
-      : "The page should look clean on screen and be easy to print at home.",
-    `Reference photo label: ${input.sourceLabel}.`,
-    retryLine,
-    "Return only the finished coloring page image — monochrome line art, no fill, no color, no solid black regions.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  return buildColoringPromptMinimal();
 }
 
-async function renderImageWithGemini(input: {
+export async function renderImageWithGemini(input: {
   attempt: number;
   deliveryMode: DeliveryMode;
   imageSize: GeminiImageSize;
@@ -449,6 +406,34 @@ async function renderImageWithGemini(input: {
     providerQaFlags: [],
     renderAttempts: 1,
   } satisfies RenderedPage;
+}
+
+export function buildColoringPromptMinimal(): string {
+  return [
+    "You are converting this photo into a premium coloring book page for a child.",
+    "Produce a clean black-and-white line drawing suitable for coloring with crayons or markers.",
+    "Faithfully preserve the people, expressions, clothing, pets, and scene from the photograph.",
+    "Use consistent line weight and closed contours.",
+  ].join(" ");
+}
+
+export async function renderColoringPageOnce(input: {
+  deliveryMode?: DeliveryMode;
+  imageSize?: GeminiImageSize;
+  mimeType: string;
+  model: string;
+  prompt: string;
+  sourceBuffer: Buffer;
+}): Promise<RenderedPage> {
+  return renderImageWithGemini({
+    attempt: 0,
+    deliveryMode: input.deliveryMode ?? "pdf",
+    imageSize: input.imageSize ?? "2K",
+    mimeType: input.mimeType,
+    model: input.model,
+    prompt: input.prompt,
+    sourceBuffer: input.sourceBuffer,
+  });
 }
 
 async function measureBlackRatio(input: Buffer) {

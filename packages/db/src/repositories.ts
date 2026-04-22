@@ -78,6 +78,7 @@ import {
   dmMessages,
   dmKeywordResponses,
   klingUsage,
+  promptEvalSamples,
 } from "./schema";
 import type {
   CapiEventStatus,
@@ -110,6 +111,10 @@ import type {
   KeywordResponseMatchKind,
   KlingJobStatus,
   KlingUsage,
+  PromptEvalSample,
+  PromptEvalVariant,
+  PromptEvalScoreDimensions,
+  NewPromptEvalSample,
 } from "./schema";
 
 export type OrderType = (typeof orderTypeValues)[number];
@@ -7403,3 +7408,117 @@ export async function listRecentKlingUsage(limit = 25): Promise<KlingUsage[]> {
     limit,
   });
 }
+
+// ─── Prompt-eval A/B harness ─────────────────────────────────────────────
+
+export async function listPreservedOriginalUploads() {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  return db
+    .select({
+      id: uploads.id,
+      objectPath: uploads.objectPath,
+      mimeType: uploads.contentType,
+      createdAt: uploads.createdAt,
+    })
+    .from(uploads)
+    .where(and(eq(uploads.kind, "original"), sql`${uploads.orderId} IS NULL`))
+    .orderBy(asc(uploads.createdAt));
+}
+
+export async function listPreservedGeneratedAssets() {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  return db
+    .select({
+      id: assets.id,
+      objectPath: assets.objectPath,
+      mimeType: assets.mimeType,
+      createdAt: assets.createdAt,
+    })
+    .from(assets)
+    .where(and(eq(assets.kind, "generated_page"), sql`${assets.orderId} IS NULL`))
+    .orderBy(asc(assets.createdAt));
+}
+
+export async function insertPromptEvalSample(row: NewPromptEvalSample): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+  const db = getDatabase();
+  await db.insert(promptEvalSamples).values(row).onConflictDoNothing({
+    target: [promptEvalSamples.runId, promptEvalSamples.sourceUploadId, promptEvalSamples.variant],
+  });
+}
+
+export async function listPromptEvalSamples(runId: string): Promise<PromptEvalSample[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  return db.query.promptEvalSamples.findMany({
+    where: eq(promptEvalSamples.runId, runId),
+    orderBy: [asc(promptEvalSamples.sourceUploadId), asc(promptEvalSamples.variant)],
+  });
+}
+
+export async function listPromptEvalRunIds(limit = 20): Promise<string[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db
+    .selectDistinct({ runId: promptEvalSamples.runId, createdAt: sql<string>`max(${promptEvalSamples.createdAt})`.as("created_at") })
+    .from(promptEvalSamples)
+    .groupBy(promptEvalSamples.runId)
+    .orderBy(desc(sql`max(${promptEvalSamples.createdAt})`))
+    .limit(limit);
+  return rows.map((r) => r.runId);
+}
+
+export async function upsertPromptEvalScore(input: {
+  id: string;
+  overallScore: number | null;
+  scoreDimensions: PromptEvalScoreDimensions | null;
+  notes: string | null;
+  scoredBy: string;
+}): Promise<PromptEvalSample | null> {
+  if (!isDatabaseConfigured()) return null;
+  const db = getDatabase();
+  const [row] = await db
+    .update(promptEvalSamples)
+    .set({
+      overallScore: input.overallScore,
+      scoreDimensions: input.scoreDimensions,
+      notes: input.notes,
+      scoredAt: new Date(),
+      scoredBy: input.scoredBy,
+    })
+    .where(eq(promptEvalSamples.id, input.id))
+    .returning();
+  return row ?? null;
+}
+
+export type PromptEvalVariantCounts = {
+  variant: PromptEvalVariant;
+  total: number;
+  scored: number;
+  avgOverall: number | null;
+};
+
+export async function summarizePromptEvalRun(runId: string): Promise<PromptEvalVariantCounts[]> {
+  if (!isDatabaseConfigured()) return [];
+  const db = getDatabase();
+  const rows = await db
+    .select({
+      variant: promptEvalSamples.variant,
+      total: count(promptEvalSamples.id),
+      scored: sql<number>`count(${promptEvalSamples.overallScore})`.as("scored"),
+      avgOverall: avg(promptEvalSamples.overallScore).as("avg_overall"),
+    })
+    .from(promptEvalSamples)
+    .where(eq(promptEvalSamples.runId, runId))
+    .groupBy(promptEvalSamples.variant);
+  return rows.map((r) => ({
+    variant: r.variant as PromptEvalVariant,
+    total: Number(r.total ?? 0),
+    scored: Number(r.scored ?? 0),
+    avgOverall: r.avgOverall === null ? null : Number(r.avgOverall),
+  }));
+}
+
+export type { PromptEvalSample, PromptEvalVariant, PromptEvalScoreDimensions } from "./schema";
