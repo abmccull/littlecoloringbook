@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   countNewPayingCustomers,
+  getAdSpendBreakdownInWindow,
   getGeminiCostInWindow,
   getLuluActualCostInWindow,
   getOrderBreakdown,
@@ -9,7 +10,6 @@ import {
   getRevenueMetrics,
   getSampleToPaidFunnel,
   getUnfulfilledPrintOrderDimensionsInWindow,
-  sumAdSpendInWindow,
   type MetricsWindow,
 } from "@littlecolorbook/db";
 import { estimateLuluBookCostCents } from "@littlecolorbook/shared";
@@ -35,11 +35,17 @@ export type DashboardMetrics = {
   };
   costs: {
     adSpendCents: number;
+    adSpendMetaSyncedCents: number;
+    adSpendManualCents: number;
+    adSpendMetaSourceLevel: "campaign" | "adset" | "ad" | null;
     geminiTotalCents: number;
     geminiSampleCents: number;
     geminiPaidCents: number;
     stripeFeeCents: number;
-    luluEstimateCents: number;
+    luluActualCents: number;
+    luluQuotedCents: number;
+    luluFallbackCents: number;
+    luluTotalCents: number;
     totalCents: number;
   };
   unit: {
@@ -116,7 +122,7 @@ export async function computeDashboardMetrics(
     getRevenueMetrics(window),
     getOrderBreakdown(window),
     getGeminiCostInWindow(window),
-    sumAdSpendInWindow(window),
+    getAdSpendBreakdownInWindow(window),
     getSampleToPaidFunnel(window),
     getRepeatCustomerStats(window),
     countNewPayingCustomers(window),
@@ -132,23 +138,28 @@ export async function computeDashboardMetrics(
   // provider response. For orders that haven't reached fulfillment yet
   // (or failed to capture cost), estimate via the shared cost formula
   // using each order's actual page count and quantity. No revenue ratio.
-  const unfulfilledEstimateCents = unfulfilledDims.reduce((acc, row) => {
-    // Prefer live Lulu-quoted production cost when available, fall back
-    // to the formula using this order's actual page count and quantity.
+  const luluQuotedCents = unfulfilledDims.reduce((acc, row) => {
     if (typeof row.quoted_production_cost_cents === "number" && row.quoted_production_cost_cents > 0) {
       return acc + row.quoted_production_cost_cents;
     }
+    return acc;
+  }, 0);
+  const luluFallbackCents = unfulfilledDims.reduce((acc, row) => {
+    if (typeof row.quoted_production_cost_cents === "number" && row.quoted_production_cost_cents > 0) {
+      return acc;
+    }
     return acc + estimateLuluBookCostCents(row.design_count, row.quantity);
   }, 0);
-  const luluEstimateCents = luluActual.known_cost_cents + unfulfilledEstimateCents;
+  const luluTotalCents = luluActual.known_cost_cents + luluQuotedCents + luluFallbackCents;
+  const adSpendCents = adSpend.total_cents;
 
-  const totalCostsCents = adSpend + gemini.total_cost_cents + stripeFeeCents + luluEstimateCents;
+  const totalCostsCents = adSpendCents + gemini.total_cost_cents + stripeFeeCents + luluTotalCents;
   const grossMarginCents = netCents - totalCostsCents;
 
   const costPerSampleCents = funnel.samples_created > 0
-    ? Math.round((adSpend + gemini.sample_cost_cents) / funnel.samples_created)
+    ? Math.round((adSpendCents + gemini.sample_cost_cents) / funnel.samples_created)
     : 0;
-  const cacCents = newPaying > 0 ? Math.round(adSpend / newPaying) : 0;
+  const cacCents = newPaying > 0 ? Math.round(adSpendCents / newPaying) : 0;
 
   return {
     window: { start: w.start.toISOString(), end: w.end.toISOString(), label: w.label },
@@ -167,12 +178,18 @@ export async function computeDashboardMetrics(
       refundRatePct: pct(breakdown.refunded_order_count, revenue.paid_order_count),
     },
     costs: {
-      adSpendCents: adSpend,
+      adSpendCents,
+      adSpendMetaSyncedCents: adSpend.meta_synced_cents,
+      adSpendManualCents: adSpend.manual_cents,
+      adSpendMetaSourceLevel: adSpend.meta_source_level,
       geminiTotalCents: gemini.total_cost_cents,
       geminiSampleCents: gemini.sample_cost_cents,
       geminiPaidCents: gemini.paid_cost_cents,
       stripeFeeCents,
-      luluEstimateCents,
+      luluActualCents: luluActual.known_cost_cents,
+      luluQuotedCents,
+      luluFallbackCents,
+      luluTotalCents,
       totalCents: totalCostsCents,
     },
     unit: {

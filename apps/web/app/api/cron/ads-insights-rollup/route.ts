@@ -9,7 +9,6 @@ import {
   upsertCampaignDailyMetrics,
   listNonDeletedAds,
   listNonDeletedAdSets,
-  listNonDeletedCampaigns,
 } from "@littlecolorbook/db";
 
 // Fields we request from the async insights job.
@@ -150,8 +149,63 @@ type RollupSummary = {
   ads_rows_updated: number;
   adsets_rows_updated: number;
   campaigns_rows_updated: number;
+  window_labels: string[];
   errors: string[];
 };
+
+type RequestedWindow = {
+  label: string;
+  fallbackDate: string;
+  datePreset?: "today" | "yesterday";
+  timeRange?: { since: string; until: string };
+  timeIncrement?: number;
+};
+
+function isIsoDate(value: string | null): value is string {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+function addDays(dateIso: string, days: number) {
+  const date = new Date(`${dateIso}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function compareIsoDates(left: string, right: string) {
+  return left.localeCompare(right);
+}
+
+function buildRequestedWindows(request: NextRequest): RequestedWindow[] {
+  const from = request.nextUrl.searchParams.get("from");
+  const to = request.nextUrl.searchParams.get("to");
+
+  if (!from && !to) {
+    return [
+      { label: "yesterday", fallbackDate: yesterdayString(), datePreset: "yesterday" },
+      { label: "today", fallbackDate: todayString(), datePreset: "today" },
+    ];
+  }
+
+  if (!isIsoDate(from) || !isIsoDate(to) || compareIsoDates(from, to) > 0) {
+    throw new Error("from and to must be YYYY-MM-DD dates with from <= to");
+  }
+
+  const windows: RequestedWindow[] = [];
+  let cursor = from;
+
+  while (compareIsoDates(cursor, to) <= 0) {
+    const windowEnd = compareIsoDates(addDays(cursor, 29), to) <= 0 ? addDays(cursor, 29) : to;
+    windows.push({
+      label: `${cursor}:${windowEnd}`,
+      fallbackDate: cursor,
+      timeRange: { since: cursor, until: windowEnd },
+      timeIncrement: 1,
+    });
+    cursor = addDays(windowEnd, 1);
+  }
+
+  return windows;
+}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const unauthorized = authorizeInternalJobRequest(request);
@@ -175,27 +229,37 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const adAccountId = rawAccountId.startsWith("act_") ? rawAccountId.slice(4) : rawAccountId;
   const client = new GraphClient({ accessToken: token, version: apiVersion, adAccountId });
 
+  let windows: RequestedWindow[];
+  try {
+    windows = buildRequestedWindows(request);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Invalid rollup window" },
+      { status: 400 },
+    );
+  }
+
   const summary: RollupSummary = {
     ads_rows_updated: 0,
     adsets_rows_updated: 0,
     campaigns_rows_updated: 0,
+    window_labels: windows.map((window) => window.label),
     errors: [],
   };
-
-  const dates = [yesterdayString(), todayString()];
 
   // ── Ad-level rollup ───────────────────────────────────────────────────────
   const dbAds = await listNonDeletedAds();
   if (dbAds.length > 0) {
     const adMetaIds = dbAds.map((a) => a.metaId);
 
-    for (const dateStr of dates) {
+    for (const window of windows) {
       try {
         const rows = await fetchAdsInsights({
           client,
           entityId: `act_${adAccountId}`,
           level: "ad",
-          datePreset: dateStr === todayString() ? "today" : "yesterday",
+          ...(window.datePreset ? { datePreset: window.datePreset } : {}),
+          ...(window.timeRange ? { timeRange: window.timeRange, timeIncrement: window.timeIncrement } : {}),
           fields: [...INSIGHTS_FIELDS],
           filtering: [
             { field: "ad.id", operator: "IN", value: adMetaIds },
@@ -205,7 +269,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         for (const row of rows) {
           const entityMetaId = String(row.ad_id ?? row.id ?? "");
           if (!entityMetaId) continue;
-          const date = String((row.date_start as string | undefined) ?? dateStr);
+          const date = String((row.date_start as string | undefined) ?? window.fallbackDate);
           try {
             await upsertAdDailyMetrics(normalizeInsightsRow(row, entityMetaId, date));
             summary.ads_rows_updated++;
@@ -214,7 +278,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           }
         }
       } catch (err) {
-        summary.errors.push(`ad insights ${dateStr}: ${err instanceof Error ? err.message : String(err)}`);
+        summary.errors.push(`ad insights ${window.label}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }
@@ -224,13 +288,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (dbAdSets.length > 0) {
     const adSetMetaIds = dbAdSets.map((s) => s.metaId);
 
-    for (const dateStr of dates) {
+    for (const window of windows) {
       try {
         const rows = await fetchAdsInsights({
           client,
           entityId: `act_${adAccountId}`,
           level: "adset",
-          datePreset: dateStr === todayString() ? "today" : "yesterday",
+          ...(window.datePreset ? { datePreset: window.datePreset } : {}),
+          ...(window.timeRange ? { timeRange: window.timeRange, timeIncrement: window.timeIncrement } : {}),
           fields: [...INSIGHTS_FIELDS],
           filtering: [
             { field: "adset.id", operator: "IN", value: adSetMetaIds },
@@ -240,7 +305,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         for (const row of rows) {
           const entityMetaId = String(row.adset_id ?? row.id ?? "");
           if (!entityMetaId) continue;
-          const date = String((row.date_start as string | undefined) ?? dateStr);
+          const date = String((row.date_start as string | undefined) ?? window.fallbackDate);
           try {
             await upsertAdSetDailyMetrics(normalizeInsightsRow(row, entityMetaId, date));
             summary.adsets_rows_updated++;
@@ -249,43 +314,36 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           }
         }
       } catch (err) {
-        summary.errors.push(`adset insights ${dateStr}: ${err instanceof Error ? err.message : String(err)}`);
+        summary.errors.push(`adset insights ${window.label}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }
 
   // ── Campaign-level rollup ─────────────────────────────────────────────────
-  const dbCampaigns = await listNonDeletedCampaigns();
-  if (dbCampaigns.length > 0) {
-    const campaignMetaIds = dbCampaigns.map((c) => c.metaId);
+  for (const window of windows) {
+    try {
+      const rows = await fetchAdsInsights({
+        client,
+        entityId: `act_${adAccountId}`,
+        level: "campaign",
+        ...(window.datePreset ? { datePreset: window.datePreset } : {}),
+        ...(window.timeRange ? { timeRange: window.timeRange, timeIncrement: window.timeIncrement } : {}),
+        fields: [...INSIGHTS_FIELDS],
+      });
 
-    for (const dateStr of dates) {
-      try {
-        const rows = await fetchAdsInsights({
-          client,
-          entityId: `act_${adAccountId}`,
-          level: "campaign",
-          datePreset: dateStr === todayString() ? "today" : "yesterday",
-          fields: [...INSIGHTS_FIELDS],
-          filtering: [
-            { field: "campaign.id", operator: "IN", value: campaignMetaIds },
-          ],
-        });
-
-        for (const row of rows) {
-          const entityMetaId = String(row.campaign_id ?? row.id ?? "");
-          if (!entityMetaId) continue;
-          const date = String((row.date_start as string | undefined) ?? dateStr);
-          try {
-            await upsertCampaignDailyMetrics(normalizeInsightsRow(row, entityMetaId, date));
-            summary.campaigns_rows_updated++;
-          } catch (err) {
-            summary.errors.push(`campaign upsert ${entityMetaId} ${date}: ${err instanceof Error ? err.message : String(err)}`);
-          }
+      for (const row of rows) {
+        const entityMetaId = String(row.campaign_id ?? row.id ?? "");
+        if (!entityMetaId) continue;
+        const date = String((row.date_start as string | undefined) ?? window.fallbackDate);
+        try {
+          await upsertCampaignDailyMetrics(normalizeInsightsRow(row, entityMetaId, date));
+          summary.campaigns_rows_updated++;
+        } catch (err) {
+          summary.errors.push(`campaign upsert ${entityMetaId} ${date}: ${err instanceof Error ? err.message : String(err)}`);
         }
-      } catch (err) {
-        summary.errors.push(`campaign insights ${dateStr}: ${err instanceof Error ? err.message : String(err)}`);
       }
+    } catch (err) {
+      summary.errors.push(`campaign insights ${window.label}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

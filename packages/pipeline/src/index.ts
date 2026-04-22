@@ -165,9 +165,12 @@ export type MaterializedPageResult = {
   sourceUploadId: string | null;
   provider: PipelineProvider;
   model: string;
+  imageSize: GeminiImageSize;
   promptVersion: string;
   cleanupVersion: string;
   renderAttempts: number;
+  costCents: number;
+  costBreakdown: GenerationCostBreakdown;
   qaScore: number;
   qaFlags: string[];
   qaMetrics: PageQualityMetrics;
@@ -194,20 +197,66 @@ type RenderedPage = {
   mimeType: string;
   model: string;
   provider: PipelineProvider;
+  imageSize: GeminiImageSize;
   providerQa: ProviderQualityMetrics | null;
   providerQaFlags: string[];
   renderAttempts: number;
+  costCents: number;
+  costBreakdown: GenerationCostBreakdown;
+  usageMetadata: GeminiUsageMetadata | null;
 };
 
 export type RenderedPageResult = ProcessedPageAsset & {
   cleanupVersion: string;
   model: string;
+  imageSize: GeminiImageSize;
   promptVersion: string;
   provider: PipelineProvider;
   qaFlags: string[];
   qaMetrics: PageQualityMetrics;
   qaScore: number;
   renderAttempts: number;
+  costCents: number;
+  costBreakdown: GenerationCostBreakdown;
+};
+
+type GeminiModalityTokenCount = {
+  modality: string;
+  tokenCount: number;
+};
+
+type GeminiUsageMetadata = {
+  promptTokenCount: number | null;
+  cachedContentTokenCount: number | null;
+  candidatesTokenCount: number | null;
+  toolUsePromptTokenCount: number | null;
+  thoughtsTokenCount: number | null;
+  totalTokenCount: number | null;
+  promptTokensDetails: GeminiModalityTokenCount[];
+  cacheTokensDetails: GeminiModalityTokenCount[];
+  candidatesTokensDetails: GeminiModalityTokenCount[];
+  toolUsePromptTokensDetails: GeminiModalityTokenCount[];
+};
+
+export type GeminiCostAttempt = {
+  model: string;
+  imageSize: GeminiImageSize;
+  promptTokenCount: number | null;
+  outputImageTokenCount: number | null;
+  outputTextTokenCount: number | null;
+  thoughtsTokenCount: number | null;
+  inputCostCents: number;
+  outputImageCostCents: number;
+  outputTextCostCents: number;
+  thoughtsCostCents: number;
+  totalCostCents: number;
+  source: "usage_metadata" | "fallback_pricing";
+};
+
+export type GenerationCostBreakdown = {
+  provider: PipelineProvider;
+  totalCostCents: number;
+  attempts: GeminiCostAttempt[];
 };
 
 type PipelineRenderSettings = RenderFallback<PipelineProvider> & {
@@ -309,6 +358,224 @@ function getEscalationModel(primaryModel: string, attempt: number): string {
   return ESCALATION_LADDER[targetIdx];
 }
 
+type GeminiPricingConfig = {
+  modelMatch: (model: string) => boolean;
+  inputCentsPerMillion: number;
+  outputTextCentsPerMillion: number;
+  outputImageCentsPerMillion: number;
+  fallbackImageTokensBySize: Partial<Record<GeminiImageSize, number>>;
+};
+
+const GEMINI_IMAGE_PRICING: GeminiPricingConfig[] = [
+  {
+    modelMatch: (model) => model.startsWith("gemini-3-pro-image-preview"),
+    inputCentsPerMillion: 200,
+    outputTextCentsPerMillion: 1200,
+    outputImageCentsPerMillion: 12000,
+    fallbackImageTokensBySize: {
+      "1K": 1120,
+      "2K": 1120,
+      "4K": 2000,
+    },
+  },
+  {
+    modelMatch: (model) => model.startsWith("gemini-3.1-flash-image-preview"),
+    inputCentsPerMillion: 50,
+    outputTextCentsPerMillion: 300,
+    outputImageCentsPerMillion: 6000,
+    fallbackImageTokensBySize: {
+      "1K": 1120,
+      "2K": 1680,
+      "4K": 2520,
+    },
+  },
+  {
+    modelMatch: (model) => model.startsWith("gemini-2.5-flash-image"),
+    inputCentsPerMillion: 30,
+    outputTextCentsPerMillion: 250,
+    outputImageCentsPerMillion: 3000,
+    fallbackImageTokensBySize: {
+      "1K": 1290,
+      "2K": 1290,
+      "4K": 1290,
+    },
+  },
+];
+
+function resolveGeminiPricing(model: string) {
+  return GEMINI_IMAGE_PRICING.find((config) => config.modelMatch(model)) ?? null;
+}
+
+function parseOptionalInteger(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function parseGeminiModalityTokenCounts(value: unknown): GeminiModalityTokenCount[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const record = entry as Record<string, unknown>;
+      const modality = typeof record.modality === "string" ? record.modality : null;
+      const tokenCount = parseOptionalInteger(record.tokenCount);
+
+      if (!modality || tokenCount == null) {
+        return null;
+      }
+
+      return { modality, tokenCount };
+    })
+    .filter((entry): entry is GeminiModalityTokenCount => entry !== null);
+}
+
+function parseGeminiUsageMetadata(payload: Record<string, unknown>): GeminiUsageMetadata | null {
+  const usage = payload.usageMetadata;
+
+  if (!usage || typeof usage !== "object") {
+    return null;
+  }
+
+  const record = usage as Record<string, unknown>;
+
+  return {
+    promptTokenCount: parseOptionalInteger(record.promptTokenCount),
+    cachedContentTokenCount: parseOptionalInteger(record.cachedContentTokenCount),
+    candidatesTokenCount: parseOptionalInteger(record.candidatesTokenCount),
+    toolUsePromptTokenCount: parseOptionalInteger(record.toolUsePromptTokenCount),
+    thoughtsTokenCount: parseOptionalInteger(record.thoughtsTokenCount),
+    totalTokenCount: parseOptionalInteger(record.totalTokenCount),
+    promptTokensDetails: parseGeminiModalityTokenCounts(record.promptTokensDetails),
+    cacheTokensDetails: parseGeminiModalityTokenCounts(record.cacheTokensDetails),
+    candidatesTokensDetails: parseGeminiModalityTokenCounts(record.candidatesTokensDetails),
+    toolUsePromptTokensDetails: parseGeminiModalityTokenCounts(record.toolUsePromptTokensDetails),
+  };
+}
+
+function sumTokensForModality(details: GeminiModalityTokenCount[], modality: string) {
+  return details.reduce((sum, detail) => sum + (detail.modality === modality ? detail.tokenCount : 0), 0);
+}
+
+function centsFromPerMillionTokens(tokenCount: number, centsPerMillion: number) {
+  return Math.round((tokenCount * centsPerMillion) / 1_000_000);
+}
+
+function getFallbackImageTokenCount(model: string, imageSize: GeminiImageSize) {
+  const pricing = resolveGeminiPricing(model);
+  if (!pricing) {
+    return null;
+  }
+  return (
+    pricing.fallbackImageTokensBySize[imageSize] ??
+    pricing.fallbackImageTokensBySize["2K"] ??
+    pricing.fallbackImageTokensBySize["1K"] ??
+    null
+  );
+}
+
+function getLegacyGeminiFallbackCostCents(imageSize: GeminiImageSize) {
+  const perImageCents = Number(process.env.GEMINI_COST_CENTS_PER_IMAGE ?? "4");
+  const sizeMultiplier = imageSize === "4K" ? 2 : 1;
+  return Math.max(1, Math.round(perImageCents * sizeMultiplier));
+}
+
+function buildGeminiCostAttempt(input: {
+  imageSize: GeminiImageSize;
+  model: string;
+  usageMetadata: GeminiUsageMetadata | null;
+}): GeminiCostAttempt {
+  const pricing = resolveGeminiPricing(input.model);
+
+  if (!pricing) {
+    const fallbackCostCents = getLegacyGeminiFallbackCostCents(input.imageSize);
+    return {
+      model: input.model,
+      imageSize: input.imageSize,
+      promptTokenCount: null,
+      outputImageTokenCount: null,
+      outputTextTokenCount: null,
+      thoughtsTokenCount: null,
+      inputCostCents: 0,
+      outputImageCostCents: fallbackCostCents,
+      outputTextCostCents: 0,
+      thoughtsCostCents: 0,
+      totalCostCents: fallbackCostCents,
+      source: "fallback_pricing",
+    };
+  }
+
+  if (!input.usageMetadata) {
+    const fallbackImageTokenCount = getFallbackImageTokenCount(input.model, input.imageSize) ?? 0;
+    const outputImageCostCents = centsFromPerMillionTokens(fallbackImageTokenCount, pricing.outputImageCentsPerMillion);
+    const totalCostCents = Math.max(outputImageCostCents, 1);
+    return {
+      model: input.model,
+      imageSize: input.imageSize,
+      promptTokenCount: null,
+      outputImageTokenCount: fallbackImageTokenCount || null,
+      outputTextTokenCount: null,
+      thoughtsTokenCount: null,
+      inputCostCents: 0,
+      outputImageCostCents: totalCostCents,
+      outputTextCostCents: 0,
+      thoughtsCostCents: 0,
+      totalCostCents,
+      source: "fallback_pricing",
+    };
+  }
+
+  const promptTokenCount = Math.max(0, input.usageMetadata.promptTokenCount ?? 0);
+  const candidateTokenCount = Math.max(0, input.usageMetadata.candidatesTokenCount ?? 0);
+  const detailedImageTokenCount = sumTokensForModality(input.usageMetadata.candidatesTokensDetails, "IMAGE");
+  const fallbackImageTokenCount = getFallbackImageTokenCount(input.model, input.imageSize) ?? 0;
+  const outputImageTokenCount =
+    detailedImageTokenCount > 0
+      ? detailedImageTokenCount
+      : candidateTokenCount > 0
+        ? candidateTokenCount
+        : fallbackImageTokenCount;
+  const outputTextTokenCount =
+    candidateTokenCount > 0 && outputImageTokenCount >= 0
+      ? Math.max(0, candidateTokenCount - outputImageTokenCount)
+      : 0;
+  const thoughtsTokenCount = Math.max(0, input.usageMetadata.thoughtsTokenCount ?? 0);
+
+  const inputCostCents = centsFromPerMillionTokens(promptTokenCount, pricing.inputCentsPerMillion);
+  const outputImageCostCents = centsFromPerMillionTokens(outputImageTokenCount, pricing.outputImageCentsPerMillion);
+  const outputTextCostCents = centsFromPerMillionTokens(outputTextTokenCount, pricing.outputTextCentsPerMillion);
+  const thoughtsCostCents = centsFromPerMillionTokens(thoughtsTokenCount, pricing.outputTextCentsPerMillion);
+  const totalCostCents = Math.max(inputCostCents + outputImageCostCents + outputTextCostCents + thoughtsCostCents, 1);
+
+  return {
+    model: input.model,
+    imageSize: input.imageSize,
+    promptTokenCount,
+    outputImageTokenCount,
+    outputTextTokenCount,
+    thoughtsTokenCount,
+    inputCostCents,
+    outputImageCostCents,
+    outputTextCostCents,
+    thoughtsCostCents,
+    totalCostCents,
+    source: "usage_metadata",
+  };
+}
+
 // Kept for callers that already accept the shaped input (render loop,
 // tests). The body returns the minimal 5-sentence prompt regardless of
 // inputs — `childFirstName`, `deliveryMode`, `jobKind`, `pageNumber`,
@@ -396,15 +663,29 @@ export async function renderImageWithGemini(input: {
   }
 
   const imagePart = extractGeneratedImage(payload);
+  const usageMetadata = parseGeminiUsageMetadata(payload);
+  const costAttempt = buildGeminiCostAttempt({
+    imageSize: input.imageSize,
+    model: input.model,
+    usageMetadata,
+  });
 
   return {
     buffer: Buffer.from(imagePart.data, "base64"),
     mimeType: imagePart.mimeType,
     model: input.model,
     provider: "gemini",
+    imageSize: input.imageSize,
     providerQa: null,
     providerQaFlags: [],
     renderAttempts: 1,
+    costCents: costAttempt.totalCostCents,
+    costBreakdown: {
+      provider: "gemini",
+      totalCostCents: costAttempt.totalCostCents,
+      attempts: [costAttempt],
+    },
+    usageMetadata,
   } satisfies RenderedPage;
 }
 
@@ -782,6 +1063,8 @@ async function renderImageWithGeminiWithRetries(input: {
   let lastQc: ColoringPageQcResult | null = null;
   let lastRendered: Awaited<ReturnType<typeof renderImageWithGemini>> | null = null;
   let qcCorrection: string | null = null;
+  const accumulatedCostAttempts: GeminiCostAttempt[] = [];
+  let accumulatedCostCents = 0;
 
   for (let attempt = 0; attempt < MAX_RENDER_ATTEMPTS; attempt += 1) {
     const model = getEscalationModel(input.primaryModel, attempt);
@@ -806,6 +1089,8 @@ async function renderImageWithGeminiWithRetries(input: {
         sourceBuffer: input.source.buffer,
       });
       lastRendered = rendered;
+      accumulatedCostCents += rendered.costCents;
+      accumulatedCostAttempts.push(...rendered.costBreakdown.attempts);
 
       let qc: ColoringPageQcResult | null = null;
       try {
@@ -818,6 +1103,12 @@ async function renderImageWithGeminiWithRetries(input: {
       if (!qc || qc.ok) {
         return {
           ...rendered,
+          costCents: accumulatedCostCents,
+          costBreakdown: {
+            provider: rendered.provider,
+            totalCostCents: accumulatedCostCents,
+            attempts: accumulatedCostAttempts,
+          },
           renderAttempts: attempt + 1,
           qcResult: qc,
         };
@@ -833,6 +1124,12 @@ async function renderImageWithGeminiWithRetries(input: {
   if (lastRendered) {
     return {
       ...lastRendered,
+      costCents: accumulatedCostCents,
+      costBreakdown: {
+        provider: lastRendered.provider,
+        totalCostCents: accumulatedCostCents,
+        attempts: accumulatedCostAttempts,
+      },
       renderAttempts: MAX_RENDER_ATTEMPTS,
       qcResult: lastQc,
     };
@@ -871,6 +1168,9 @@ async function renderSourceWithConfiguredProvider(
 
   let lastError: Error | null = null;
   const strategyErrors: string[] = [];
+  const accumulatedCostAttempts: GeminiCostAttempt[] = [];
+  let accumulatedCostCents = 0;
+  let totalRenderAttempts = 0;
 
   for (const strategy of strategies) {
     try {
@@ -883,6 +1183,9 @@ async function renderSourceWithConfiguredProvider(
         imageSize: input.imageSize,
         source: input.source,
       });
+      accumulatedCostCents += rendered.costCents;
+      accumulatedCostAttempts.push(...rendered.costBreakdown.attempts);
+      totalRenderAttempts += rendered.renderAttempts;
 
       const processed = await cleanupGeneratedPage({
         deliveryMode: input.deliveryMode,
@@ -920,12 +1223,19 @@ async function renderSourceWithConfiguredProvider(
         ...processed,
         cleanupVersion: pipelineCleanupVersion,
         model: rendered.model,
+        imageSize: rendered.imageSize,
         promptVersion: pipelinePromptVersion,
         provider: rendered.provider,
         qaFlags,
         qaMetrics,
         qaScore,
-        renderAttempts: rendered.renderAttempts,
+        renderAttempts: totalRenderAttempts,
+        costCents: accumulatedCostCents,
+        costBreakdown: {
+          provider: rendered.provider,
+          totalCostCents: accumulatedCostCents,
+          attempts: accumulatedCostAttempts,
+        },
       };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error("Unknown rendering error.");
@@ -1415,6 +1725,9 @@ export async function materializeGenerationPlan(input: {
     pageBuffers.push(rendered.finalPng);
     pageResults.push({
       cleanupVersion: rendered.cleanupVersion,
+      costBreakdown: rendered.costBreakdown,
+      costCents: rendered.costCents,
+      imageSize: rendered.imageSize,
       model: rendered.model,
       pageNumber: page.pageNumber,
       promptVersion: rendered.promptVersion,

@@ -161,16 +161,14 @@ export async function runProcessSampleJob(input: ProcessSampleJobInput, options:
 
     for (const page of seededPages) {
       const pageResult = pageResultByNumber.get(page.pageNumber);
-
-      const sampleCostCents = Math.max(
-        1,
-        Math.round(Number(process.env.GEMINI_COST_CENTS_PER_IMAGE ?? "4") * Math.max(1, pageResult?.renderAttempts ?? 1)),
-      );
       await setGenerationPageStatus(page.id, "approved", "generation.sample_page_approved", {
         pageNumber: page.pageNumber,
         ...(pageResult
           ? {
               cleanupVersion: pageResult.cleanupVersion,
+              costBreakdown: pageResult.costBreakdown,
+              costCents: pageResult.costCents,
+              imageSize: pageResult.imageSize,
               model: pageResult.model,
               promptVersion: pageResult.promptVersion,
               provider: pageResult.provider,
@@ -178,7 +176,6 @@ export async function runProcessSampleJob(input: ProcessSampleJobInput, options:
               qaMetrics: pageResult.qaMetrics,
               qaScore: pageResult.qaScore,
               renderAttempts: pageResult.renderAttempts,
-              costCents: sampleCostCents,
             }
           : {}),
       });

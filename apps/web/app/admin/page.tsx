@@ -18,6 +18,19 @@ function formatPct(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
+function describeAdSpendPulse(costs: NonNullable<Awaited<ReturnType<typeof computeDashboardMetrics>>>["costs"]) {
+  if (costs.adSpendMetaSyncedCents > 0 && costs.adSpendManualCents > 0) {
+    return "Meta sync + manual adjustments";
+  }
+  if (costs.adSpendMetaSyncedCents > 0) {
+    return `Meta ${costs.adSpendMetaSourceLevel ?? "sync"} data`;
+  }
+  if (costs.adSpendManualCents > 0) {
+    return "Manual fallback / non-Meta spend";
+  }
+  return "No spend captured";
+}
+
 function PulseCard({
   label,
   value,
@@ -111,7 +124,7 @@ export default async function AdminPage({
                 />
                 <PulseCard
                   label="Ad spend"
-                  sub="Meta-backed spend log"
+                  sub={describeAdSpendPulse(dashboardMetrics.costs)}
                   tone={dashboardMetrics.costs.adSpendCents > dashboardMetrics.revenue.netCents ? "warn" : "default"}
                   value={formatMoney(dashboardMetrics.costs.adSpendCents)}
                 />

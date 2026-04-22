@@ -16,6 +16,23 @@ function formatPct(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
+function describeAdSpendSource(costs: Awaited<ReturnType<typeof computeDashboardMetrics>>["costs"]) {
+  if (costs.adSpendMetaSyncedCents > 0 && costs.adSpendManualCents > 0) {
+    return `Meta ${costs.adSpendMetaSourceLevel ?? "sync"} data + manual adjustments`;
+  }
+  if (costs.adSpendMetaSyncedCents > 0) {
+    return `Meta ${costs.adSpendMetaSourceLevel ?? "sync"} data`;
+  }
+  if (costs.adSpendManualCents > 0) {
+    return "Manual fallback / non-Meta spend";
+  }
+  return "No spend captured in this window";
+}
+
+function describeLuluCostSource(costs: Awaited<ReturnType<typeof computeDashboardMetrics>>["costs"]) {
+  return `actual ${formatMoney(costs.luluActualCents)} | quoted ${formatMoney(costs.luluQuotedCents)} | fallback ${formatMoney(costs.luluFallbackCents)}`;
+}
+
 type RangeKey = "7d" | "30d" | "90d" | "ytd" | "all";
 const RANGE_LABELS: Record<RangeKey, string> = {
   "7d": "7d",
@@ -123,7 +140,7 @@ export default async function AdminMetricsPage({
               href={`/api/admin/metrics/export?range=${rangeKey}&format=summary`}
               style={{ padding: "6px 12px", fontSize: "0.85rem", color: "var(--color-ink)" }}
             >
-              Export CSV ↓
+              Export CSV
             </a>
           </nav>
         </div>
@@ -171,13 +188,13 @@ export default async function AdminMetricsPage({
         <h2 style={{ marginBottom: 0 }}>Funnel</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
           <Tile label="Samples created" value={String(metrics.funnel.samplesCreated)} />
-          <Tile label="Samples → paid" value={String(metrics.funnel.samplesToPaid)} />
+          <Tile label="Samples -> paid" value={String(metrics.funnel.samplesToPaid)} />
           <Tile label="Sample conversion" tone="good" value={formatPct(metrics.funnel.sampleConversionPct)} />
         </div>
 
         <h2 style={{ marginBottom: 0 }}>Unit economics</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-          <Tile label="Ad spend" sub="Edit on the Ads page →" value={formatMoney(metrics.costs.adSpendCents)} />
+          <Tile label="Ad spend" sub={describeAdSpendSource(metrics.costs)} value={formatMoney(metrics.costs.adSpendCents)} />
           <Tile label="New paying customers" value={String(metrics.unit.newPayingCustomers)} />
           <Tile
             label="CAC"
@@ -191,7 +208,7 @@ export default async function AdminMetricsPage({
           />
           <Tile
             label="LTV (in window)"
-            sub="12-month view → Cohorts"
+            sub="12-month view -> Cohorts"
             value={metrics.retention.payingCustomers > 0 ? formatMoney(metrics.retention.ltvCents) : "—"}
           />
           <Tile label="Repeat rate" value={formatPct(metrics.retention.repeatOrderRatePct)} />
@@ -199,14 +216,14 @@ export default async function AdminMetricsPage({
 
         <h2 style={{ marginBottom: 0 }}>Costs breakdown</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-          <Tile label="Ad spend" value={formatMoney(metrics.costs.adSpendCents)} />
+          <Tile label="Ad spend" sub={describeAdSpendSource(metrics.costs)} value={formatMoney(metrics.costs.adSpendCents)} />
           <Tile
             label="Gemini (all)"
-            sub={`sample ${formatMoney(metrics.costs.geminiSampleCents)} · paid ${formatMoney(metrics.costs.geminiPaidCents)}`}
+            sub={`sample ${formatMoney(metrics.costs.geminiSampleCents)} | paid ${formatMoney(metrics.costs.geminiPaidCents)}`}
             value={formatMoney(metrics.costs.geminiTotalCents)}
           />
           <Tile label="Stripe fees" sub="2.9% + $0.30 per order" value={formatMoney(metrics.costs.stripeFeeCents)} />
-          <Tile label="Lulu (est.)" sub="40% of print portion" value={formatMoney(metrics.costs.luluEstimateCents)} />
+          <Tile label="Lulu" sub={describeLuluCostSource(metrics.costs)} value={formatMoney(metrics.costs.luluTotalCents)} />
           <Tile
             label="Total costs"
             tone={metrics.costs.totalCents > metrics.revenue.netCents ? "bad" : "default"}
@@ -219,7 +236,7 @@ export default async function AdminMetricsPage({
           <Tile
             liveId="fulfillment-pending"
             label="Pending assembly"
-            sub="Preprocessing → PDF ready"
+            sub="Preprocessing -> PDF ready"
             value={String(metrics.fulfillment.pendingAssembly)}
           />
           <Tile
@@ -239,11 +256,11 @@ export default async function AdminMetricsPage({
         </div>
 
         <p className="mini-note" style={{ marginTop: "20px" }}>
-          Cost-per-sample and CAC require ad spend entries. <Link href="/admin/ads">Log ad spend →</Link>
-          {" · "}
-          Gemini cost is estimated at ${Number(process.env.GEMINI_COST_CENTS_PER_IMAGE ?? "4") / 100} per render
-          (configurable via GEMINI_COST_CENTS_PER_IMAGE env). Lulu cost is a 40% estimate until we wire per-job cost
-          tracking.
+          Ad spend uses synced Meta daily metrics when available and falls back to manual Meta entries only when the sync
+          is empty. Manual entries still add non-Meta spend and operator adjustments. Gemini cost is now priced from
+          per-render usage in the generation pipeline. Lulu cost uses captured fulfillment job cost first, then live
+          Lulu production quotes, and only falls back to the shared formula when neither exists.{" "}
+          <Link href="/admin/ads">Open spend adjustments</Link>
         </p>
       </section>
     </main>

@@ -10,7 +10,9 @@ type FetchAdsInsightsInput = {
   client: GraphClient;
   entityId: string;
   level: InsightsLevel;
-  datePreset: string;
+  datePreset?: string;
+  timeRange?: { since: string; until: string };
+  timeIncrement?: number;
   fields: AdsInsightsField[];
   filtering?: Array<{ field: string; operator: string; value: unknown }>;
   breakdowns?: string[];
@@ -39,15 +41,27 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function fetchAdsInsights(input: FetchAdsInsightsInput): Promise<Record<string, unknown>[]> {
-  const { client, entityId, level, datePreset, fields, filtering, breakdowns } = input;
+  const { client, entityId, level, datePreset, timeRange, timeIncrement, fields, filtering, breakdowns } = input;
+
+  if (!datePreset && !timeRange) {
+    throw new Error("fetchAdsInsights: either datePreset or timeRange is required");
+  }
 
   const startBody: Record<string, unknown> = {
     level,
-    date_preset: datePreset,
     fields: fields.join(","),
     async: true,
   };
 
+  if (datePreset) {
+    startBody.date_preset = datePreset;
+  }
+  if (timeRange) {
+    startBody.time_range = JSON.stringify(timeRange);
+  }
+  if (typeof timeIncrement === "number" && Number.isFinite(timeIncrement) && timeIncrement > 0) {
+    startBody.time_increment = timeIncrement;
+  }
   if (filtering && filtering.length > 0) startBody.filtering = JSON.stringify(filtering);
   if (breakdowns && breakdowns.length > 0) startBody.breakdowns = breakdowns.join(",");
 
@@ -78,9 +92,23 @@ export async function fetchAdsInsights(input: FetchAdsInsightsInput): Promise<Re
     }
   }
 
-  const result = await client.get<InsightsDataResult>(`${reportRunId}/insights`, {
-    fields: fields.join(","),
-  });
+  const rows: Record<string, unknown>[] = [];
+  let after: string | undefined;
 
-  return result.data ?? [];
+  while (true) {
+    const result = await client.get<InsightsDataResult>(`${reportRunId}/insights`, {
+      fields: fields.join(","),
+      ...(after ? { after } : {}),
+    });
+
+    rows.push(...(result.data ?? []));
+
+    const nextAfter = result.paging?.cursors?.after;
+    if (!nextAfter || nextAfter === after) {
+      break;
+    }
+    after = nextAfter;
+  }
+
+  return rows;
 }
