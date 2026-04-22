@@ -26,6 +26,7 @@ export type LifecycleEmailInput = {
   accountUrl?: string | null;
   setupUrl?: string | null;
   magicLinkUrl?: string | null;
+  reviewPageCount?: number | null;
 };
 
 export type LifecycleEmailPayload = {
@@ -98,6 +99,14 @@ function formatDeliveryMode(deliveryMode: LifecycleEmailInput["deliveryMode"]) {
     case "print":
       return "Spiral book + PDF";
   }
+}
+
+function normalizeReviewPageCount(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.max(1, Math.trunc(value));
 }
 
 function toneStyles(tone: LifecycleEmailTone) {
@@ -228,17 +237,26 @@ function buildLifecycleEmailView(input: LifecycleEmailInput, supportEmail: strin
         footerNote: `Questions while we work? Reply here or email ${supportEmail}.`,
         tone: "sky",
       };
-    case "review-required":
+    case "review-required": {
+      const reviewPageCount = normalizeReviewPageCount(input.reviewPageCount);
+      const needsPlural = reviewPageCount !== 1;
+      const pageLabel = `${reviewPageCount} ${needsPlural ? "pages" : "page"}`;
+      const titlePrefix = needsPlural ? `${pageLabel[0]!.toUpperCase()}${pageLabel.slice(1)} need` : "One page needs";
+
       return {
-        subject: `${BRAND_NAME}: your review is needed`,
-        preheader: "We caught a page that needs your choice before we finish the PDF.",
-        eyebrow: "Review needed",
-        title: "Your review is needed",
+        subject: `${BRAND_NAME}: ${needsPlural ? `${pageLabel} need` : "one page needs"} your pick`,
+        preheader: needsPlural
+          ? `Most of your book is ready. We just need your quick choices on ${pageLabel} before we finish.`
+          : "Most of your book is ready. We just need one quick choice before we finish.",
+        eyebrow: "Quick choice",
+        title: `${titlePrefix} your pick`,
         greeting: greeting(input.customerFirstName),
         paragraphs: [
-          `We finished the good pages for ${orderLine}${childLine}, but one or more pages need your choice before we can finish the PDF.`,
-          "Open your order page to review the flagged page, keep it as-is, or replace it with a different photo.",
-          "You do not need to start over. We keep the rest of the book and only revisit the page that did not pass quality review.",
+          `Most of this book${childLine} is ready. ${titlePrefix} a quick call from you before we finish the PDF.`,
+          needsPlural
+            ? "Open your order page to see the pages in question. For each one, you can keep it if it still feels good enough or swap in a better photo for that spot."
+            : "Open your order page to see the page in question. If it still feels good enough, keep it. If not, swap in one better photo for that spot.",
+          `You do not need to start over. We keep the rest of the book exactly as it is and only redo ${needsPlural ? "those pages" : "that one page"}.`,
         ],
         primaryAction: {
           label: "Review my pages",
@@ -246,15 +264,16 @@ function buildLifecycleEmailView(input: LifecycleEmailInput, supportEmail: strin
         },
         secondaryAction: accountAction,
         details: buildLifecycleDetails(input),
-        highlightTitle: "What you can do",
+        highlightTitle: needsPlural ? "Your options for each page" : "Your two options",
         highlightLines: [
-          "Approve the flagged page if it still feels good enough.",
-          "Or upload one replacement photo for that slot.",
-          "We will only redraw the flagged page, not the whole book.",
+          needsPlural ? "Keep any page that still works for you." : "Keep the page if it still works for you.",
+          needsPlural ? "Or upload one replacement photo for each spot you want to change." : "Or upload one replacement photo for that spot.",
+          `We only redo ${needsPlural ? "those pages" : "that page"}, not the whole book.`,
         ],
-        footerNote: `Need help choosing a better photo? Reply here or email ${supportEmail}.`,
+        footerNote: `Need help choosing a better replacement photo? Reply here or email ${supportEmail}.`,
         tone: "coral",
       };
+    }
     case "pdf-ready":
       if (input.deliveryMode === "sample") {
         return {

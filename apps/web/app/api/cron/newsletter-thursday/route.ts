@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getBrandedFromAddress, getSupportEmailAddress } from "@littlecolorbook/shared/env";
 import { authorizeInternalJobRequest } from "../../../../lib/internal-jobs";
 import {
   hasRecentBroadcast,
@@ -15,10 +16,6 @@ export const dynamic = "force-dynamic";
 
 function getAppUrl() {
   return process.env.APP_URL ?? "https://www.littlecolorbook.com";
-}
-
-function getFromAddress() {
-  return process.env.RESEND_FROM_EMAIL ?? "hello@littlecolorbook.com";
 }
 
 function thursdayBroadcastAt(): Date {
@@ -59,11 +56,11 @@ export async function GET(request: NextRequest) {
     try {
       const broadcast = await createBroadcast({
         audienceId: process.env.RESEND_MARKETING_AUDIENCE_ID!,
-        from: getFromAddress(),
+        from: getBrandedFromAddress(),
         subject: rendered.subject,
         html: rendered.html,
         text: rendered.text,
-        replyTo: process.env.SUPPORT_EMAIL ?? undefined,
+        replyTo: getSupportEmailAddress(),
         scheduledAt: scheduledFor.toISOString(),
         name: `thursday_gallery_${new Date().toISOString().slice(0, 10)}`,
       });

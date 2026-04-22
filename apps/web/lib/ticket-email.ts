@@ -1,24 +1,11 @@
 import "server-only";
 
 import type { TicketRow } from "@littlecolorbook/db";
+import { getEmailEnv, getSupportEmailAddress, isEmailConfigured } from "@littlecolorbook/shared/env";
 import { getAppUrl } from "./stripe";
 
-function getResendApiKey() {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error("RESEND_API_KEY is not set");
-  return key;
-}
-
-function getFromAddress() {
-  return process.env.RESEND_FROM_EMAIL ?? "hello@littlecolorbook.com";
-}
-
 function getSupportEmail() {
-  return process.env.SUPPORT_EMAIL ?? "support@littlecolorbook.com";
-}
-
-function isResendConfigured() {
-  return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
+  return getSupportEmailAddress();
 }
 
 async function resendSend(input: {
@@ -28,26 +15,27 @@ async function resendSend(input: {
   text: string;
   replyTo?: string;
 }) {
-  if (!isResendConfigured()) {
+  if (!isEmailConfigured()) {
     if (process.env.NODE_ENV === "production") {
       throw new Error("RESEND_API_KEY not configured");
     }
     return { provider: "stub", messageId: null };
   }
 
+  const env = getEmailEnv();
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${getResendApiKey()}`,
+      Authorization: `Bearer ${env.resendApiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: getFromAddress(),
+      from: env.fromEmail,
       to: [input.to],
       subject: input.subject,
       html: input.html,
       text: input.text,
-      reply_to: input.replyTo ?? getSupportEmail(),
+      reply_to: input.replyTo ?? env.supportEmail,
     }),
   });
   if (!response.ok) {

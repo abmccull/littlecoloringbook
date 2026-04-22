@@ -11,7 +11,7 @@ Updated 2026-04-17 — Resend, Neon Auth, GCS, PostHog-host connected
 - `Neon Postgres` — `DATABASE_URL` (app data + `neon_auth` schema)
 - `Neon Auth (Better Auth)` — email-OTP sign-in, `@neondatabase/auth@0.2.0-beta.1`
 - `Google Cloud Storage` — uploads + exports buckets w/ service account
-- `Resend` — `RESEND_API_KEY` + verified sender domain (`hello@littlecolorbook.com`), transactional live
+- `Resend` — `RESEND_API_KEY` + verified sender domain (`support@littlecolorbook.com`), transactional live
 - `Vercel` — production deploys + cron (prod env vars synced, 42 keys)
 - `PostHog host` — `NEXT_PUBLIC_POSTHOG_HOST` set; key pending
 

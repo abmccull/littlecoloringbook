@@ -117,6 +117,21 @@ function getNonEmptyEnvValue(value: string | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
+const DEFAULT_SUPPORT_EMAIL = "support@littlecolorbook.com";
+const DEFAULT_EMAIL_SENDER_NAME = "Little Color Book";
+
+export function formatEmailAddress(displayName: string, email: string) {
+  return `${displayName} <${email}>`;
+}
+
+export function getSupportEmailAddress() {
+  return getNonEmptyEnvValue(process.env.SUPPORT_EMAIL) ?? DEFAULT_SUPPORT_EMAIL;
+}
+
+export function getBrandedFromAddress() {
+  return formatEmailAddress(DEFAULT_EMAIL_SENDER_NAME, getSupportEmailAddress());
+}
+
 function getResolvedLuluApiBaseUrl() {
   return getNonEmptyEnvValue(process.env.LULU_API_BASE_URL) ?? "https://api.lulu.com";
 }
@@ -248,12 +263,12 @@ export function getEmailEnv(): EmailEnv {
   const parsed = rawEmailEnvSchema.parse({
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
-    SUPPORT_EMAIL: process.env.SUPPORT_EMAIL ?? "support@littlecolorbook.com",
+    SUPPORT_EMAIL: process.env.SUPPORT_EMAIL ?? DEFAULT_SUPPORT_EMAIL,
   });
 
   return {
     resendApiKey: parsed.RESEND_API_KEY,
-    fromEmail: parsed.RESEND_FROM_EMAIL,
+    fromEmail: getBrandedFromAddress(),
     supportEmail: parsed.SUPPORT_EMAIL,
   };
 }

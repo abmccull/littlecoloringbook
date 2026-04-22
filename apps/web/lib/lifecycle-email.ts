@@ -54,6 +54,7 @@ export async function deliverLifecycleEmail(input: {
   const supportEmail = process.env.SUPPORT_EMAIL ?? "support@littlecolorbook.com";
   const emailProvider = isEmailConfigured() ? "resend" : "stub";
   let downloadUrl: string | null = null;
+  const reviewPageCount = input.template === "review-required" ? Math.max(1, summary.pageIssues.length) : null;
 
   if (input.template === "pdf-ready" && summary.assets.downloadPdfPath && getIntegrationStatus().gcsConfigured) {
     downloadUrl = (
@@ -97,6 +98,7 @@ export async function deliverLifecycleEmail(input: {
       accountUrl,
       setupUrl,
       magicLinkUrl: input.magicLinkUrl ?? null,
+      reviewPageCount,
     });
 
     await recordLifecycleEmailEvent({
@@ -111,6 +113,7 @@ export async function deliverLifecycleEmail(input: {
         setupUrl,
         downloadUrl,
         trackingUrl: summary.fulfillment?.trackingUrl ?? null,
+        reviewPageCount,
       },
       sentAt: result.status === "sent" ? new Date() : null,
     });
@@ -136,6 +139,7 @@ export async function deliverLifecycleEmail(input: {
         error: message,
         portalUrl,
         setupUrl,
+        reviewPageCount,
       },
     });
 

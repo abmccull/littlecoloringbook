@@ -485,7 +485,7 @@ All secrets are stored as environment variables. Never commit actual values. See
 | Lulu Direct | `LULU_CLIENT_KEY`, `LULU_CLIENT_SECRET` | OAuth2 client credentials. Auth token URL in env. POD package ID specifies the book format (7x10 coil, 60gsm uncoated cream interior, 4-color matte cover). |
 | Google Cloud (Gemini) | `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` | Same key, two env vars for different SDK entry points. |
 | Google Cloud (Storage) | `GCS_PROJECT_ID`, `GCS_CLIENT_EMAIL`, `GCS_PRIVATE_KEY`, `GCS_BUCKET_UPLOADS`, `GCS_BUCKET_EXPORTS` | Service account credentials. Two buckets: one for raw uploads, one for generated exports. |
-| Resend (Email) | `RESEND_API_KEY` | Transactional email. From address: `hello@littlecolorbook.com`. |
+| Resend (Email) | `RESEND_API_KEY` | Transactional email. From address: `support@littlecolorbook.com`. |
 | PostHog | `NEXT_PUBLIC_POSTHOG_KEY`, `POSTHOG_API_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | Product analytics. US cloud instance. |
 | Google Analytics | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Web analytics. |
 | Vercel | Managed via Vercel dashboard | Project: `littlecolorbook`, Team: `team_dCOrrpLuYaV6tvTwJ3ursC29` |

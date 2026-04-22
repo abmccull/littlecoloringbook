@@ -50,7 +50,7 @@ Re-Engagement: Day 0, 4, 10
 Abandonment: Hour 1, Hour 24, Day 3
 
 ## ESP
-Resend (connected, verified sender `hello@littlecolorbook.com`). Order-lifecycle transactional templates already wired in `packages/email/src/index.ts` — this campaign does NOT duplicate those.
+Resend (connected, verified sender `support@littlecolorbook.com`). Order-lifecycle transactional templates already wired in `packages/email/src/index.ts` — this campaign does NOT duplicate those.
 
 ## Status
 draft
@@ -74,4 +74,4 @@ draft
 - No heavy CSS; inline styles only.
 - No hero images required in MVP — copy does the work. Optional small logo lockup at top.
 - Unsubscribe footer auto-appended by Resend on marketing sends (broadcasts + audiences).
-- Transactional sends (abandonment — arguable) should go through the same `hello@littlecolorbook.com` sender for consistency.
+- Transactional sends (abandonment — arguable) should go through the same `support@littlecolorbook.com` sender for consistency.
