@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="best-photo-picker-guide.pdf"`,
+      "Content-Disposition": `attachment; filename="best-photo-picker-guide.pdf"`,
       "Cache-Control": "public, max-age=86400",
     },
   });

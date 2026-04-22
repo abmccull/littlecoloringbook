@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     acknowledged: true,
+    uploadId: "id" in upload ? upload.id : null,
     status: upload.status,
     objectPath: parsed.data.objectPath,
     entityType: parsed.data.entityType,

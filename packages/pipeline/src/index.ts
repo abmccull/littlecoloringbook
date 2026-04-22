@@ -176,10 +176,29 @@ export type MaterializedPageResult = {
   qaMetrics: PageQualityMetrics;
 };
 
+export type MaterializedPageFailure = {
+  pageNumber: number;
+  sourceUploadId: string | null;
+  provider: PipelineProvider | null;
+  model: string | null;
+  imageSize: GeminiImageSize | null;
+  promptVersion: string;
+  cleanupVersion: string;
+  renderAttempts: number;
+  costCents: number;
+  costBreakdown: GenerationCostBreakdown | null;
+  qaScore: number | null;
+  qaFlags: string[];
+  qaMetrics: PageQualityMetrics | null;
+  message: string;
+  previewAvailable: boolean;
+};
+
 export type MaterializedPlan = {
   assets: MaterializedAsset[];
   model: string;
   pageResults: MaterializedPageResult[];
+  pageFailures: MaterializedPageFailure[];
   provider: PipelineProvider;
 };
 
@@ -218,6 +237,8 @@ export type RenderedPageResult = ProcessedPageAsset & {
   renderAttempts: number;
   costCents: number;
   costBreakdown: GenerationCostBreakdown;
+  passedQa: boolean;
+  failureMessage: string | null;
 };
 
 type GeminiModalityTokenCount = {
@@ -1171,6 +1192,7 @@ async function renderSourceWithConfiguredProvider(
   const accumulatedCostAttempts: GeminiCostAttempt[] = [];
   let accumulatedCostCents = 0;
   let totalRenderAttempts = 0;
+  let lastQaFailure: RenderedPageResult | null = null;
 
   for (const strategy of strategies) {
     try {
@@ -1212,10 +1234,29 @@ async function renderSourceWithConfiguredProvider(
       });
 
       if ((input.enforceQa ?? true) && !processedPagePassesQa(processed)) {
-        lastError = new Error(
-          `[${strategy.provider}:${strategy.model}] Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}, largest dark component ratio ${processed.largestDarkComponentRatio.toFixed(4)}, noisy components ${processed.noisyComponentCount}, and speckle ratio ${processed.speckleRatio.toFixed(4)}.`,
-        );
+        const failureMessage = `[${strategy.provider}:${strategy.model}] Rendered page ${input.pageNumber} failed QA with black ratio ${processed.blackRatio.toFixed(4)}, largest dark component ratio ${processed.largestDarkComponentRatio.toFixed(4)}, noisy components ${processed.noisyComponentCount}, and speckle ratio ${processed.speckleRatio.toFixed(4)}.`;
+        lastError = new Error(failureMessage);
         strategyErrors.push(lastError.message);
+        lastQaFailure = {
+          ...processed,
+          cleanupVersion: pipelineCleanupVersion,
+          model: rendered.model,
+          imageSize: rendered.imageSize,
+          promptVersion: pipelinePromptVersion,
+          provider: rendered.provider,
+          qaFlags,
+          qaMetrics,
+          qaScore,
+          renderAttempts: totalRenderAttempts,
+          costCents: accumulatedCostCents,
+          costBreakdown: {
+            provider: rendered.provider,
+            totalCostCents: accumulatedCostCents,
+            attempts: accumulatedCostAttempts,
+          },
+          passedQa: false,
+          failureMessage,
+        };
         continue;
       }
 
@@ -1236,11 +1277,17 @@ async function renderSourceWithConfiguredProvider(
           totalCostCents: accumulatedCostCents,
           attempts: accumulatedCostAttempts,
         },
+        passedQa: true,
+        failureMessage: null,
       };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error("Unknown rendering error.");
       strategyErrors.push(`[${strategy.provider}:${strategy.model}] ${lastError.message}`);
     }
+  }
+
+  if (lastQaFailure) {
+    return lastQaFailure;
   }
 
   throw new Error(strategyErrors.length > 0 ? strategyErrors.join(" | ") : lastError?.message ?? `Failed to generate page ${input.pageNumber}.`);
@@ -1674,6 +1721,225 @@ export function buildGenerationPlan(input: {
   } satisfies GenerationPlan;
 }
 
+async function buildFullBookPdfAssets(input: {
+  childFirstName?: string | null;
+  copyNames?: Array<string | null> | null;
+  coverStyle?: string | null;
+  dedicationText?: string | null;
+  occasion?: OccasionId | null;
+  occasionContext?: OccasionContext | null;
+  plan: GenerationPlan;
+  quantity?: number;
+  pageBuffers: Buffer[];
+}) {
+  const { renderCoverPdf, renderInteriorPdf } = await import("@littlecolorbook/pdf-templates/render");
+  const assets: MaterializedAsset[] = [];
+  const printTrim = getTrim();
+  const basePayload = buildBookPayload({
+    childFirstName: input.childFirstName,
+    coverStyle: input.coverStyle,
+    dedicationText: input.dedicationText,
+    occasion: input.occasion,
+    occasionContext: input.occasionContext,
+    pageBuffers: input.pageBuffers,
+    titleName: input.childFirstName,
+    trim: printTrim,
+  });
+
+  const downloadPayload: BookPayload = { ...basePayload, trim: DIGITAL_TRIM };
+  const downloadPdf = await renderInteriorPdf(downloadPayload);
+
+  const interiorPdf = input.plan.deliveryMode === "print" ? await renderInteriorPdf(basePayload) : downloadPdf;
+
+  assets.push({
+    body: interiorPdf,
+    contentType: "application/pdf",
+    kind: "interior_pdf",
+    objectPath: input.plan.pdf.interiorPdfPath,
+  });
+  assets.push({
+    body: downloadPdf,
+    contentType: "application/pdf",
+    kind: "download_pdf",
+    objectPath: input.plan.pdf.downloadPdfPath,
+  });
+
+  if (input.plan.pdf.coverPdfPaths.length > 0) {
+    const requestedCoverCount = Math.max(1, input.quantity ?? input.plan.pdf.coverPdfPaths.length);
+    const coverNames = Array.from({ length: requestedCoverCount }, (_, index) => {
+      const specificName = input.copyNames?.[index];
+      if (specificName) return specificName;
+      const fallbackName = input.childFirstName?.trim();
+      return fallbackName ? fallbackName : null;
+    });
+
+    for (const [index, objectPath] of input.plan.pdf.coverPdfPaths.entries()) {
+      const coverPayload = buildBookPayload({
+        childFirstName: input.childFirstName,
+        coverStyle: input.coverStyle,
+        dedicationText: input.dedicationText,
+        occasion: input.occasion,
+        occasionContext: input.occasionContext,
+        pageBuffers: input.pageBuffers,
+        titleName: coverNames[index],
+        trim: printTrim,
+      });
+      const coverPdf = await renderCoverPdf(coverPayload);
+
+      assets.push({
+        body: coverPdf,
+        contentType: "application/pdf",
+        kind: "cover_pdf",
+        objectPath,
+      });
+    }
+  }
+
+  return assets;
+}
+
+export async function materializeBookPdfAssets(input: {
+  childFirstName?: string | null;
+  copyNames?: Array<string | null> | null;
+  coverStyle?: string | null;
+  dedicationText?: string | null;
+  occasion?: OccasionId | null;
+  occasionContext?: OccasionContext | null;
+  plan: GenerationPlan;
+  quantity?: number;
+  pageBuffers: Buffer[];
+}) {
+  return buildFullBookPdfAssets(input);
+}
+
+type MaterializedSinglePage = {
+  assets: MaterializedAsset[];
+  pageImageBuffer: Buffer | null;
+  pageResult: MaterializedPageResult | null;
+  pageFailure: MaterializedPageFailure | null;
+  model: string | null;
+  provider: PipelineProvider | null;
+};
+
+export async function materializeSingleGenerationPage(input: {
+  childFirstName?: string | null;
+  deliveryMode: DeliveryMode;
+  jobKind: PipelineJobKind;
+  page: PlannedGenerationPage;
+  upload: SourceUpload;
+}) : Promise<MaterializedSinglePage> {
+  const renderSettings = getPipelineRenderSettings(input.deliveryMode, input.jobKind);
+
+  try {
+    const rendered = await materializePage({
+      childFirstName: input.childFirstName,
+      deliveryMode: input.deliveryMode,
+      fallbackModel: renderSettings.fallbackModel,
+      fallbackProvider: renderSettings.fallbackProvider,
+      jobKind: input.jobKind,
+      pageNumber: input.page.pageNumber,
+      primaryModel: renderSettings.model,
+      primaryProvider: renderSettings.provider,
+      imageSize: renderSettings.imageSize,
+      upload: input.upload,
+    });
+
+    const assets: MaterializedAsset[] = [
+      {
+        body: rendered.finalPng,
+        contentType: "image/png",
+        kind: "generated_page",
+        objectPath: input.page.generatedImagePath,
+        pageNumber: input.page.pageNumber,
+      },
+      {
+        body: rendered.previewJpeg,
+        contentType: "image/jpeg",
+        kind: "preview",
+        objectPath: input.page.previewImagePath,
+        pageNumber: input.page.pageNumber,
+      },
+    ];
+
+    if (rendered.passedQa) {
+      return {
+        assets,
+        pageImageBuffer: rendered.finalPng,
+        pageResult: {
+          cleanupVersion: rendered.cleanupVersion,
+          costBreakdown: rendered.costBreakdown,
+          costCents: rendered.costCents,
+          imageSize: rendered.imageSize,
+          model: rendered.model,
+          pageNumber: input.page.pageNumber,
+          promptVersion: rendered.promptVersion,
+          provider: rendered.provider,
+          qaFlags: rendered.qaFlags,
+          qaMetrics: rendered.qaMetrics,
+          qaScore: rendered.qaScore,
+          renderAttempts: rendered.renderAttempts,
+          sourceUploadId: input.page.sourceUploadId,
+        },
+        pageFailure: null,
+        model: rendered.model,
+        provider: rendered.provider,
+      };
+    }
+
+    return {
+      assets,
+      pageImageBuffer: null,
+      pageResult: null,
+      pageFailure: {
+        pageNumber: input.page.pageNumber,
+        sourceUploadId: input.page.sourceUploadId,
+        provider: rendered.provider,
+        model: rendered.model,
+        imageSize: rendered.imageSize,
+        promptVersion: rendered.promptVersion,
+        cleanupVersion: rendered.cleanupVersion,
+        renderAttempts: rendered.renderAttempts,
+        costCents: rendered.costCents,
+        costBreakdown: rendered.costBreakdown,
+        qaScore: rendered.qaScore,
+        qaFlags: rendered.qaFlags,
+        qaMetrics: rendered.qaMetrics,
+        message: rendered.failureMessage ?? `Page ${input.page.pageNumber} failed QA.`,
+        previewAvailable: true,
+      },
+      model: rendered.model,
+      provider: rendered.provider,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : `Failed to generate page ${input.page.pageNumber}.`;
+
+    return {
+      assets: [],
+      pageImageBuffer: null,
+      pageResult: null,
+      pageFailure: {
+        pageNumber: input.page.pageNumber,
+        sourceUploadId: input.page.sourceUploadId,
+        provider: null,
+        model: null,
+        imageSize: null,
+        promptVersion: pipelinePromptVersion,
+        cleanupVersion: pipelineCleanupVersion,
+        renderAttempts: 0,
+        costCents: 0,
+        costBreakdown: null,
+        qaScore: null,
+        qaFlags: [],
+        qaMetrics: null,
+        message,
+        previewAvailable: false,
+      },
+      model: null,
+      provider: null,
+    };
+  }
+}
+
 export async function materializeGenerationPlan(input: {
   childFirstName?: string | null;
   copyNames?: Array<string | null> | null;
@@ -1685,11 +1951,13 @@ export async function materializeGenerationPlan(input: {
   quantity?: number;
   selectedOfferCode?: string | null;
   uploads: SourceUpload[];
+  allowPageFailures?: boolean;
 }): Promise<MaterializedPlan> {
   const uploads = input.uploads.length > 0 ? input.uploads : [{ fileName: "uploaded-photo.jpg", objectPath: "missing-upload.jpg" }];
   const assets: MaterializedAsset[] = [];
   const pageBuffers: Buffer[] = [];
   const pageResults: MaterializedPageResult[] = [];
+  const pageFailures: MaterializedPageFailure[] = [];
   const renderSettings = getPipelineRenderSettings(input.plan.deliveryMode, input.plan.jobKind);
   let modelUsed = renderSettings.model;
   let providerUsed: PipelineProvider = renderSettings.provider;
@@ -1701,130 +1969,68 @@ export async function materializeGenerationPlan(input: {
   const renderTasks = input.plan.pages.map((page) =>
     limit(async () => {
       const matchedUpload = uploads.find((upload) => upload.id && upload.id === page.sourceUploadId) ?? uploads[(page.pageNumber - 1) % uploads.length];
-      const rendered = await materializePage({
+      const outcome = await materializeSingleGenerationPage({
         childFirstName: input.childFirstName,
         deliveryMode: input.plan.deliveryMode,
-        fallbackModel: renderSettings.fallbackModel,
-        fallbackProvider: renderSettings.fallbackProvider,
         jobKind: input.plan.jobKind,
-        pageNumber: page.pageNumber,
-        primaryModel: renderSettings.model,
-        primaryProvider: renderSettings.provider,
-        imageSize: renderSettings.imageSize,
+        page,
         upload: matchedUpload,
       });
-      return { page, rendered };
+      return { page, outcome };
     }),
   );
 
   const completedPages = await Promise.all(renderTasks);
 
-  for (const { page, rendered } of completedPages.sort((a, b) => a.page.pageNumber - b.page.pageNumber)) {
-    modelUsed = rendered.model;
-    providerUsed = rendered.provider;
-    pageBuffers.push(rendered.finalPng);
-    pageResults.push({
-      cleanupVersion: rendered.cleanupVersion,
-      costBreakdown: rendered.costBreakdown,
-      costCents: rendered.costCents,
-      imageSize: rendered.imageSize,
-      model: rendered.model,
-      pageNumber: page.pageNumber,
-      promptVersion: rendered.promptVersion,
-      provider: rendered.provider,
-      qaFlags: rendered.qaFlags,
-      qaMetrics: rendered.qaMetrics,
-      qaScore: rendered.qaScore,
-      renderAttempts: rendered.renderAttempts,
-      sourceUploadId: page.sourceUploadId,
-    });
-    assets.push({
-      body: rendered.finalPng,
-      contentType: "image/png",
-      kind: "generated_page",
-      objectPath: page.generatedImagePath,
-      pageNumber: page.pageNumber,
-    });
-    assets.push({
-      body: rendered.previewJpeg,
-      contentType: "image/jpeg",
-      kind: "preview",
-      objectPath: page.previewImagePath,
-      pageNumber: page.pageNumber,
-    });
+  for (const { outcome } of completedPages.sort((a, b) => a.page.pageNumber - b.page.pageNumber)) {
+    if (outcome.model) {
+      modelUsed = outcome.model;
+    }
+
+    if (outcome.provider) {
+      providerUsed = outcome.provider;
+    }
+
+    assets.push(...outcome.assets);
+
+    if (outcome.pageImageBuffer) {
+      pageBuffers.push(outcome.pageImageBuffer);
+    }
+
+    if (outcome.pageResult) {
+      pageResults.push(outcome.pageResult);
+    }
+
+    if (outcome.pageFailure) {
+      pageFailures.push(outcome.pageFailure);
+    }
   }
 
-  if (input.plan.jobKind === "full_book") {
-    const { renderCoverPdf, renderInteriorPdf } = await import("@littlecolorbook/pdf-templates/render");
-    const printTrim = getTrim();
-    const basePayload = buildBookPayload({
-      childFirstName: input.childFirstName,
-      coverStyle: input.coverStyle,
-      dedicationText: input.dedicationText,
-      occasion: input.occasion,
-      occasionContext: input.occasionContext,
-      pageBuffers,
-      titleName: input.childFirstName,
-      trim: printTrim,
-    });
+  if (pageFailures.length > 0 && !input.allowPageFailures) {
+    throw new Error(pageFailures[0]?.message ?? "One or more pages failed generation.");
+  }
 
-    const downloadPayload: BookPayload = { ...basePayload, trim: DIGITAL_TRIM };
-    const downloadPdf = await renderInteriorPdf(downloadPayload);
-
-    const interiorPdf =
-      input.plan.deliveryMode === "print"
-        ? await renderInteriorPdf(basePayload)
-        : downloadPdf;
-
-    assets.push({
-      body: interiorPdf,
-      contentType: "application/pdf",
-      kind: "interior_pdf",
-      objectPath: input.plan.pdf.interiorPdfPath,
-    });
-    assets.push({
-      body: downloadPdf,
-      contentType: "application/pdf",
-      kind: "download_pdf",
-      objectPath: input.plan.pdf.downloadPdfPath,
-    });
-
-    if (input.plan.pdf.coverPdfPaths.length > 0) {
-      const requestedCoverCount = Math.max(1, input.quantity ?? input.plan.pdf.coverPdfPaths.length);
-      const coverNames = Array.from({ length: requestedCoverCount }, (_, index) => {
-        const specificName = input.copyNames?.[index];
-        if (specificName) return specificName;
-        const fallbackName = input.childFirstName?.trim();
-        return fallbackName ? fallbackName : null;
-      });
-
-      for (const [index, objectPath] of input.plan.pdf.coverPdfPaths.entries()) {
-        const coverPayload = buildBookPayload({
-          childFirstName: input.childFirstName,
-          coverStyle: input.coverStyle,
-          dedicationText: input.dedicationText,
-          occasion: input.occasion,
-          occasionContext: input.occasionContext,
-          pageBuffers,
-          titleName: coverNames[index],
-          trim: printTrim,
-        });
-        const coverPdf = await renderCoverPdf(coverPayload);
-
-        assets.push({
-          body: coverPdf,
-          contentType: "application/pdf",
-          kind: "cover_pdf",
-          objectPath,
-        });
-      }
-    }
+  if (input.plan.jobKind === "full_book" && pageFailures.length === 0) {
+    assets.push(
+      ...(await buildFullBookPdfAssets({
+        childFirstName: input.childFirstName,
+        copyNames: input.copyNames,
+        coverStyle: input.coverStyle,
+        dedicationText: input.dedicationText,
+        occasion: input.occasion,
+        occasionContext: input.occasionContext,
+        plan: input.plan,
+        quantity: input.quantity,
+        pageBuffers,
+      })),
+    );
   }
 
   return {
     assets,
     model: modelUsed,
     pageResults,
+    pageFailures,
     provider: providerUsed,
   };
 }

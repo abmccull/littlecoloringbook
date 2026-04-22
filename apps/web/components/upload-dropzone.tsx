@@ -16,12 +16,14 @@ type UploadDropzoneProps = {
     objectPath?: string;
     status: "uploaded" | "failed";
   }>;
+  portalToken?: string;
   onUploadStatsChange?: (stats: {
     total: number;
     uploaded: number;
     failed: number;
     isUploading: boolean;
   }) => void;
+  onUploadComplete?: (upload: { fileName: string; objectPath: string; uploadId: string | null }) => void;
 };
 
 type UploadItem = {
@@ -44,6 +46,11 @@ type PresignResponse = {
   url: string;
   method: "PUT";
   headers: Record<string, string>;
+};
+
+type CompleteResponse = {
+  objectPath: string;
+  uploadId: string | null;
 };
 
 function getUploadFailureMessage(status: number) {
@@ -79,7 +86,9 @@ export function UploadDropzone({
   uploadKind = "original",
   buttonLabel = "Choose Photos",
   initialUploads = [],
+  portalToken,
   onUploadStatsChange,
+  onUploadComplete,
 }: UploadDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploads, setUploads] = useState<UploadItem[]>(
@@ -115,6 +124,7 @@ export function UploadDropzone({
         uploadKind,
         fileName: file.name,
         contentType: file.type || "application/octet-stream",
+        portalToken,
       }),
     });
 
@@ -146,11 +156,13 @@ export function UploadDropzone({
       }),
     });
 
-    if (!completeResponse.ok) {
+    const completePayload = (await completeResponse.json().catch(() => null)) as CompleteResponse | { error?: string } | null;
+
+    if (!completeResponse.ok || !completePayload || !("objectPath" in completePayload)) {
       throw new Error("Your photo uploaded, but we couldn't save it to your book yet. Please try once more.");
     }
 
-    return presignPayload.objectPath;
+    return completePayload;
   }
 
   async function handleSelectedFiles(fileList: FileList | null) {
@@ -188,7 +200,7 @@ export function UploadDropzone({
       );
 
       try {
-        const objectPath = await uploadFile(file);
+        const completedUpload = await uploadFile(file);
         completedCount += 1;
         trackEvent("upload_file_completed", {
           entityType,
@@ -197,9 +209,14 @@ export function UploadDropzone({
         });
         setUploads((current) =>
           current.map((item) =>
-            item.id === uploadId ? { ...item, status: "uploaded", objectPath } : item,
+            item.id === uploadId ? { ...item, status: "uploaded", objectPath: completedUpload.objectPath } : item,
           ),
         );
+        onUploadComplete?.({
+          fileName: file.name,
+          objectPath: completedUpload.objectPath,
+          uploadId: completedUpload.uploadId,
+        });
       } catch (error) {
         const message = getCustomerUploadErrorMessage(error);
         trackEvent("upload_file_failed", {

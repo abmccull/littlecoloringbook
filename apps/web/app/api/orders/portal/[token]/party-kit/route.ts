@@ -30,7 +30,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="coloring-party-kit.pdf"`,
+      "Content-Disposition": `attachment; filename="coloring-party-kit.pdf"`,
       // Regenerated per-request but stable for a given order — safe to
       // cache at the edge for an hour.
       "Cache-Control": "private, max-age=3600",

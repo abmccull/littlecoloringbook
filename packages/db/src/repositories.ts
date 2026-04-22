@@ -302,6 +302,22 @@ export type PortalSummary = {
     createdBy: string | null;
     createdAt: Date;
   }>;
+  pageIssues: Array<{
+    id: string;
+    generationJobId: string;
+    pageNumber: number;
+    status: GenerationPageStatus;
+    uploadId: string | null;
+    uploadFileName: string | null;
+    uploadObjectPath: string | null;
+    previewObjectPath: string | null;
+    generatedObjectPath: string | null;
+    qaScore: number | null;
+    qaFlags: string[];
+    qaMetrics: Record<string, unknown> | null;
+    canApprove: boolean;
+    updatedAt: Date;
+  }>;
 };
 
 export type AdminQueueItem = {
@@ -1482,6 +1498,92 @@ export async function setGenerationPageStatus(
   };
 }
 
+export async function getGenerationPageById(generationPageId: string) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return getDatabase().query.generationPages.findFirst({
+    where: eq(generationPages.id, generationPageId),
+  });
+}
+
+export async function getLatestGenerationJobForOrder(orderId: string, kind?: GenerationJobKind) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return getDatabase().query.generationJobs.findFirst({
+    where: kind ? and(eq(generationJobs.orderId, orderId), eq(generationJobs.kind, kind)) : eq(generationJobs.orderId, orderId),
+    orderBy: [desc(generationJobs.createdAt)],
+  });
+}
+
+export async function listGenerationPagesForJob(generationJobId: string) {
+  if (!isDatabaseConfigured()) {
+    return [];
+  }
+
+  return getDatabase().query.generationPages.findMany({
+    where: eq(generationPages.generationJobId, generationJobId),
+    orderBy: [asc(generationPages.pageNumber)],
+  });
+}
+
+export async function updateGenerationPageUpload(
+  generationPageId: string,
+  uploadId: string | null,
+  details: Record<string, unknown> | null = null,
+) {
+  if (!isDatabaseConfigured()) {
+    return {
+      generationPageId,
+      uploadId,
+      databaseConfigured: false,
+    };
+  }
+
+  const db = getDatabase();
+  const page = await db.query.generationPages.findFirst({
+    where: eq(generationPages.id, generationPageId),
+  });
+
+  if (!page) {
+    throw new Error("Generation page not found for upload update.");
+  }
+
+  await db
+    .update(generationPages)
+    .set({
+      uploadId,
+      status: "queued",
+      updatedAt: now(),
+    })
+    .where(eq(generationPages.id, generationPageId));
+
+  const job = await db.query.generationJobs.findFirst({
+    where: eq(generationJobs.id, page.generationJobId),
+  });
+
+  if (job) {
+    await appendOrderEvent(job.orderId, "generation.page_source_updated", {
+      generationJobId: job.id,
+      generationPageId,
+      pageNumber: page.pageNumber,
+      uploadId,
+      ...(details ?? {}),
+    });
+  }
+
+  return {
+    ...page,
+    uploadId,
+    status: "queued" as const,
+    updatedAt: now(),
+    databaseConfigured: true,
+  };
+}
+
 export async function updateOrderCustomization(input: {
   orderId: string;
   childFirstName?: string | null;
@@ -2142,6 +2244,7 @@ function buildDemoPortalSummary(portalKey: string): PortalSummary {
     ],
     emails: [],
     supportActions: [],
+    pageIssues: [],
   };
 }
 
@@ -2188,6 +2291,86 @@ async function buildPortalSummaryFromOrder(order: typeof orders.$inferSelect, po
     orderBy: [desc(supportActions.createdAt)],
     limit: 12,
   });
+  const latestFullBookJob = await db.query.generationJobs.findFirst({
+    where: and(eq(generationJobs.orderId, order.id), eq(generationJobs.kind, "full_book")),
+    orderBy: [desc(generationJobs.createdAt)],
+  });
+  const latestJobPages = latestFullBookJob
+    ? await db.query.generationPages.findMany({
+        where: eq(generationPages.generationJobId, latestFullBookJob.id),
+        orderBy: [asc(generationPages.pageNumber)],
+      })
+    : [];
+  const failedPageIssues = latestJobPages
+    .filter((page) => page.status === "failed")
+    .map((page) => {
+      const upload = page.uploadId ? relatedUploads.find((item) => item.id === page.uploadId) ?? null : null;
+      const previewAsset = relatedAssets.find((asset) => asset.kind === "preview" && asset.pageNumber === page.pageNumber) ?? null;
+      const generatedAsset =
+        relatedAssets.find((asset) => asset.kind === "generated_page" && asset.pageNumber === page.pageNumber) ?? null;
+
+      return {
+        id: page.id,
+        generationJobId: page.generationJobId,
+        pageNumber: page.pageNumber,
+        status: page.status,
+        uploadId: page.uploadId,
+        uploadFileName: upload?.fileName ?? null,
+        uploadObjectPath: upload?.objectPath ?? null,
+        previewObjectPath: previewAsset?.objectPath ?? null,
+        generatedObjectPath: generatedAsset?.objectPath ?? null,
+        qaScore: page.qaScore,
+        qaFlags: page.qaFlags ?? [],
+        qaMetrics: (page.qaMetrics as Record<string, unknown> | null) ?? null,
+        canApprove: Boolean(page.qaMetrics && previewAsset && generatedAsset),
+        updatedAt: page.updatedAt,
+      };
+    });
+  const fallbackPageIssueNumbers =
+    failedPageIssues.length === 0 && latestFullBookJob?.status === "failed"
+      ? Array.from(
+          new Set(
+            timeline
+              .filter((event) => event.eventType === "generation.full_book_failed")
+              .map((event) => {
+                const message = typeof event.details?.message === "string" ? event.details.message : "";
+                const match = message.match(/page\s+(\d+)/i);
+                return match ? Number(match[1]) : null;
+              })
+              .filter((pageNumber): pageNumber is number => Number.isFinite(pageNumber)),
+          ),
+        )
+      : [];
+  const pageIssues =
+    failedPageIssues.length > 0
+      ? failedPageIssues
+      : fallbackPageIssueNumbers
+          .map((pageNumber) => {
+            const page = latestJobPages.find((item) => item.pageNumber === pageNumber);
+
+            if (!page) {
+              return null;
+            }
+
+            const upload = page.uploadId ? relatedUploads.find((item) => item.id === page.uploadId) ?? null : null;
+            return {
+              id: page.id,
+              generationJobId: page.generationJobId,
+              pageNumber: page.pageNumber,
+              status: "failed" as const,
+              uploadId: page.uploadId,
+              uploadFileName: upload?.fileName ?? null,
+              uploadObjectPath: upload?.objectPath ?? null,
+              previewObjectPath: null,
+              generatedObjectPath: null,
+              qaScore: page.qaScore,
+              qaFlags: page.qaFlags ?? [],
+              qaMetrics: (page.qaMetrics as Record<string, unknown> | null) ?? null,
+              canApprove: false,
+              updatedAt: page.updatedAt,
+            };
+          })
+          .filter((page): page is NonNullable<typeof page> => page !== null);
 
   return {
     databaseConfigured: true,
@@ -2300,6 +2483,7 @@ async function buildPortalSummaryFromOrder(order: typeof orders.$inferSelect, po
       createdBy: action.createdBy,
       createdAt: action.createdAt,
     })),
+    pageIssues,
   };
 }
 

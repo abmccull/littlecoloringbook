@@ -3237,6 +3237,12 @@ select.text-input {
   min-width: 0;
 }
 
+.timeline-item-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .upload-state,
 .status-pill {
   padding: 8px 12px;
@@ -3353,6 +3359,29 @@ select.text-input {
 .detail-card {
   display: grid;
   gap: 12px;
+}
+
+.page-issue-card {
+  gap: 16px;
+}
+
+.page-issue-compare {
+  display: grid;
+  gap: 16px;
+}
+
+.page-issue-preview {
+  width: 100%;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: white;
+  object-fit: contain;
+}
+
+@media (min-width: 720px) {
+  .page-issue-compare {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .timeline-item {

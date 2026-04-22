@@ -3,6 +3,7 @@ import { getEmailEnv, isEmailConfigured } from "@littlecolorbook/shared/env";
 export type LifecycleEmailTemplate =
   | "order-paid"
   | "order-processing"
+  | "review-required"
   | "pdf-ready"
   | "print-submitted"
   | "order-shipped"
@@ -226,6 +227,33 @@ function buildLifecycleEmailView(input: LifecycleEmailInput, supportEmail: strin
         ],
         footerNote: `Questions while we work? Reply here or email ${supportEmail}.`,
         tone: "sky",
+      };
+    case "review-required":
+      return {
+        subject: `${BRAND_NAME}: your review is needed`,
+        preheader: "We caught a page that needs your choice before we finish the PDF.",
+        eyebrow: "Review needed",
+        title: "Your review is needed",
+        greeting: greeting(input.customerFirstName),
+        paragraphs: [
+          `We finished the good pages for ${orderLine}${childLine}, but one or more pages need your choice before we can finish the PDF.`,
+          "Open your order page to review the flagged page, keep it as-is, or replace it with a different photo.",
+          "You do not need to start over. We keep the rest of the book and only revisit the page that did not pass quality review.",
+        ],
+        primaryAction: {
+          label: "Review my pages",
+          href: input.portalUrl,
+        },
+        secondaryAction: accountAction,
+        details: buildLifecycleDetails(input),
+        highlightTitle: "What you can do",
+        highlightLines: [
+          "Approve the flagged page if it still feels good enough.",
+          "Or upload one replacement photo for that slot.",
+          "We will only redraw the flagged page, not the whole book.",
+        ],
+        footerNote: `Need help choosing a better photo? Reply here or email ${supportEmail}.`,
+        tone: "coral",
       };
     case "pdf-ready":
       if (input.deliveryMode === "sample") {
