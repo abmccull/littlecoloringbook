@@ -3239,7 +3239,7 @@ export async function getUnfulfilledPrintOrderDimensionsInWindow(window: Metrics
     LEFT JOIN best_quote bq ON bq.order_id = o.id
     WHERE o.created_at >= ${window.start} AND o.created_at <= ${window.end}
       AND o.delivery_mode = 'print'
-      AND o.status NOT IN ('draft', 'awaiting_payment', 'failed', 'refunded_full')
+      AND o.status NOT IN ('draft', 'awaiting_payment', 'failed', 'refunded')
       AND (fj.id IS NULL OR fj.cost_cents IS NULL OR fj.status = 'draft')
   `);
   return (rows as unknown as Array<{

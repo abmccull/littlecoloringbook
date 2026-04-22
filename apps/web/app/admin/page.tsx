@@ -45,10 +45,15 @@ export default async function AdminPage({
 }) {
   const session = await requireAdminSession();
   const { orderId } = await searchParams;
-  const [orders, dashboardMetrics] = await Promise.all([
-    listAdminOrders(25),
-    computeDashboardMetrics("30d"),
-  ]);
+  const orders = await listAdminOrders(25);
+
+  let dashboardMetrics: Awaited<ReturnType<typeof computeDashboardMetrics>> | null = null;
+  try {
+    dashboardMetrics = await computeDashboardMetrics("30d");
+  } catch (error) {
+    console.error("AdminPage metrics failed", error);
+  }
+
   const selectedOrderId = orderId ?? orders[0]?.id ?? null;
   const selectedOrder = selectedOrderId ? await getAdminOrderDetail(selectedOrderId) : null;
 
@@ -86,45 +91,66 @@ export default async function AdminPage({
           </div>
 
           <div className="admin-pulse-grid">
-            <PulseCard
-              label="Net revenue"
-              sub="Last 30 days"
-              tone="good"
-              value={formatMoney(dashboardMetrics.revenue.netCents)}
-            />
-            <PulseCard label="Paid orders" sub="Captured and fulfilled pipeline" value={String(dashboardMetrics.orders.paidOrders)} />
-            <PulseCard label="AOV" sub="Average order value" value={formatMoney(dashboardMetrics.unit.aovCents)} />
-            <PulseCard
-              label="Ad spend"
-              sub="Meta-backed spend log"
-              tone={dashboardMetrics.costs.adSpendCents > dashboardMetrics.revenue.netCents ? "warn" : "default"}
-              value={formatMoney(dashboardMetrics.costs.adSpendCents)}
-            />
-            <PulseCard
-              label="CAC"
-              sub="Spend per new paying customer"
-              tone={dashboardMetrics.unit.cacCents > dashboardMetrics.unit.aovCents ? "warn" : "default"}
-              value={
-                dashboardMetrics.unit.cacCents > 0 ? formatMoney(dashboardMetrics.unit.cacCents) : "—"
-              }
-            />
-            <PulseCard
-              label="Sample conversion"
-              sub={`${dashboardMetrics.funnel.samplesToPaid} paid from ${dashboardMetrics.funnel.samplesCreated} samples`}
-              tone="good"
-              value={formatPct(dashboardMetrics.funnel.sampleConversionPct)}
-            />
-            <PulseCard
-              label="Awaiting print handoff"
-              sub="Books ready to send to Lulu"
-              tone={dashboardMetrics.fulfillment.awaitingPrintSubmission > 0 ? "warn" : "default"}
-              value={String(dashboardMetrics.fulfillment.awaitingPrintSubmission)}
-            />
-            <PulseCard
-              label="In production"
-              sub="Submitted and moving through print"
-              value={String(dashboardMetrics.fulfillment.inProduction)}
-            />
+            {dashboardMetrics ? (
+              <>
+                <PulseCard
+                  label="Net revenue"
+                  sub="Last 30 days"
+                  tone="good"
+                  value={formatMoney(dashboardMetrics.revenue.netCents)}
+                />
+                <PulseCard
+                  label="Paid orders"
+                  sub="Captured and fulfilled pipeline"
+                  value={String(dashboardMetrics.orders.paidOrders)}
+                />
+                <PulseCard
+                  label="AOV"
+                  sub="Average order value"
+                  value={formatMoney(dashboardMetrics.unit.aovCents)}
+                />
+                <PulseCard
+                  label="Ad spend"
+                  sub="Meta-backed spend log"
+                  tone={dashboardMetrics.costs.adSpendCents > dashboardMetrics.revenue.netCents ? "warn" : "default"}
+                  value={formatMoney(dashboardMetrics.costs.adSpendCents)}
+                />
+                <PulseCard
+                  label="CAC"
+                  sub="Spend per new paying customer"
+                  tone={dashboardMetrics.unit.cacCents > dashboardMetrics.unit.aovCents ? "warn" : "default"}
+                  value={dashboardMetrics.unit.cacCents > 0 ? formatMoney(dashboardMetrics.unit.cacCents) : "—"}
+                />
+                <PulseCard
+                  label="Sample conversion"
+                  sub={`${dashboardMetrics.funnel.samplesToPaid} paid from ${dashboardMetrics.funnel.samplesCreated} samples`}
+                  tone="good"
+                  value={formatPct(dashboardMetrics.funnel.sampleConversionPct)}
+                />
+                <PulseCard
+                  label="Awaiting print handoff"
+                  sub="Books ready to send to Lulu"
+                  tone={dashboardMetrics.fulfillment.awaitingPrintSubmission > 0 ? "warn" : "default"}
+                  value={String(dashboardMetrics.fulfillment.awaitingPrintSubmission)}
+                />
+                <PulseCard
+                  label="In production"
+                  sub="Submitted and moving through print"
+                  value={String(dashboardMetrics.fulfillment.inProduction)}
+                />
+              </>
+            ) : (
+              <>
+                <PulseCard label="Net revenue" sub="Reporting unavailable" value="—" />
+                <PulseCard label="Paid orders" sub="Reporting unavailable" value="—" />
+                <PulseCard label="AOV" sub="Reporting unavailable" value="—" />
+                <PulseCard label="Ad spend" sub="Reporting unavailable" value="—" />
+                <PulseCard label="CAC" sub="Reporting unavailable" value="—" />
+                <PulseCard label="Sample conversion" sub="Reporting unavailable" value="—" />
+                <PulseCard label="Awaiting print handoff" sub="Reporting unavailable" value="—" />
+                <PulseCard label="In production" sub="Reporting unavailable" value="—" />
+              </>
+            )}
           </div>
         </div>
       </section>
