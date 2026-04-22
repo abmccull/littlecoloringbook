@@ -4,6 +4,8 @@ import { AdminNav, AdminTiles } from "../../components/admin/admin-nav";
 import { requireAdminSession } from "../../lib/auth";
 import { computeDashboardMetrics } from "../../lib/metrics";
 
+export const dynamic = "force-dynamic";
+
 function formatMoney(cents: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
