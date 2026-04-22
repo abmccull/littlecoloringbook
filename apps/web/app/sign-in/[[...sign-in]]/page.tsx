@@ -24,11 +24,11 @@ export default async function SignInPage({
       </header>
 
       <section className="portal-card">
-        <span className="pill">Magic link</span>
+        <span className="pill">Email code</span>
         <h1>Sign in to your Little Color Book account.</h1>
         <p className="muted">
-          Enter your email and we'll send you a one-click sign-in link. No passwords. Your account was created
-          automatically when you purchased — the link works even if this is your first time signing in.
+          Enter your email and we'll send you a six-digit sign-in code. No passwords. Your account was created
+          automatically when you purchased - the code works even if this is your first time signing in.
         </p>
 
         {authConfigured ? (
