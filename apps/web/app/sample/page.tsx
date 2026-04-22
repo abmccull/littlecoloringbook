@@ -133,6 +133,7 @@ export default async function SamplePage({
         <div id="sample-page-proof-module">
           <BookMockupBlock
             badge="Real photo to real keepsake"
+            bookMockupSrc={proofAssets.spiralBookClosedSword}
             coverSrc={proofAssets.realSwordPlayPhoto}
             pageSrc={proofAssets.realSwordPlayPage}
             title="Keep it as a quick PDF or turn it into the spiral book worth giving."

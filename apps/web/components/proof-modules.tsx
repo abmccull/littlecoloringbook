@@ -81,18 +81,26 @@ export function BookMockupBlock({
   badge = "Photo-to-book preview",
   coverSrc = proofAssets.kidPhoto,
   pageSrc = proofAssets.kidPage,
+  bookMockupSrc,
   title,
   copy,
 }: {
   badge?: string;
   coverSrc?: string;
   pageSrc?: string;
+  bookMockupSrc?: string;
   title: string;
   copy: string;
 }) {
   return (
     <div className="book-mockup-block">
-      <SpiralBookPreview alt="Example personalized spiral coloring book" coverSrc={coverSrc} pageSrc={pageSrc} variant="feature" />
+      <SpiralBookPreview
+        alt="Example personalized spiral coloring book"
+        bookMockupSrc={bookMockupSrc}
+        coverSrc={coverSrc}
+        pageSrc={pageSrc}
+        variant="feature"
+      />
       <div className="stack-tight">
         <span className="pill pill-mint">{badge}</span>
         <h3>{title}</h3>

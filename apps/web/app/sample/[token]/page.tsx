@@ -149,8 +149,9 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
         </div>
 
         <BookMockupBlock
-          coverSrc={proofAssets.kidPhoto}
-          pageSrc={proofAssets.kidPage}
+          bookMockupSrc={proofAssets.spiralBookClosedSword}
+          coverSrc={proofAssets.realSwordPlayPhoto}
+          pageSrc={proofAssets.realSwordPlayPage}
           title="Print tonight or turn it into a real keepsake."
           copy="The PDF gets you pages fast. The spiral book turns the same idea into something you can hand to a child, a grandparent, or a birthday guest."
         />

@@ -114,6 +114,8 @@ export const proofAssets = {
   realFamilyPlayPage: "/proof/real-family-play-coloring-page.jpeg",
   realSwordPlayPhoto: "/proof/real-sword-play-photo.jpeg",
   realSwordPlayPage: "/proof/real-sword-play-coloring-page.jpeg",
+  spiralBookClosedFamily: "/proof/spiral-book-closed-family.png",
+  spiralBookClosedSword: "/proof/spiral-book-closed-sword.png",
   // Compliance-passed Gemini hero used on the builder page proof block.
   geminiFamilyPage: "/proof/gemini-family-hero.png",
 } as const;
