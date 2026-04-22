@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderPortalSummary, type PortalSummary } from "@littlecolorbook/db";
@@ -55,6 +56,17 @@ function prettifyUploadStatus(value: string) {
       return "Needs attention";
     default:
       return prettify(value);
+  }
+}
+
+function getUploadSupportCopy(status: string) {
+  switch (status) {
+    case "uploaded":
+      return "Ready for your book";
+    case "failed":
+      return "Needs another look before we can use it";
+    default:
+      return "Still being prepared";
   }
 }
 
@@ -122,6 +134,7 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
   const downloadHref = summary.assets.downloadPdfPath || summary.assets.interiorPdfPath ? `/api/orders/portal/${token}/download` : null;
   const supportEmail = process.env.SUPPORT_EMAIL ?? "support@littlecolorbook.com";
   const supportHref = `mailto:${supportEmail}`;
+  const uploadedReadyCount = summary.uploads.filter((upload) => upload.status === "uploaded").length;
   const upsellSubject =
     summary.order.deliveryMode === "print"
       ? `Extra spiral copy request for order ${summary.order.id}`
@@ -223,19 +236,61 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
         </div>
       </section>
 
-      <section className="section portal-grid-two">
-        <div className="surface">
-          <span className="pill pill-sky">Uploaded photos</span>
+      <section className="section portal-media-stack">
+        <div className="surface portal-media-surface">
+          <div className="portal-media-header">
+            <div className="stack-tight">
+              <span className="pill pill-sky">Uploaded photos</span>
+              <h2>Your photo gallery</h2>
+              <p className="muted">
+                These are the photos currently attached to this order, so you can recognize the book at a glance
+                instead of scanning filenames.
+              </p>
+            </div>
+            <div className="portal-media-stats" aria-label="Upload summary">
+              <div className="portal-media-stat">
+                <strong>{uploadedReadyCount}</strong>
+                <span className="muted">{uploadedReadyCount === 1 ? "photo ready" : "photos ready"}</span>
+              </div>
+              <div className="portal-media-stat">
+                <strong>{summary.uploads.length}</strong>
+                <span className="muted">{summary.uploads.length === 1 ? "total upload" : "total uploads"}</span>
+              </div>
+            </div>
+          </div>
           {summary.uploads.length > 0 ? (
-            <div className="upload-results-list">
-              {summary.uploads.map((upload) => (
-                <div className="upload-result" key={upload.id}>
-                  <div>
-                    <strong>{upload.fileName}</strong>
-                    <p className="muted">Added to your book</p>
+            <div className="portal-upload-gallery">
+              {summary.uploads.map((upload, index) => (
+                <article className="portal-upload-card" key={upload.id}>
+                  <div className="portal-upload-thumb">
+                    {upload.status === "uploaded" ? (
+                      <Image
+                        alt={`Uploaded photo ${index + 1}`}
+                        className="portal-upload-thumb-image"
+                        fill
+                        sizes="(max-width: 640px) 88vw, (max-width: 1024px) 42vw, 240px"
+                        src={`/api/orders/portal/${token}/uploads/${upload.id}`}
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="portal-upload-thumb-fallback">
+                        <span>Photo {index + 1}</span>
+                      </div>
+                    )}
                   </div>
-                  <span className={`upload-state upload-state-${upload.status}`}>{prettifyUploadStatus(upload.status)}</span>
-                </div>
+                  <div className="portal-upload-card-copy">
+                    <div className="portal-upload-card-header">
+                      <div className="portal-upload-meta">
+                        <strong>{`Photo ${index + 1}`}</strong>
+                        <p className="muted">{getUploadSupportCopy(upload.status)}</p>
+                      </div>
+                      <span className={`upload-state upload-state-${upload.status}`}>{prettifyUploadStatus(upload.status)}</span>
+                    </div>
+                    <p className="mini-note portal-upload-file" title={upload.fileName}>
+                      {upload.fileName}
+                    </p>
+                  </div>
+                </article>
               ))}
             </div>
           ) : (
@@ -243,31 +298,47 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
           )}
         </div>
 
-        <div className="surface">
-          <span className="pill pill-coral">Delivery</span>
-          <div className="timeline-list">
-            <div className="timeline-item">
+        <div className="surface portal-delivery-surface">
+          <div className="stack-tight">
+            <span className="pill pill-coral">Delivery</span>
+            <h2>How this order arrives</h2>
+            <p className="muted">The key delivery details stay grouped here instead of getting lost beside a long upload list.</p>
+          </div>
+          <div className="portal-delivery-grid">
+            <div className="portal-delivery-item">
+              <span className="muted">Format</span>
               <strong>{summary.order.deliveryMode === "print" ? "Giftable Spiral Book + PDF" : "Print Tonight PDF"}</strong>
-              <p className="muted">
+              <p className="mini-note">
                 {summary.order.deliveryMode === "print"
-                  ? `${summary.order.quantity} printed ${summary.order.quantity === 1 ? "copy" : "copies"}`
+                  ? `${summary.order.quantity} printed ${summary.order.quantity === 1 ? "copy" : "copies"} plus the digital file`
                   : offer.priceLabel}
               </p>
             </div>
-            {summary.fulfillment ? (
-              <div className="timeline-item">
-                <strong>{prettify(summary.fulfillment.status)}</strong>
-                <p className="muted">{summary.fulfillment.trackingUrl ?? summary.fulfillment.shippingService ?? "Tracking pending"}</p>
-              </div>
-            ) : null}
-            {summary.shippingAddress ? (
-              <div className="timeline-item">
-                <strong>{summary.shippingAddress.fullName ?? "Shipping address"}</strong>
-                <p className="muted">
-                  {summary.shippingAddress.line1}, {summary.shippingAddress.city}, {summary.shippingAddress.state} {summary.shippingAddress.postalCode}
-                </p>
-              </div>
-            ) : null}
+            <div className="portal-delivery-item">
+              <span className="muted">Current status</span>
+              <strong>{summary.fulfillment ? prettify(summary.fulfillment.status) : prettify(summary.order.status)}</strong>
+              <p className="mini-note">
+                {summary.fulfillment?.trackingUrl ??
+                  summary.fulfillment?.shippingService ??
+                  (summary.order.deliveryMode === "print"
+                    ? "Tracking appears here after the print partner hands it to the carrier."
+                    : "Your PDF download button appears above as soon as it is ready.")}
+              </p>
+            </div>
+            <div className="portal-delivery-item">
+              <span className="muted">{summary.order.deliveryMode === "print" ? "Ships to" : "Book setup"}</span>
+              <strong>
+                {summary.shippingAddress?.fullName ??
+                  (summary.order.deliveryMode === "print" ? "Shipping address on file" : "Digital delivery only")}
+              </strong>
+              <p className="mini-note">
+                {summary.shippingAddress
+                  ? `${summary.shippingAddress.line1}, ${summary.shippingAddress.city}, ${summary.shippingAddress.state} ${summary.shippingAddress.postalCode}`
+                  : summary.order.deliveryMode === "print"
+                    ? "Your delivery address will appear here once it is attached to the order."
+                    : `${summary.order.designCount} personalized pages built from ${uploadedReadyCount} uploaded ${uploadedReadyCount === 1 ? "photo" : "photos"}.`}
+              </p>
+            </div>
           </div>
         </div>
       </section>
