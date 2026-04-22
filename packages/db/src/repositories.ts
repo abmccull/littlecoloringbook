@@ -3339,10 +3339,51 @@ export async function recomputeDailyRollup(dayIso: string): Promise<DailyRollupR
       WHERE fj.updated_at >= start_ts AND fj.updated_at < end_ts
         AND fj.cost_cents IS NOT NULL
     ),
-    ad_agg AS (
-      SELECT COALESCE(SUM(amount_cents), 0)::int AS c
+    campaign_sync AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(spend_cents), 0)::int AS total_cents
+      FROM campaign_daily_metrics, day_bounds
+      WHERE date::date = d
+    ),
+    adset_sync AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(spend_cents), 0)::int AS total_cents
+      FROM adset_daily_metrics, day_bounds
+      WHERE date::date = d
+    ),
+    ad_sync AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(spend_cents), 0)::int AS total_cents
+      FROM ad_daily_metrics, day_bounds
+      WHERE date::date = d
+    ),
+    manual_meta AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(amount_cents), 0)::int AS total_cents
       FROM ad_spend_entries, day_bounds
-      WHERE spend_date = d
+      WHERE spend_date::date = d
+        AND platform = 'meta'
+    ),
+    manual_non_meta AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(amount_cents), 0)::int AS total_cents
+      FROM ad_spend_entries, day_bounds
+      WHERE spend_date::date = d
+        AND platform != 'meta'
+    ),
+    ad_agg AS (
+      SELECT (
+        CASE
+          WHEN cs.row_count > 0 THEN cs.total_cents
+          WHEN ass.row_count > 0 THEN ass.total_cents
+          WHEN ads.row_count > 0 THEN ads.total_cents
+          ELSE 0
+        END
+        + CASE
+          WHEN cs.row_count > 0 OR ass.row_count > 0 OR ads.row_count > 0 THEN mno.total_cents
+          ELSE mm.total_cents + mno.total_cents
+        END
+      )::int AS c
+      FROM campaign_sync cs
+      CROSS JOIN adset_sync ass
+      CROSS JOIN ad_sync ads
+      CROSS JOIN manual_meta mm
+      CROSS JOIN manual_non_meta mno
     )
     SELECT
       to_char(d, 'YYYY-MM-DD') AS day,
@@ -3561,17 +3602,102 @@ export async function getUtmAttributionReport(window: MetricsWindow): Promise<At
   return rows as unknown as AttributionRow[];
 }
 
-export async function sumAdSpendInWindow(window: MetricsWindow): Promise<number> {
-  if (!isDatabaseConfigured()) return 0;
+export type AdSpendBreakdownRow = {
+  meta_synced_cents: number;
+  manual_cents: number;
+  manual_meta_fallback_cents: number;
+  manual_non_meta_cents: number;
+  total_cents: number;
+  meta_source_level: "campaign" | "adset" | "ad" | null;
+};
+
+export async function getAdSpendBreakdownInWindow(window: MetricsWindow): Promise<AdSpendBreakdownRow> {
+  const fallback: AdSpendBreakdownRow = {
+    meta_synced_cents: 0,
+    manual_cents: 0,
+    manual_meta_fallback_cents: 0,
+    manual_non_meta_cents: 0,
+    total_cents: 0,
+    meta_source_level: null,
+  };
+  if (!isDatabaseConfigured()) return fallback;
   const db = getDatabase();
   const startStr = window.start.toISOString().slice(0, 10);
   const endStr = window.end.toISOString().slice(0, 10);
-  const result = await db.execute(sql<{ total_cents: number }>`
-    SELECT COALESCE(SUM(amount_cents), 0)::int AS total_cents
-    FROM ad_spend_entries
-    WHERE spend_date >= ${startStr} AND spend_date <= ${endStr}
+  const result = await db.execute(sql<AdSpendBreakdownRow>`
+    WITH campaign_sync AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(spend_cents), 0)::int AS total_cents
+      FROM campaign_daily_metrics
+      WHERE date::date >= ${startStr}::date AND date::date <= ${endStr}::date
+    ),
+    adset_sync AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(spend_cents), 0)::int AS total_cents
+      FROM adset_daily_metrics
+      WHERE date::date >= ${startStr}::date AND date::date <= ${endStr}::date
+    ),
+    ad_sync AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(spend_cents), 0)::int AS total_cents
+      FROM ad_daily_metrics
+      WHERE date::date >= ${startStr}::date AND date::date <= ${endStr}::date
+    ),
+    manual_meta AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(amount_cents), 0)::int AS total_cents
+      FROM ad_spend_entries
+      WHERE spend_date::date >= ${startStr}::date AND spend_date::date <= ${endStr}::date
+        AND platform = 'meta'
+    ),
+    manual_non_meta AS (
+      SELECT COUNT(*)::int AS row_count, COALESCE(SUM(amount_cents), 0)::int AS total_cents
+      FROM ad_spend_entries
+      WHERE spend_date::date >= ${startStr}::date AND spend_date::date <= ${endStr}::date
+        AND platform != 'meta'
+    )
+    SELECT
+      CASE
+        WHEN cs.row_count > 0 THEN cs.total_cents
+        WHEN ass.row_count > 0 THEN ass.total_cents
+        WHEN ads.row_count > 0 THEN ads.total_cents
+        ELSE 0
+      END::int AS meta_synced_cents,
+      CASE
+        WHEN cs.row_count > 0 OR ass.row_count > 0 OR ads.row_count > 0 THEN mno.total_cents
+        ELSE mm.total_cents + mno.total_cents
+      END::int AS manual_cents,
+      CASE
+        WHEN cs.row_count > 0 OR ass.row_count > 0 OR ads.row_count > 0 THEN 0
+        ELSE mm.total_cents
+      END::int AS manual_meta_fallback_cents,
+      mno.total_cents::int AS manual_non_meta_cents,
+      (
+        CASE
+          WHEN cs.row_count > 0 THEN cs.total_cents
+          WHEN ass.row_count > 0 THEN ass.total_cents
+          WHEN ads.row_count > 0 THEN ads.total_cents
+          ELSE 0
+        END
+        + CASE
+          WHEN cs.row_count > 0 OR ass.row_count > 0 OR ads.row_count > 0 THEN mno.total_cents
+          ELSE mm.total_cents + mno.total_cents
+        END
+      )::int AS total_cents,
+      CASE
+        WHEN cs.row_count > 0 THEN 'campaign'
+        WHEN ass.row_count > 0 THEN 'adset'
+        WHEN ads.row_count > 0 THEN 'ad'
+        ELSE NULL
+      END AS meta_source_level
+    FROM campaign_sync cs
+    CROSS JOIN adset_sync ass
+    CROSS JOIN ad_sync ads
+    CROSS JOIN manual_meta mm
+    CROSS JOIN manual_non_meta mno
   `);
-  return unwrapExecuteRows<{ total_cents: number }>(result)[0]?.total_cents ?? 0;
+  const row = unwrapExecuteRows<AdSpendBreakdownRow>(result)[0];
+  return row ?? fallback;
+}
+
+export async function sumAdSpendInWindow(window: MetricsWindow): Promise<number> {
+  return (await getAdSpendBreakdownInWindow(window)).total_cents;
 }
 
 export async function getSampleToPaidFunnel(window: MetricsWindow): Promise<{
@@ -3908,8 +4034,8 @@ export async function getCohortRevenueMatrix(
   `);
 
   return {
-    cells: cellsRaw as unknown as CohortCell[],
-    sizes: sizesRaw as unknown as CohortSize[],
+    cells: unwrapExecuteRows<CohortCell>(cellsRaw),
+    sizes: unwrapExecuteRows<CohortSize>(sizesRaw),
   };
 }
 
