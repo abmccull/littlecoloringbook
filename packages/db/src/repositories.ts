@@ -3599,7 +3599,7 @@ export async function getUtmAttributionReport(window: MetricsWindow): Promise<At
     HAVING COUNT(*) > 0
     ORDER BY paid_orders DESC, samples DESC
   `);
-  return rows as unknown as AttributionRow[];
+  return unwrapExecuteRows<AttributionRow>(rows);
 }
 
 export type AdSpendBreakdownRow = {
