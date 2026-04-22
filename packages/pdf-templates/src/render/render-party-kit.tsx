@@ -23,12 +23,12 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { registerFonts } from "../fonts/register";
-
-registerFonts();
 
 const LETTER_WIDTH_PT = 612;
 const LETTER_HEIGHT_PT = 792;
+const BODY_FONT = "Helvetica";
+const DISPLAY_FONT = "Helvetica-Bold";
+const HANDWRITING_FONT = "Times-Italic";
 
 const COLORS = {
   ink: "#211915",
@@ -55,7 +55,7 @@ const basePage = {
   paddingBottom: 48,
   paddingLeft: 56,
   paddingRight: 56,
-  fontFamily: "Inter",
+  fontFamily: BODY_FONT,
 } as const;
 
 const footer = StyleSheet.create({
@@ -72,7 +72,7 @@ const footer = StyleSheet.create({
     paddingTop: 10,
   },
   text: {
-    fontFamily: "Inter",
+    fontFamily: BODY_FONT,
     fontSize: 9,
     color: COLORS.muted,
   },
@@ -115,7 +115,7 @@ const coverStyles = StyleSheet.create({
     justifyContent: "center",
   },
   eyebrow: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 13,
     color: COLORS.accent,
     letterSpacing: 2,
@@ -123,13 +123,13 @@ const coverStyles = StyleSheet.create({
     marginBottom: 20,
   },
   thisBookBelongsTo: {
-    fontFamily: "Caveat",
+    fontFamily: HANDWRITING_FONT,
     fontSize: 34,
     color: COLORS.ink,
     marginBottom: 8,
   },
   nameBlock: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 56,
     fontWeight: 700,
     color: COLORS.accent,
@@ -145,7 +145,7 @@ const coverStyles = StyleSheet.create({
     marginBottom: 18,
   },
   colorThisIn: {
-    fontFamily: "Caveat",
+    fontFamily: HANDWRITING_FONT,
     fontSize: 18,
     color: COLORS.muted,
     marginTop: 22,
@@ -170,7 +170,7 @@ const coverStyles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: "center",
-    fontFamily: "Caveat",
+    fontFamily: HANDWRITING_FONT,
     fontSize: 14,
     color: COLORS.muted,
   },
@@ -211,7 +211,7 @@ function CoverSheet({ name }: { name: string | null }) {
 const tipsStyles = StyleSheet.create({
   page: basePage,
   eyebrow: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 11,
     color: COLORS.accent,
     letterSpacing: 1,
@@ -219,7 +219,7 @@ const tipsStyles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 28,
     fontWeight: 700,
     color: COLORS.ink,
@@ -227,7 +227,7 @@ const tipsStyles = StyleSheet.create({
     marginBottom: 10,
   },
   lede: {
-    fontFamily: "Inter",
+    fontFamily: BODY_FONT,
     fontSize: 12,
     color: COLORS.muted,
     lineHeight: 1.45,
@@ -240,7 +240,7 @@ const tipsStyles = StyleSheet.create({
   },
   tipNumber: {
     width: 28,
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 16,
     fontWeight: 700,
     color: COLORS.accent,
@@ -249,14 +249,14 @@ const tipsStyles = StyleSheet.create({
     flex: 1,
   },
   tipHeading: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 13,
     fontWeight: 700,
     color: COLORS.ink,
     marginBottom: 3,
   },
   tipText: {
-    fontFamily: "Inter",
+    fontFamily: BODY_FONT,
     fontSize: 11,
     color: COLORS.muted,
     lineHeight: 1.5,
@@ -322,7 +322,7 @@ function TipsPage() {
 const artistStyles = StyleSheet.create({
   page: basePage,
   eyebrow: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 11,
     color: COLORS.accent,
     letterSpacing: 1,
@@ -330,7 +330,7 @@ const artistStyles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 28,
     fontWeight: 700,
     color: COLORS.ink,
@@ -345,7 +345,7 @@ const artistStyles = StyleSheet.create({
     marginBottom: 18,
   },
   frameBoxLabel: {
-    fontFamily: "Caveat",
+    fontFamily: HANDWRITING_FONT,
     fontSize: 18,
     color: COLORS.muted,
     marginBottom: 8,
@@ -360,7 +360,7 @@ const artistStyles = StyleSheet.create({
     justifyContent: "center",
   },
   portraitHint: {
-    fontFamily: "Caveat",
+    fontFamily: HANDWRITING_FONT,
     fontSize: 14,
     color: COLORS.muted,
   },
@@ -371,7 +371,7 @@ const artistStyles = StyleSheet.create({
     gap: 8,
   },
   fillLabel: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 12,
     fontWeight: 700,
     color: COLORS.ink,
@@ -388,7 +388,7 @@ const artistStyles = StyleSheet.create({
     alignItems: "flex-end",
   },
   signatureLabel: {
-    fontFamily: "Caveat",
+    fontFamily: HANDWRITING_FONT,
     fontSize: 14,
     color: COLORS.muted,
     marginBottom: 4,

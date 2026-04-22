@@ -14,12 +14,12 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { registerFonts } from "../fonts/register";
-
-registerFonts();
 
 const LETTER_WIDTH_PT = 612; // 8.5 × 72
 const LETTER_HEIGHT_PT = 792; // 11 × 72
+const BODY_FONT = "Helvetica";
+const DISPLAY_FONT = "Helvetica-Bold";
+const EMPHASIS_FONT = "Times-Italic";
 
 const COLORS = {
   ink: "#211915",
@@ -39,10 +39,10 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     paddingLeft: 56,
     paddingRight: 56,
-    fontFamily: "Inter",
+    fontFamily: BODY_FONT,
   },
   eyebrow: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 11,
     color: COLORS.accent,
     letterSpacing: 1,
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 28,
     fontWeight: 700,
     color: COLORS.ink,
@@ -58,14 +58,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   lede: {
-    fontFamily: "Inter",
+    fontFamily: BODY_FONT,
     fontSize: 12,
     color: COLORS.muted,
     lineHeight: 1.45,
     marginBottom: 22,
   },
   sectionHeading: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 14,
     fontWeight: 700,
     color: COLORS.ink,
@@ -85,13 +85,13 @@ const styles = StyleSheet.create({
   },
   bullet: {
     width: 18,
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 12,
     color: COLORS.muted,
   },
   itemText: {
     flex: 1,
-    fontFamily: "Inter",
+    fontFamily: BODY_FONT,
     fontSize: 11,
     color: COLORS.ink,
     lineHeight: 1.45,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     borderLeftColor: COLORS.accent,
   },
   ruleLabel: {
-    fontFamily: "Fredoka",
+    fontFamily: DISPLAY_FONT,
     fontSize: 11,
     color: COLORS.accent,
     letterSpacing: 1,
@@ -113,9 +113,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   ruleText: {
-    fontFamily: "Inter",
+    fontFamily: EMPHASIS_FONT,
     fontSize: 12,
-    fontStyle: "italic",
     color: COLORS.ink,
     lineHeight: 1.4,
   },
@@ -132,7 +131,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   footerText: {
-    fontFamily: "Inter",
+    fontFamily: BODY_FONT,
     fontSize: 9,
     color: COLORS.muted,
   },
