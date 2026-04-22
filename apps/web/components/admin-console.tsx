@@ -6,6 +6,8 @@ import { useMemo, useState, useTransition } from "react";
 import type { AdminOrderDetail, AdminQueueItem } from "@littlecolorbook/db";
 import { getOfferByCode } from "@littlecolorbook/shared";
 
+const ADMIN_TIME_ZONE = "America/Denver";
+
 function formatMoney(cents: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -19,6 +21,7 @@ function formatDate(value: Date | string) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: ADMIN_TIME_ZONE,
   }).format(new Date(value));
 }
 

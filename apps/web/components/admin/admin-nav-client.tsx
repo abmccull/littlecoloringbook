@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignOutButton } from "../auth/sign-out-button";
 
 const NAV_GROUPS: Array<{
   label: string;
@@ -53,9 +54,9 @@ export function AdminNav({ sessionEmail }: { sessionEmail: string | null }) {
 
         <div className="admin-shell-session">
           {sessionEmail ? <span className="admin-shell-session-email">{sessionEmail}</span> : null}
-          <Link className="admin-shell-signout" href="/handler/sign-out">
+          <SignOutButton className="admin-shell-signout" redirectTo="/sign-in?after_auth_return_to=/admin">
             Sign out
-          </Link>
+          </SignOutButton>
         </div>
       </div>
 

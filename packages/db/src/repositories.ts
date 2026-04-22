@@ -3044,7 +3044,7 @@ export async function getRevenueMetrics(window: MetricsWindow): Promise<MetricsR
   const fallback: MetricsRevenueRow = { gross_cents: 0, refunded_cents: 0, paid_order_count: 0, total_order_count: 0 };
   if (!isDatabaseConfigured()) return fallback;
   const db = getDatabase();
-  const rows = await db.execute(sql<MetricsRevenueRow>`
+  const result = await db.execute(sql<MetricsRevenueRow>`
     SELECT
       COALESCE(SUM(CASE WHEN status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample' THEN total_cents ELSE 0 END), 0)::int AS gross_cents,
       COALESCE(SUM(refunded_cents), 0)::int AS refunded_cents,
@@ -3053,7 +3053,7 @@ export async function getRevenueMetrics(window: MetricsWindow): Promise<MetricsR
     FROM orders
     WHERE created_at >= ${window.start} AND created_at <= ${window.end}
   `);
-  const row = (rows as unknown as MetricsRevenueRow[])[0];
+  const row = unwrapExecuteRows<MetricsRevenueRow>(result)[0];
   return row ?? fallback;
 }
 
@@ -3083,7 +3083,7 @@ export async function getOrderBreakdown(window: MetricsWindow): Promise<MetricsO
   };
   if (!isDatabaseConfigured()) return fallback;
   const db = getDatabase();
-  const rows = await db.execute(sql<MetricsOrderBreakdownRow>`
+  const result = await db.execute(sql<MetricsOrderBreakdownRow>`
     SELECT
       COUNT(*) FILTER (WHERE delivery_mode = 'pdf' AND order_type != 'sample')::int AS pdf_count,
       COUNT(*) FILTER (WHERE delivery_mode = 'print')::int AS print_count,
@@ -3097,7 +3097,7 @@ export async function getOrderBreakdown(window: MetricsWindow): Promise<MetricsO
     FROM orders
     WHERE created_at >= ${window.start} AND created_at <= ${window.end}
   `);
-  const row = (rows as unknown as MetricsOrderBreakdownRow[])[0];
+  const row = unwrapExecuteRows<MetricsOrderBreakdownRow>(result)[0];
   return row ?? fallback;
 }
 
@@ -3109,7 +3109,7 @@ export async function getGeminiCostInWindow(window: MetricsWindow): Promise<{
   const fallback = { sample_cost_cents: 0, paid_cost_cents: 0, total_cost_cents: 0 };
   if (!isDatabaseConfigured()) return fallback;
   const db = getDatabase();
-  const rows = await db.execute(sql<typeof fallback>`
+  const result = await db.execute(sql<typeof fallback>`
     SELECT
       COALESCE(SUM(CASE WHEN gj.kind = 'sample' THEN gp.cost_cents ELSE 0 END), 0)::int AS sample_cost_cents,
       COALESCE(SUM(CASE WHEN gj.kind = 'full_book' THEN gp.cost_cents ELSE 0 END), 0)::int AS paid_cost_cents,
@@ -3119,7 +3119,7 @@ export async function getGeminiCostInWindow(window: MetricsWindow): Promise<{
     WHERE gp.created_at >= ${window.start} AND gp.created_at <= ${window.end}
       AND gp.cost_cents IS NOT NULL
   `);
-  const row = (rows as unknown as (typeof fallback)[])[0];
+  const row = unwrapExecuteRows<typeof fallback>(result)[0];
   return row ?? fallback;
 }
 
@@ -3142,7 +3142,7 @@ export async function getDailyRevenueSeries(window: MetricsWindow): Promise<Dail
   // the live query. This keeps the dashboard correct no matter what.
   const startStr = window.start.toISOString().slice(0, 10);
   const endStr = window.end.toISOString().slice(0, 10);
-  const rollupRows = (await db.execute(sql<DailyMetricsRow>`
+  const rollupRows = unwrapExecuteRows<DailyMetricsRow>(await db.execute(sql<DailyMetricsRow>`
     SELECT
       to_char(day, 'YYYY-MM-DD') AS day,
       (revenue_cents - refunded_cents)::int AS revenue_cents,
@@ -3151,7 +3151,7 @@ export async function getDailyRevenueSeries(window: MetricsWindow): Promise<Dail
     FROM daily_metrics_rollup
     WHERE day >= ${startStr}::date AND day <= ${endStr}::date
     ORDER BY day ASC
-  `)) as unknown as DailyMetricsRow[];
+  `));
 
   const expectedDayCount =
     Math.floor((window.end.getTime() - window.start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
@@ -3163,7 +3163,7 @@ export async function getDailyRevenueSeries(window: MetricsWindow): Promise<Dail
     return rollupRows;
   }
 
-  const rows = await db.execute(sql<DailyMetricsRow>`
+  const result = await db.execute(sql<DailyMetricsRow>`
     SELECT
       to_char(date_trunc('day', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
       COALESCE(SUM(CASE WHEN status NOT IN ('draft', 'awaiting_payment', 'failed') AND order_type != 'sample' THEN total_cents - COALESCE(refunded_cents, 0) ELSE 0 END), 0)::int AS revenue_cents,
@@ -3174,7 +3174,7 @@ export async function getDailyRevenueSeries(window: MetricsWindow): Promise<Dail
     GROUP BY 1
     ORDER BY 1
   `);
-  return rows as unknown as DailyMetricsRow[];
+  return unwrapExecuteRows<DailyMetricsRow>(result);
 }
 
 export async function getLuluActualCostInWindow(window: MetricsWindow): Promise<{
@@ -3185,7 +3185,7 @@ export async function getLuluActualCostInWindow(window: MetricsWindow): Promise<
   const fallback = { known_cost_cents: 0, jobs_with_cost: 0, jobs_total: 0 };
   if (!isDatabaseConfigured()) return fallback;
   const db = getDatabase();
-  const rows = await db.execute(sql<typeof fallback>`
+  const result = await db.execute(sql<typeof fallback>`
     SELECT
       COALESCE(SUM(fj.cost_cents), 0)::int AS known_cost_cents,
       COUNT(*) FILTER (WHERE fj.cost_cents IS NOT NULL)::int AS jobs_with_cost,
@@ -3195,7 +3195,7 @@ export async function getLuluActualCostInWindow(window: MetricsWindow): Promise<
     WHERE o.created_at >= ${window.start} AND o.created_at <= ${window.end}
       AND fj.status != 'draft'
   `);
-  const row = (rows as unknown as (typeof fallback)[])[0];
+  const row = unwrapExecuteRows<typeof fallback>(result)[0];
   return row ?? fallback;
 }
 
@@ -3214,7 +3214,7 @@ export async function getUnfulfilledPrintOrderDimensionsInWindow(window: Metrics
 }>> {
   if (!isDatabaseConfigured()) return [];
   const db = getDatabase();
-  const rows = await db.execute(sql<{
+  const result = await db.execute(sql<{
     design_count: number;
     quantity: number;
     quoted_production_cost_cents: number | null;
@@ -3242,11 +3242,11 @@ export async function getUnfulfilledPrintOrderDimensionsInWindow(window: Metrics
       AND o.status NOT IN ('draft', 'awaiting_payment', 'failed', 'refunded')
       AND (fj.id IS NULL OR fj.cost_cents IS NULL OR fj.status = 'draft')
   `);
-  return (rows as unknown as Array<{
+  return unwrapExecuteRows<{
     design_count: number;
     quantity: number;
     quoted_production_cost_cents: number | null;
-  }>).slice();
+  }>(result);
 }
 
 /**
@@ -3261,7 +3261,7 @@ export async function getUnfulfilledPrintOrderDimensionsInWindow(window: Metrics
 export async function getLuluProductionCostForOrder(orderId: string): Promise<number | null> {
   if (!isDatabaseConfigured()) return null;
   const db = getDatabase();
-  const rows = await db.execute(sql<{ cost_cents: number | null }>`
+  const result = await db.execute(sql<{ cost_cents: number | null }>`
     SELECT COALESCE(
       (SELECT fj.cost_cents FROM fulfillment_jobs fj WHERE fj.order_id = ${orderId} AND fj.cost_cents IS NOT NULL ORDER BY fj.updated_at DESC LIMIT 1),
       (SELECT COALESCE(
@@ -3270,7 +3270,7 @@ export async function getLuluProductionCostForOrder(orderId: string): Promise<nu
       ) FROM shipping_quotes sq WHERE sq.order_id = ${orderId} AND sq.quote_payload IS NOT NULL ORDER BY sq.is_selected DESC, sq.created_at DESC LIMIT 1)
     )::int AS cost_cents
   `);
-  const row = (rows as unknown as Array<{ cost_cents: number | null }>)[0];
+  const row = unwrapExecuteRows<{ cost_cents: number | null }>(result)[0];
   const v = row?.cost_cents;
   return typeof v === "number" && v > 0 ? v : null;
 }
@@ -3566,12 +3566,12 @@ export async function sumAdSpendInWindow(window: MetricsWindow): Promise<number>
   const db = getDatabase();
   const startStr = window.start.toISOString().slice(0, 10);
   const endStr = window.end.toISOString().slice(0, 10);
-  const rows = await db.execute(sql<{ total_cents: number }>`
+  const result = await db.execute(sql<{ total_cents: number }>`
     SELECT COALESCE(SUM(amount_cents), 0)::int AS total_cents
     FROM ad_spend_entries
     WHERE spend_date >= ${startStr} AND spend_date <= ${endStr}
   `);
-  return (rows as unknown as Array<{ total_cents: number }>)[0]?.total_cents ?? 0;
+  return unwrapExecuteRows<{ total_cents: number }>(result)[0]?.total_cents ?? 0;
 }
 
 export async function getSampleToPaidFunnel(window: MetricsWindow): Promise<{
@@ -3581,7 +3581,7 @@ export async function getSampleToPaidFunnel(window: MetricsWindow): Promise<{
   const fallback = { samples_created: 0, samples_to_paid: 0 };
   if (!isDatabaseConfigured()) return fallback;
   const db = getDatabase();
-  const rows = await db.execute(sql<typeof fallback>`
+  const result = await db.execute(sql<typeof fallback>`
     WITH samples AS (
       SELECT customer_id, MIN(created_at) AS sample_at
       FROM orders
@@ -3600,7 +3600,7 @@ export async function getSampleToPaidFunnel(window: MetricsWindow): Promise<{
       (SELECT COUNT(*)::int FROM samples) AS samples_created,
       (SELECT COUNT(DISTINCT customer_id)::int FROM conversions) AS samples_to_paid
   `);
-  const row = (rows as unknown as (typeof fallback)[])[0];
+  const row = unwrapExecuteRows<typeof fallback>(result)[0];
   return row ?? fallback;
 }
 
@@ -3612,7 +3612,7 @@ export async function getRepeatCustomerStats(window: MetricsWindow): Promise<{
   const fallback = { paying_customers: 0, repeat_customers: 0, total_paid_revenue_cents: 0 };
   if (!isDatabaseConfigured()) return fallback;
   const db = getDatabase();
-  const rows = await db.execute(sql<typeof fallback>`
+  const result = await db.execute(sql<typeof fallback>`
     WITH paid_orders AS (
       SELECT customer_id, total_cents - COALESCE(refunded_cents, 0) AS net_cents
       FROM orders
@@ -3628,7 +3628,7 @@ export async function getRepeatCustomerStats(window: MetricsWindow): Promise<{
        ) AS rc) AS repeat_customers,
       COALESCE((SELECT SUM(net_cents)::int FROM paid_orders), 0) AS total_paid_revenue_cents
   `);
-  const row = (rows as unknown as (typeof fallback)[])[0];
+  const row = unwrapExecuteRows<typeof fallback>(result)[0];
   return row ?? fallback;
 }
 
@@ -3809,7 +3809,7 @@ export async function recordOrganicPostMetricSnapshot(input: RecordOrganicPostMe
 export async function countNewPayingCustomers(window: MetricsWindow): Promise<number> {
   if (!isDatabaseConfigured()) return 0;
   const db = getDatabase();
-  const rows = await db.execute(sql<{ count: number }>`
+  const result = await db.execute(sql<{ count: number }>`
     WITH first_paid AS (
       SELECT customer_id, MIN(created_at) AS first_at
       FROM orders
@@ -3821,7 +3821,7 @@ export async function countNewPayingCustomers(window: MetricsWindow): Promise<nu
     SELECT COUNT(*)::int AS count FROM first_paid
     WHERE first_at >= ${window.start} AND first_at <= ${window.end}
   `);
-  return (rows as unknown as Array<{ count: number }>)[0]?.count ?? 0;
+  return unwrapExecuteRows<{ count: number }>(result)[0]?.count ?? 0;
 }
 
 /* ------------------------------------------------------------------

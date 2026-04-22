@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandLogo } from "../../components/brand-logo";
+import { SignOutButton } from "../../components/auth/sign-out-button";
 import { requireCustomerSession } from "../../lib/auth";
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
@@ -22,9 +23,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
           <Link className="topbar-link" href="/account/settings">
             Settings
           </Link>
-          <Link className="topbar-link" href="/handler/sign-out">
-            Sign out
-          </Link>
+          <SignOutButton className="topbar-link">Sign out</SignOutButton>
         </nav>
       </header>
       <main className="account-main">
