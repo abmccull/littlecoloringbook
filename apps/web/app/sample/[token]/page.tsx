@@ -90,6 +90,7 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
                 deliveryMode="pdf"
                 sampleOrderId={summary.order.id}
                 customerEmail={summary.customer?.email ?? null}
+                childFirstName={summary.order.childFirstName ?? null}
                 acquisitionPath="sample_first"
                 entrySource="sample-ready-primary"
                 className="button button-primary"
@@ -181,6 +182,7 @@ export default async function SampleReadyPage({ params }: SampleReadyPageProps) 
                   deliveryMode="pdf"
                   sampleOrderId={summary.order.id}
                   customerEmail={summary.customer?.email ?? null}
+                  childFirstName={summary.order.childFirstName ?? null}
                   acquisitionPath="sample_first"
                   entrySource="sample-ready-offer-grid"
                   className="button button-secondary offer-card-cta"

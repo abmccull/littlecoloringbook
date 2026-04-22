@@ -9,6 +9,7 @@ type SampleOfferCheckoutButtonProps = {
   deliveryMode: "pdf" | "print";
   sampleOrderId: string;
   customerEmail: string | null;
+  childFirstName?: string | null;
   acquisitionPath?: string;
   entrySource?: string;
   className?: string;
@@ -20,6 +21,7 @@ export function SampleOfferCheckoutButton({
   deliveryMode,
   sampleOrderId,
   customerEmail,
+  childFirstName,
   acquisitionPath,
   entrySource,
   className,
@@ -39,6 +41,10 @@ export function SampleOfferCheckoutButton({
 
     if (customerEmail) {
       params.set("email", customerEmail);
+    }
+
+    if (childFirstName) {
+      params.set("childFirstName", childFirstName);
     }
 
     if (sampleOrderId) {

@@ -16,7 +16,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { AcquisitionPayload } from "../lib/acquisition";
 import { getConsumerOffer } from "../lib/consumer-content";
+import { readMetaClickIds } from "../lib/meta-click-ids";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
+import { CoverStylePreview } from "./cover-style-preview";
 
 type DeliveryMode = "pdf" | "print";
 type BuilderStep = "format" | "pages" | "pack" | "occasion" | "cover" | "details" | "review";
@@ -27,8 +29,14 @@ type CreateOrderResponse = {
   selectedOffer: string;
 };
 
+type CreateCheckoutResponse = {
+  checkoutUrl?: string;
+  error?: string;
+};
+
 type CreateOrderFormProps = {
   acquisition: AcquisitionPayload;
+  initialChildFirstName?: string;
   initialEmail?: string;
   initialOffer?: string;
 };
@@ -132,6 +140,11 @@ const occasionCards: Record<string, { label: string; description: string; emoji:
   "grandparents-keepsake": { label: "For Grandparents", description: "A personalized gift grandparents will treasure.", emoji: "💝" },
 };
 
+function getPreviewCoverTitle(value: string) {
+  const trimmed = value.trim();
+  return trimmed ? `${trimmed}'s Coloring Book` : "Mila's Coloring Book";
+}
+
 const stepLabels: Record<BuilderStep, string> = {
   format: "Format",
   pages: "Pages",
@@ -177,7 +190,7 @@ async function readApiPayload<T>(response: Response) {
   return JSON.parse(raw) as T;
 }
 
-export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: CreateOrderFormProps) {
+export function CreateOrderForm({ acquisition, initialChildFirstName, initialEmail, initialOffer }: CreateOrderFormProps) {
   const router = useRouter();
   const formId = "create-order-form";
   const resolvedInitialOffer = getOfferByCode(initialOffer ?? "pdf-30");
@@ -193,7 +206,7 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
   const [destination, setDestination] = useState("");
   const [petName, setPetName] = useState("");
   const [email, setEmail] = useState(initialEmail ?? "");
-  const [childFirstName, setChildFirstName] = useState("");
+  const [childFirstName, setChildFirstName] = useState(initialChildFirstName ?? "");
   const [coverNameMode, setCoverNameMode] = useState<CoverNameMode>("same");
   const [copyNames, setCopyNames] = useState<string[]>([]);
   const [dedicationText, setDedicationText] = useState("");
@@ -326,6 +339,32 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
     goToStep(deliveryMode === "print" ? "pack" : "occasion");
   }
 
+  function handleOfferUpgrade(nextOfferCode: OfferCode) {
+    const nextOffer = getOfferByCode(nextOfferCode);
+    setSelectedOfferCode(nextOffer.code as OfferCode);
+    setErrorMessage(null);
+    trackEvent("builder_offer_upgraded", {
+      deliveryMode,
+      selectedOffer: nextOffer.code,
+      designCount: nextOffer.designs,
+      surface: "builder_details_step",
+    });
+  }
+
+  function handlePrintUpgrade(nextOfferCode: OfferCode) {
+    const nextOffer = getOfferByCode(nextOfferCode);
+    setDeliveryMode("print");
+    setSelectedOfferCode(nextOffer.code as OfferCode);
+    setPrintBundleCode(defaultPrintBundleCode);
+    setErrorMessage(null);
+    trackEvent("builder_format_upgraded", {
+      deliveryMode: "print",
+      selectedOffer: nextOffer.code,
+      designCount: nextOffer.designs,
+      surface: "builder_details_step",
+    });
+  }
+
   function handleBundleSelect(nextBundleCode: PrintBundleCode) {
     const nextBundle = printBundleOptions.find((option) => option.code === nextBundleCode) ?? printBundleOptions[0];
     setPrintBundleCode(nextBundleCode);
@@ -392,7 +431,7 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
 
     if (getEmailError(email)) {
       setEmailTouched(true);
-      setErrorMessage("Add your email before you move into the upload step.");
+      setErrorMessage("Add your email before you move into payment.");
       setCurrentStep("details");
       return;
     }
@@ -459,11 +498,53 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
         },
       );
 
-      const nextUrl = new URL("/create/uploads", window.location.origin);
-      nextUrl.searchParams.set("orderId", payload.id);
-      nextUrl.searchParams.set("deliveryMode", deliveryMode);
-      nextUrl.searchParams.set("selectedOffer", selectedOffer.code);
-      router.push(nextUrl.pathname + "?" + nextUrl.searchParams.toString());
+      if (deliveryMode === "print") {
+        const nextUrl = new URL("/create/shipping", window.location.origin);
+        nextUrl.searchParams.set("orderId", payload.id);
+        nextUrl.searchParams.set("selectedOffer", selectedOffer.code);
+        trackEvent("shipping_step_started", {
+          orderId: payload.id,
+          selectedOffer: selectedOffer.code,
+        });
+        router.push(nextUrl.pathname + "?" + nextUrl.searchParams.toString());
+        return;
+      }
+
+      const checkoutResponse = await fetch(`/api/orders/${payload.id}/checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          selectedOffer: selectedOffer.code,
+          ...readMetaClickIds(),
+        }),
+      });
+
+      const checkoutPayload = await readApiPayload<CreateCheckoutResponse>(checkoutResponse);
+
+      if (!checkoutResponse.ok || !checkoutPayload.checkoutUrl) {
+        throw new Error(checkoutPayload.error ?? "We couldn't open checkout. Please try again.");
+      }
+
+      trackEvent("checkout_started", {
+        deliveryMode,
+        orderId: payload.id,
+        selectedOffer: selectedOffer.code,
+      });
+      trackBuyerJourneyStage(
+        "checkout_started",
+        {
+          orderId: payload.id,
+          deliveryMode,
+          selectedOffer: selectedOffer.code,
+          surface: "builder_review_step",
+        },
+        {
+          onceKey: `checkout-started:${payload.id}`,
+        },
+      );
+      window.location.assign(checkoutPayload.checkoutUrl);
     } catch (error) {
       trackEvent("order_draft_failed", {
         deliveryMode,
@@ -505,6 +586,32 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
   ];
   const previousStep = steps[currentStepIndex - 1] ?? null;
   const nextStep = steps[currentStepIndex + 1] ?? null;
+  const coverPreviewTitle = getPreviewCoverTitle(childFirstName);
+  const coverPreviewKicker = occasionCards[occasion]?.label ?? "Family Memory Book";
+  const upgradeOptions = offerOptions[deliveryMode]
+    .filter((offer) => offer.designs > selectedOffer.designs)
+    .map((offer) => {
+      const nextSubtotalCents =
+        deliveryMode === "print"
+          ? getOfferSubtotalForQuantity(offer, {
+              quantity: selectedPrintBundle.quantity,
+              bundleSelection: printBundleCode,
+            })
+          : offer.subtotalCents;
+
+      return {
+        offer,
+        deltaCents: nextSubtotalCents - computedSubtotalCents,
+      };
+    });
+  const printUpgradeOffer =
+    deliveryMode === "pdf" ? getOfferByCode(`print-${selectedOffer.designs}` as OfferCode) : null;
+  const printUpgradeDeltaCents =
+    printUpgradeOffer && deliveryMode === "pdf"
+      ? printUpgradeOffer.subtotalCents - selectedOffer.subtotalCents
+      : 0;
+  const detailsActionLabel = "Continue to Review";
+  const reviewActionLabel = deliveryMode === "print" ? "Continue to Delivery" : "Go to Secure Checkout";
 
   const stepContent: Record<
     BuilderStep,
@@ -535,11 +642,11 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
     },
     details: {
       title: "Who is this book for?",
-      description: "Add the email we should keep the order under, plus the cover name and optional dedication.",
+      description: "Add the order details and make one last size check before you move into payment.",
     },
     review: {
-      title: "Quick review before photo upload.",
-      description: "Make sure the format, size, pack, occasion, and cover direction all feel right before you move into the photo step.",
+      title: "Quick review before payment.",
+      description: "Make sure the format, size, pack, occasion, and cover direction all feel right before you move into checkout.",
     },
   };
 
@@ -568,12 +675,12 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
           <div className="builder-progress-side builder-progress-side-right">
             {currentStep === "details" ? (
               <button className="builder-progress-action" type="button" onClick={handleDetailsContinue}>
-                <strong>Review</strong>
+                <strong>{detailsActionLabel}</strong>
                 <span aria-hidden="true">→</span>
               </button>
             ) : currentStep === "review" ? (
               <button className="builder-progress-action" disabled={isSubmitting} form={formId} type="submit">
-                <strong>{isSubmitting ? "Saving..." : "Uploads"}</strong>
+                <strong>{isSubmitting ? "Starting..." : reviewActionLabel}</strong>
                 <span aria-hidden="true">→</span>
               </button>
             ) : nextStep ? (
@@ -693,9 +800,18 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
                   type="button"
                   onClick={() => handleCoverStyleSelect(styleCode)}
                 >
-                  <span className="pill pill-sun">{style.label}</span>
-                  <strong>{style.label}</strong>
-                  <p>{style.description}</p>
+                  <div className="cover-style-card-media">
+                    <CoverStylePreview
+                      kicker={coverPreviewKicker}
+                      styleCode={styleCode}
+                      title={coverPreviewTitle}
+                    />
+                  </div>
+                  <div className="cover-style-card-copy">
+                    <span className="pill pill-sun">{style.label}</span>
+                    <strong>{style.label}</strong>
+                    <p>{style.description}</p>
+                  </div>
                 </button>
               );
             })}
@@ -705,21 +821,83 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
         {currentStep === "details" ? (
           <div className="upload-stack">
             <div className="surface selection-summary">
-              <span className="pill pill-coral">{coverStyleCard.label}</span>
+              <span className={`pill ${deliveryMode === "print" ? "pill-coral" : "pill-sky"}`}>{selectedOffer.designs} pages</span>
               <h3>{selectedMerchOffer.title}</h3>
               <p className="muted">
                 {deliveryMode === "print"
                   ? `${selectedPrintBundle.quantity} printed ${selectedPrintBundle.quantity === 1 ? "copy" : "copies"} plus the PDF download`
                   : "Printable PDF ready as soon as the pages are finished"}
               </p>
-              <p className="mini-note">You will upload {selectedOffer.designs} photos right after this step.</p>
+              <p className="offer-meta">
+                {deliveryMode === "print" ? `${formatMoney(computedSubtotalCents)} before shipping` : selectedOffer.priceLabel}
+              </p>
+              <p className="mini-note">
+                {deliveryMode === "print"
+                  ? `Delivery and payment come next. After checkout, you will upload ${selectedOffer.designs} photos.`
+                  : `Payment comes next. After checkout, you will upload ${selectedOffer.designs} photos.`}
+              </p>
             </div>
 
+            {upgradeOptions.length > 0 ? (
+              <div className="surface builder-upsell-panel">
+                <div className="builder-upsell-copy">
+                  <span className="pill pill-coral">Worth a quick size check</span>
+                  <h3>{selectedOffer.designs} pages is the starter. Need more room?</h3>
+                  <p className="muted">
+                    If the camera roll is already fuller than this, switch the order here in one click before you pay. We only show the extra amount.
+                  </p>
+                </div>
+                <div className="builder-upsell-grid">
+                  {upgradeOptions.map(({ offer, deltaCents }) => {
+                    const merchOffer = getConsumerOffer(offer.format === "print" ? (`pdf-${offer.designs}` as OfferCode) : offer.code);
+
+                    return (
+                      <button
+                        className="builder-upsell-button"
+                        key={offer.code}
+                        type="button"
+                        onClick={() => handleOfferUpgrade(offer.code as OfferCode)}
+                      >
+                        <span className={`pill ${offer.designs === 50 ? "pill-mint" : "pill-sun"}`}>{offer.designs} pages</span>
+                        <strong>{`+${formatMoney(deltaCents)}`}</strong>
+                        <p>{merchOffer.title}</p>
+                        <p className="offer-meta">{`Switch this order to ${offer.designs} uploads.`}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {deliveryMode === "pdf" && printUpgradeOffer ? (
+              <div className="surface builder-upsell-panel">
+                <div className="builder-upsell-copy">
+                  <span className="pill pill-mint">Want the physical book too?</span>
+                  <h3>Make this a giftable spiral book in one click.</h3>
+                  <p className="muted">
+                    Keep the same page count, add the shipped spiral version, and still keep the PDF. We only show the book-price difference here. Shipping is chosen on the next step.
+                  </p>
+                </div>
+                <div className="builder-upsell-grid">
+                  <button
+                    className="builder-upsell-button"
+                    type="button"
+                    onClick={() => handlePrintUpgrade(printUpgradeOffer.code as OfferCode)}
+                  >
+                    <span className="pill pill-coral">Spiral Book + PDF</span>
+                    <strong>{`+${formatMoney(printUpgradeDeltaCents)}`}</strong>
+                    <p>{`${printUpgradeOffer.designs} pages in the shipped spiral version`}</p>
+                    <p className="offer-meta">Shipping is added after you confirm the delivery address.</p>
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <div className="status-banner status-banner-progress status-banner-compact">
-              <span className="pill pill-sky">Next after this</span>
+              <span className="pill pill-sky">After payment</span>
               <div className="status-banner-copy">
-                <strong>Photo upload opens immediately after review.</strong>
-                <p>We use this email to keep the builder, upload step, and checkout links tied to one place.</p>
+                <strong>Photo upload opens right after checkout.</strong>
+                <p>We use this email to keep the builder, payment step, upload step, and order portal tied to one place.</p>
               </div>
             </div>
 
@@ -898,6 +1076,17 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
               />
               <p className="field-note">A short line for the inside page if you want the book to feel more gift-ready.</p>
             </div>
+
+            <div className="builder-step-footer">
+              <p className="muted">
+                {deliveryMode === "print"
+                  ? "Next you will confirm delivery and payment, then upload the photos after checkout."
+                  : "Next you will pay, then upload the photos after checkout."}
+              </p>
+              <button className="button button-primary" type="button" onClick={handleDetailsContinue}>
+                {detailsActionLabel}
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -924,15 +1113,21 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
 
             <div className="surface builder-review-note">
               <span className="pill pill-mint">What happens next</span>
-              <h3>Next comes photo upload.</h3>
+              <h3>{deliveryMode === "print" ? "Next comes delivery and secure checkout." : "Next comes secure checkout."}</h3>
               <p className="muted">
-                After you confirm this setup, you will upload the photos for the book. PDF orders move straight into page-making. Spiral books move into delivery and checkout after upload.
+                {deliveryMode === "print"
+                  ? "You will confirm the shipping address and pay next. As soon as checkout finishes, the upload step opens so you can send the photos for the book."
+                  : "You will pay next. As soon as checkout finishes, the upload step opens so you can send the photos for the book."}
               </p>
               <div className="status-banner status-banner-progress status-banner-compact">
                 <span className="pill pill-sky">Ready after one click</span>
                 <div className="status-banner-copy">
-                  <strong>Confirm this setup, then move straight into the upload step.</strong>
-                  <p>No extra detour. The next screen is where the actual photos go in.</p>
+                  <strong>{deliveryMode === "print" ? "Checkout comes before uploads." : "Pay now, upload right after."}</strong>
+                  <p>
+                    {deliveryMode === "print"
+                      ? "You will hit the delivery step next, then checkout, then land on the upload stage."
+                      : "The next screen after payment is the upload stage, not another setup detour."}
+                  </p>
                 </div>
               </div>
               <div className="builder-review-list">
@@ -957,6 +1152,16 @@ export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: Cre
                     ))
                   : null}
               </div>
+            </div>
+            <div className="builder-step-footer">
+              <p className="muted">
+                {deliveryMode === "print"
+                  ? "Next you confirm delivery and payment. Upload opens immediately after checkout."
+                  : "Next you pay securely. Upload opens immediately after checkout."}
+              </p>
+              <button className="button button-primary" disabled={isSubmitting} form={formId} type="submit">
+                {isSubmitting ? "Starting..." : reviewActionLabel}
+              </button>
             </div>
           </div>
         ) : null}

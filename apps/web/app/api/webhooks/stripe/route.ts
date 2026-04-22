@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
+  appendOrderEvent,
+  applyPaidOrderUpgrade,
   getOrderById,
   getOrderByStripeCheckoutSessionId,
   getOrderPortalSummaryByOrderId,
@@ -51,6 +53,27 @@ async function handleCheckoutCompleted(event: Stripe.Event, session: Stripe.Chec
   const orderId = await resolveOrderId(session);
   if (!orderId) {
     return { orderId: null, accountStatus: "no_order" as const };
+  }
+  const metadata = session.metadata ?? {};
+  const isUpgradeCheckout = metadata.checkoutKind === "order_upgrade";
+
+  if (isUpgradeCheckout) {
+    const parsedQuantity = Number.parseInt(metadata.quantity ?? "", 10);
+    const parsedShippingCents = Number.parseInt(metadata.shippingCents ?? "", 10);
+
+    await applyPaidOrderUpgrade({
+      orderId,
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId: getPaymentIntentId(session),
+      selectedOfferCode: metadata.selectedOfferCode ?? null,
+      quantity: Number.isFinite(parsedQuantity) ? parsedQuantity : null,
+      bundleSelection: metadata.bundleSelection || null,
+      shippingQuoteId: metadata.selectedQuote || null,
+      shippingCents: Number.isFinite(parsedShippingCents) ? parsedShippingCents : null,
+      rawEventId: event.id,
+    });
+
+    return { orderId, accountStatus: "skipped" as const };
   }
 
   await markOrderPaidFromCheckout({
@@ -230,18 +253,26 @@ export async function POST(request: NextRequest) {
     if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
       const orderId = await resolveOrderId(session);
+      const isUpgradeCheckout = session.metadata?.checkoutKind === "order_upgrade";
 
       if (orderId) {
-        await markOrderCheckoutExpired({
-          orderId,
-          stripeCheckoutSessionId: session.id,
-          rawEventId: event.id,
-        });
+        if (isUpgradeCheckout) {
+          await appendOrderEvent(orderId, "checkout.upgrade_session_expired", {
+            stripeCheckoutSessionId: session.id,
+            rawEventId: event.id,
+          });
+        } else {
+          await markOrderCheckoutExpired({
+            orderId,
+            stripeCheckoutSessionId: session.id,
+            rawEventId: event.id,
+          });
+        }
 
         // Abandonment sequence enrollment — only if we can reach the
         // customer and the session had a real email attached.
         const customerEmail = session.customer_details?.email ?? null;
-        if (customerEmail) {
+        if (!isUpgradeCheckout && customerEmail) {
           try {
             const row = await getOrderById(orderId);
             if (row?.customerId) {

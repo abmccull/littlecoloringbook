@@ -1,36 +1,49 @@
 "use client";
 
-import { useState } from "react";
-import { UploadDropzone } from "./upload-dropzone";
+import { getOfferByCode, getOfferSubtotalForQuantity, offers, type OfferCode } from "@littlecolorbook/shared";
+import { useMemo, useState } from "react";
+import { readMetaClickIds } from "../lib/meta-click-ids";
 import { trackEvent } from "./analytics-provider";
+import { UploadDropzone } from "./upload-dropzone";
 
 type SetupStep = "upload" | "customize" | "confirm";
 
 type OrderSetupFormProps = {
-  orderId: string;
-  portalToken: string;
+  bundleSelection: string | null;
   deliveryMode: "pdf" | "print";
   designCount: number;
-  offerTitle: string;
-  initialChildFirstName: string;
-  initialCoverStyle: string;
-  initialDedicationText: string;
   existingUploads: Array<{
     fileName: string;
     objectPath?: string;
     status: "uploaded" | "failed";
   }>;
+  initialChildFirstName: string;
+  initialCoverStyle: string;
+  initialDedicationText: string;
+  offerTitle: string;
+  orderId: string;
   portalHref: string;
+  portalToken: string;
+  quantity: number;
+  selectedOfferCode: string;
+  shippingCents: number;
+  subtotalCents: number;
+  totalCents: number;
 };
 
 type UploadStats = {
-  total: number;
-  uploaded: number;
   failed: number;
   isUploading: boolean;
+  total: number;
+  uploaded: number;
 };
 
-const coverStyleCards: Record<string, { label: string; description: string; toneClass: string }> = {
+type UpgradeCheckoutResponse = {
+  checkoutUrl?: string;
+  error?: string;
+};
+
+const coverStyleCards: Record<string, { description: string; label: string; toneClass: string }> = {
   storybook: {
     label: "Storybook",
     description: "Vintage and giftable. Ornamental corners, serif typography, warm tones.",
@@ -61,18 +74,42 @@ const stepLabels: Record<SetupStep, string> = {
 
 const steps: SetupStep[] = ["upload", "customize", "confirm"];
 
+function formatMoney(cents: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(cents / 100);
+}
+
+async function readApiPayload<T>(response: Response) {
+  const raw = await response.text();
+
+  if (!raw) {
+    return {} as T;
+  }
+
+  return JSON.parse(raw) as T;
+}
+
 export function OrderSetupForm({
-  orderId,
-  portalToken,
+  bundleSelection,
   deliveryMode,
   designCount,
-  offerTitle,
+  existingUploads,
   initialChildFirstName,
   initialCoverStyle,
   initialDedicationText,
-  existingUploads,
+  offerTitle,
+  orderId,
   portalHref,
+  portalToken,
+  quantity,
+  selectedOfferCode,
+  shippingCents,
+  subtotalCents,
+  totalCents,
 }: OrderSetupFormProps) {
+  const activeOffer = useMemo(() => getOfferByCode(selectedOfferCode), [selectedOfferCode]);
   const [currentStep, setCurrentStep] = useState<SetupStep>("upload");
   const [uploadStats, setUploadStats] = useState<UploadStats>({
     total: 0,
@@ -85,17 +122,111 @@ export function OrderSetupForm({
   const [dedicationText, setDedicationText] = useState(initialDedicationText);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [upgradeBusyCode, setUpgradeBusyCode] = useState<string | null>(null);
+  const [upgradeErrorMessage, setUpgradeErrorMessage] = useState<string | null>(null);
 
-  const existingUploadedCount = existingUploads.filter((u) => u.status === "uploaded").length;
+  const existingUploadedCount = existingUploads.filter((upload) => upload.status === "uploaded").length;
   const newUploadedCount = uploadStats.uploaded;
   const totalUploadedCount = existingUploadedCount + newUploadedCount;
   const hasEnoughUploads = totalUploadedCount >= 1;
   const isPrint = deliveryMode === "print";
   const currentStepIndex = steps.indexOf(currentStep);
+  const currentPlanLabel = isPrint ? "Giftable Spiral Book + PDF" : "Print Tonight PDF";
+
+  const pageUpgradeOptions = useMemo(
+    () =>
+      offers
+        .filter((offer) => offer.format === activeOffer.format && offer.designs > activeOffer.designs)
+        .map((offer) => {
+          const nextSubtotalCents =
+            offer.format === "print"
+              ? getOfferSubtotalForQuantity(offer, {
+                  quantity,
+                  bundleSelection,
+                })
+              : offer.subtotalCents;
+
+          return {
+            offer,
+            deltaCents: nextSubtotalCents - subtotalCents,
+          };
+        })
+        .filter((option) => option.deltaCents > 0),
+    [activeOffer, bundleSelection, quantity, subtotalCents],
+  );
+
+  const printUpgradeOptions = useMemo(
+    () =>
+      activeOffer.format === "pdf"
+        ? offers
+            .filter((offer) => offer.format === "print" && offer.designs >= activeOffer.designs)
+            .map((offer) => ({
+              offer,
+              deltaCents: offer.subtotalCents - subtotalCents,
+            }))
+            .filter((option) => option.deltaCents > 0)
+        : [],
+    [activeOffer, subtotalCents],
+  );
 
   function goToStep(step: SetupStep) {
     setCurrentStep(step);
     setErrorMessage(null);
+  }
+
+  async function handlePlanUpgrade(nextOfferCode: OfferCode) {
+    const nextOffer = getOfferByCode(nextOfferCode);
+    setUpgradeBusyCode(nextOffer.code);
+    setUpgradeErrorMessage(null);
+
+    try {
+      if (nextOffer.format === "print") {
+        trackEvent("setup_upgrade_shipping_started", {
+          orderId,
+          currentOffer: activeOffer.code,
+          nextOffer: nextOffer.code,
+          quantity,
+          surface: "order_setup_upload_step",
+        });
+
+        const nextUrl = new URL("/create/shipping", window.location.origin);
+        nextUrl.searchParams.set("orderId", orderId);
+        nextUrl.searchParams.set("selectedOffer", nextOffer.code);
+        nextUrl.searchParams.set("returnTo", `${portalHref}/setup`);
+        window.location.assign(nextUrl.pathname + "?" + nextUrl.searchParams.toString());
+        return;
+      }
+
+      const response = await fetch(`/api/orders/${orderId}/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selectedOffer: nextOffer.code,
+          quantity,
+          bundleSelection,
+          shippingCents,
+          ...readMetaClickIds(),
+        }),
+      });
+
+      const payload = await readApiPayload<UpgradeCheckoutResponse>(response);
+
+      if (!response.ok || !payload.checkoutUrl) {
+        throw new Error(payload.error ?? "We could not open the upgrade checkout. Please try again.");
+      }
+
+      trackEvent("setup_upgrade_checkout_started", {
+        orderId,
+        currentOffer: activeOffer.code,
+        nextOffer: nextOffer.code,
+        surface: "order_setup_upload_step",
+      });
+
+      window.location.assign(payload.checkoutUrl);
+    } catch (error) {
+      setUpgradeErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+      setUpgradeBusyCode(null);
+    }
   }
 
   async function handleStartGeneration() {
@@ -140,12 +271,8 @@ export function OrderSetupForm({
         <div className="builder-progress-top">
           <div className="builder-progress-side builder-progress-side-left">
             {currentStepIndex > 0 ? (
-              <button
-                className="builder-progress-link"
-                type="button"
-                onClick={() => goToStep(steps[currentStepIndex - 1]!)}
-              >
-                <span aria-hidden="true">←</span>
+              <button className="builder-progress-link" type="button" onClick={() => goToStep(steps[currentStepIndex - 1]!)}>
+                <span aria-hidden="true">&larr;</span>
                 <strong>{stepLabels[steps[currentStepIndex - 1]!]}</strong>
               </button>
             ) : (
@@ -162,22 +289,14 @@ export function OrderSetupForm({
           </div>
           <div className="builder-progress-side builder-progress-side-right">
             {currentStep === "upload" && hasEnoughUploads && !uploadStats.isUploading ? (
-              <button
-                className="builder-progress-action"
-                type="button"
-                onClick={() => goToStep("customize")}
-              >
+              <button className="builder-progress-action" type="button" onClick={() => goToStep("customize")}>
                 <strong>Customize</strong>
-                <span aria-hidden="true">→</span>
+                <span aria-hidden="true">&rarr;</span>
               </button>
             ) : currentStep === "customize" ? (
-              <button
-                className="builder-progress-action"
-                type="button"
-                onClick={() => goToStep("confirm")}
-              >
+              <button className="builder-progress-action" type="button" onClick={() => goToStep("confirm")}>
                 <strong>Start</strong>
-                <span aria-hidden="true">→</span>
+                <span aria-hidden="true">&rarr;</span>
               </button>
             ) : (
               <span className="builder-progress-placeholder" />
@@ -196,10 +315,103 @@ export function OrderSetupForm({
               <span className="pill pill-mint">Payment confirmed</span>
               <h1>Upload your photos to build the book.</h1>
               <p className="lede">
-                Upload up to {designCount} photos. One photo per page. The clearest faces and
-                favorite moments turn into the best coloring pages.
+                Upload up to {designCount} photos. One photo per page. The clearest faces and favorite moments turn into the best coloring pages.
               </p>
             </div>
+
+            <div className="surface selection-summary">
+              <span className="pill pill-sky">Current paid plan</span>
+              <h3>{offerTitle}</h3>
+              <div className="builder-review-list">
+                <div className="builder-review-line">
+                  <span className="muted">Format</span>
+                  <strong>{currentPlanLabel}</strong>
+                </div>
+                <div className="builder-review-line">
+                  <span className="muted">Pages</span>
+                  <strong>{designCount} coloring pages</strong>
+                </div>
+                <div className="builder-review-line">
+                  <span className="muted">Paid total</span>
+                  <strong>{formatMoney(totalCents)}</strong>
+                </div>
+                {isPrint ? (
+                  <div className="builder-review-line">
+                    <span className="muted">Printed copies</span>
+                    <strong>{quantity}</strong>
+                  </div>
+                ) : null}
+              </div>
+              <p className="mini-note">
+                You can still upgrade the size or move into the spiral-book version before these uploads go into generation.
+              </p>
+            </div>
+
+            {pageUpgradeOptions.length > 0 ? (
+              <div className="surface builder-upsell-panel">
+                <div className="builder-upsell-copy">
+                  <span className="pill pill-coral">Need more room?</span>
+                  <h3>Upgrade this book before you upload the full camera roll.</h3>
+                  <p className="muted">
+                    Pick a bigger size here and checkout will only charge the difference from what you already paid.
+                  </p>
+                </div>
+                <div className="builder-upsell-grid">
+                  {pageUpgradeOptions.map(({ offer, deltaCents }) => (
+                    <button
+                      className="builder-upsell-button"
+                      disabled={Boolean(upgradeBusyCode)}
+                      key={offer.code}
+                      type="button"
+                      onClick={() => handlePlanUpgrade(offer.code as OfferCode)}
+                    >
+                      <span className={`pill ${offer.designs === 50 ? "pill-mint" : "pill-sun"}`}>{offer.designs} pages</span>
+                      <strong>{upgradeBusyCode === offer.code ? "Opening..." : `+${formatMoney(deltaCents)}`}</strong>
+                      <p>{offer.format === "print" ? "Bigger spiral-book plan" : "Bigger PDF plan"}</p>
+                      <p className="offer-meta">
+                        {offer.format === "print"
+                          ? "Shipping gets refreshed before you pay the upgrade difference."
+                          : `Switch this order to ${offer.designs} uploads.`}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {printUpgradeOptions.length > 0 ? (
+              <div className="surface builder-upsell-panel">
+                <div className="builder-upsell-copy">
+                  <span className="pill pill-mint">Want the physical book too?</span>
+                  <h3>Turn this paid PDF into the giftable spiral version.</h3>
+                  <p className="muted">
+                    Choose the spiral-book option that fits. We only charge the difference from your paid PDF order, then you confirm shipping on the next step.
+                  </p>
+                </div>
+                <div className="builder-upsell-grid">
+                  {printUpgradeOptions.map(({ offer, deltaCents }) => (
+                    <button
+                      className="builder-upsell-button"
+                      disabled={Boolean(upgradeBusyCode)}
+                      key={offer.code}
+                      type="button"
+                      onClick={() => handlePlanUpgrade(offer.code as OfferCode)}
+                    >
+                      <span className="pill pill-coral">{offer.designs} page spiral</span>
+                      <strong>{upgradeBusyCode === offer.code ? "Opening..." : `+${formatMoney(deltaCents)}`}</strong>
+                      <p>{offer.designs === designCount ? "Same page count, shipped as a spiral book" : `Upgrade both the size and the format to ${offer.designs} pages`}</p>
+                      <p className="offer-meta">Shipping is confirmed next, and checkout only charges the upgrade difference.</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {upgradeErrorMessage ? (
+              <div className="status-banner status-banner-warning" role="alert">
+                {upgradeErrorMessage}
+              </div>
+            ) : null}
 
             <UploadDropzone
               title={`Add up to ${designCount} photos`}
@@ -214,11 +426,7 @@ export function OrderSetupForm({
             />
 
             {hasEnoughUploads && !uploadStats.isUploading ? (
-              <button
-                className="button button-primary"
-                type="button"
-                onClick={() => goToStep("customize")}
-              >
+              <button className="button button-primary" type="button" onClick={() => goToStep("customize")}>
                 Continue to Customize
               </button>
             ) : !hasEnoughUploads ? (
@@ -231,9 +439,7 @@ export function OrderSetupForm({
           <>
             <div className="builder-step-intro">
               <h1>Personalize the cover.</h1>
-              <p className="lede">
-                Add the name for the cover and choose the style that fits the memories inside.
-              </p>
+              <p className="lede">Add the name for the cover and choose the style that fits the memories inside.</p>
             </div>
 
             <div className="form-grid">
@@ -285,11 +491,7 @@ export function OrderSetupForm({
               </div>
             ) : null}
 
-            <button
-              className="button button-primary"
-              type="button"
-              onClick={() => goToStep("confirm")}
-            >
+            <button className="button button-primary" type="button" onClick={() => goToStep("confirm")}>
               Continue to Review
             </button>
           </>
@@ -300,8 +502,7 @@ export function OrderSetupForm({
             <div className="builder-step-intro">
               <h1>Ready to create your coloring book.</h1>
               <p className="lede">
-                Everything looks good. Hit the button below and we will start turning your photos
-                into coloring pages right away.
+                Everything looks good. Hit the button below and we will start turning your photos into coloring pages right away.
               </p>
             </div>
 
@@ -311,9 +512,7 @@ export function OrderSetupForm({
               <div className="builder-review-list">
                 <div className="builder-review-line">
                   <span className="muted">Format</span>
-                  <strong>
-                    {deliveryMode === "print" ? "Giftable Spiral Book + PDF" : "Print Tonight PDF"}
-                  </strong>
+                  <strong>{currentPlanLabel}</strong>
                 </div>
                 <div className="builder-review-line">
                   <span className="muted">Pages</span>
@@ -354,12 +553,7 @@ export function OrderSetupForm({
               </div>
             ) : null}
 
-            <button
-              className="button button-primary"
-              disabled={isSubmitting}
-              type="button"
-              onClick={handleStartGeneration}
-            >
+            <button className="button button-primary" disabled={isSubmitting} type="button" onClick={handleStartGeneration}>
               {isSubmitting ? "Starting..." : "Create My Coloring Book"}
             </button>
           </>

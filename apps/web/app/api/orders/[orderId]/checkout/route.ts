@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  applyPaidOrderUpgrade,
   attachStripeCheckoutSessionToOrder,
   getOrderPortalSummaryByOrderId,
   isDatabaseConfigured,
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
 
   const order = summary?.order;
   const selectedOffer = getOfferByCode(parsed.data.selectedOffer ?? order?.selectedOfferCode ?? "pdf-30");
-  const deliveryMode = order?.deliveryMode ?? (selectedOffer.format === "print" ? "print" : "pdf");
+  const deliveryMode = selectedOffer.format === "print" ? "print" : "pdf";
   const customerEmail = summary?.customer?.email ?? undefined;
   const quantity = getNormalizedOrderQuantity({
     format: selectedOffer.format,
@@ -83,10 +84,29 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     quantity,
     bundleSelection,
   });
+  const targetTotalCents = subtotalCents + shippingCents;
+  const isPaidUpgrade =
+    order?.status === "paid" &&
+    (order.selectedOfferCode !== selectedOffer.code ||
+      order.quantity !== quantity ||
+      (order.bundleSelection ?? null) !== (bundleSelection ?? null) ||
+      order.shippingCents !== shippingCents ||
+      order.deliveryMode !== deliveryMode);
 
   if (!isStripeConfigured()) {
     if (!allowDevCheckoutFallback()) {
       return NextResponse.json({ error: "Stripe is not configured for checkout." }, { status: 503 });
+    }
+
+    if (isPaidUpgrade && order) {
+      await applyPaidOrderUpgrade({
+        orderId,
+        selectedOfferCode: selectedOffer.code,
+        quantity,
+        bundleSelection,
+        shippingQuoteId: selectedQuote?.id ?? parsed.data.selectedQuote ?? null,
+        shippingCents,
+      });
     }
 
     return NextResponse.json({
@@ -94,7 +114,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
       status: "checkout_session_created",
       quantity,
       selectedQuote: selectedQuote?.id ?? parsed.data.selectedQuote ?? null,
-      checkoutUrl: `/order/confirmation?orderId=${orderId}`,
+      checkoutUrl: order ? `/order/confirmation?orderId=${orderId}` : `/order/confirmation?orderId=${orderId}`,
       note: "Using local development checkout fallback because Stripe is not configured.",
       stripeConfigured: false,
       databaseConfigured: isDatabaseConfigured(),
@@ -161,12 +181,93 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
   const fbc = parsed.data.fbc ?? "";
   const fbp = parsed.data.fbp ?? "";
 
+  if (isPaidUpgrade && order) {
+    const deltaCents = targetTotalCents - order.totalCents;
+
+    if (deltaCents <= 0) {
+      return NextResponse.json({ error: "This upgrade does not increase the order total." }, { status: 400 });
+    }
+
+    const upgradePortalAccess = isDatabaseConfigured()
+      ? await (await import("@littlecolorbook/db")).createPortalAccessForOrder(orderId)
+      : null;
+    const upgradeReturnUrl = upgradePortalAccess?.portalHref
+      ? `${appUrl}${upgradePortalAccess.portalHref}/setup`
+      : `${appUrl}/order/confirmation?orderId=${orderId}`;
+
+    const upgradeSession = await stripe.checkout.sessions.create({
+      mode: "payment",
+      client_reference_id: orderId,
+      customer_email: customerEmail,
+      success_url: upgradeReturnUrl,
+      cancel_url: upgradeReturnUrl,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: deltaCents,
+            product_data: {
+              name: `littlecolorbook.com Order Upgrade`,
+              description:
+                deliveryMode === "print"
+                  ? `${selectedOffer.title} upgrade${shippingCents > 0 ? " plus updated shipping" : ""}`
+                  : `${selectedOffer.title} page upgrade`,
+            },
+          },
+        },
+      ],
+      metadata: {
+        orderId,
+        checkoutKind: "order_upgrade",
+        selectedOfferCode: selectedOffer.code,
+        quantity: String(quantity),
+        bundleSelection: bundleSelection ?? "",
+        selectedQuote: selectedQuote?.id ?? parsed.data.selectedQuote ?? "",
+        shippingCents: String(shippingCents),
+        targetTotalCents: String(targetTotalCents),
+        ...(fbc ? { fbc: fbc.slice(0, 500) } : {}),
+        ...(fbp ? { fbp: fbp.slice(0, 500) } : {}),
+        ...(clientUserAgent ? { clientUserAgent: clientUserAgent.slice(0, 500) } : {}),
+      },
+      payment_intent_data: {
+        metadata: {
+          orderId,
+          checkoutKind: "order_upgrade",
+          selectedOfferCode: selectedOffer.code,
+          deliveryMode,
+          quantity: String(quantity),
+          bundleSelection: bundleSelection ?? "",
+          selectedQuote: selectedQuote?.id ?? parsed.data.selectedQuote ?? "",
+          shippingCents: String(shippingCents),
+          targetTotalCents: String(targetTotalCents),
+        },
+      },
+    });
+
+    return NextResponse.json({
+      orderId,
+      status: "checkout_session_created",
+      quantity,
+      selectedQuote: selectedQuote?.id ?? parsed.data.selectedQuote ?? null,
+      checkoutUrl: upgradeSession.url,
+      sessionId: upgradeSession.id,
+      subtotalCents,
+      shippingCents,
+      deltaCents,
+      stripeConfigured: true,
+      databaseConfigured: isDatabaseConfigured(),
+    });
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     client_reference_id: orderId,
     customer_email: customerEmail,
     success_url: successUrl,
-    cancel_url: `${appUrl}/create/uploads?orderId=${orderId}&deliveryMode=${deliveryMode}&selectedOffer=${selectedOffer.code}`,
+    cancel_url: portalAccess?.portalHref
+      ? `${appUrl}${portalAccess.portalHref}`
+      : `${appUrl}/create?offer=${selectedOffer.code}`,
     line_items: lineItems,
     metadata: {
       orderId,

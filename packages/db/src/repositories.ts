@@ -905,16 +905,20 @@ export async function updateOrderCommerceSelection(input: {
     throw new Error("Order not found for commerce update.");
   }
 
+  const nextOfferCode = input.selectedOfferCode ?? order.selectedOfferCode;
+  const nextOffer = getOfferByCode(nextOfferCode);
   const updated = {
     ...resolveOrderCommerce({
       currentSelectedOfferCode: order.selectedOfferCode,
       currentQuantity: order.quantity,
       currentBundleSelection: order.bundleSelection,
-      selectedOfferCode: input.selectedOfferCode ?? order.selectedOfferCode,
+      selectedOfferCode: nextOfferCode,
       quantity: input.quantity ?? order.quantity,
       bundleSelection: input.bundleSelection ?? order.bundleSelection,
       shippingCents: input.shippingCents ?? order.shippingCents,
     }),
+    orderType: nextOffer.format as OrderType,
+    deliveryMode: nextOffer.format as DeliveryMode,
     updatedAt: now(),
   };
 
@@ -1055,11 +1059,13 @@ export async function attachStripeCheckoutSessionToOrder(input: {
     throw new Error("Order not found for checkout session attachment.");
   }
 
+  const nextOfferCode = input.selectedOfferCode ?? order.selectedOfferCode;
+  const nextOffer = getOfferByCode(nextOfferCode);
   const commerceSelection = resolveOrderCommerce({
     currentSelectedOfferCode: order.selectedOfferCode,
     currentQuantity: order.quantity,
     currentBundleSelection: order.bundleSelection,
-    selectedOfferCode: input.selectedOfferCode ?? order.selectedOfferCode,
+    selectedOfferCode: nextOfferCode,
     quantity: input.quantity ?? order.quantity,
     bundleSelection: input.bundleSelection ?? order.bundleSelection,
     shippingCents: order.shippingCents,
@@ -1091,6 +1097,8 @@ export async function attachStripeCheckoutSessionToOrder(input: {
   const updated = {
     status: "awaiting_payment" as OrderStatus,
     stripeCheckoutSessionId: input.stripeCheckoutSessionId,
+    orderType: nextOffer.format as OrderType,
+    deliveryMode: nextOffer.format as DeliveryMode,
     selectedOfferCode: commerceSelection.selectedOfferCode,
     designCount: commerceSelection.designCount,
     quantity: commerceSelection.quantity,
@@ -1111,6 +1119,104 @@ export async function attachStripeCheckoutSessionToOrder(input: {
     shippingCents,
     subtotalCents: commerceSelection.subtotalCents,
     totalCents,
+  });
+
+  return {
+    ...order,
+    ...updated,
+    databaseConfigured: true,
+  };
+}
+
+export async function applyPaidOrderUpgrade(input: {
+  orderId: string;
+  selectedOfferCode?: string | null;
+  quantity?: number | null;
+  bundleSelection?: string | null;
+  shippingQuoteId?: string | null;
+  shippingCents?: number | null;
+  stripeCheckoutSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  rawEventId?: string | null;
+}) {
+  if (!isDatabaseConfigured()) {
+    return {
+      orderId: input.orderId,
+      status: "paid" as const,
+      databaseConfigured: false,
+    };
+  }
+
+  const db = getDatabase();
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, input.orderId),
+  });
+
+  if (!order) {
+    throw new Error("Order not found for paid upgrade.");
+  }
+
+  const nextOfferCode = input.selectedOfferCode ?? order.selectedOfferCode;
+  const nextOffer = getOfferByCode(nextOfferCode);
+  const commerceSelection = resolveOrderCommerce({
+    currentSelectedOfferCode: order.selectedOfferCode,
+    currentQuantity: order.quantity,
+    currentBundleSelection: order.bundleSelection,
+    selectedOfferCode: nextOfferCode,
+    quantity: input.quantity ?? order.quantity,
+    bundleSelection: input.bundleSelection ?? order.bundleSelection,
+    shippingCents: input.shippingCents ?? order.shippingCents,
+  });
+
+  let shippingCents = input.shippingCents ?? order.shippingCents;
+
+  if (input.shippingQuoteId) {
+    const selectedQuote = await db.query.shippingQuotes.findFirst({
+      where: and(eq(shippingQuotes.id, input.shippingQuoteId), eq(shippingQuotes.orderId, input.orderId)),
+    });
+
+    if (!selectedQuote) {
+      throw new Error("Shipping quote not found for paid upgrade.");
+    }
+
+    if (selectedQuote.quantity !== commerceSelection.quantity) {
+      throw new Error("Selected shipping quote does not match the upgraded print quantity.");
+    }
+
+    await db.update(shippingQuotes).set({ isSelected: false }).where(eq(shippingQuotes.orderId, input.orderId));
+    await db.update(shippingQuotes).set({ isSelected: true }).where(eq(shippingQuotes.id, selectedQuote.id));
+    shippingCents = selectedQuote.shippingCents;
+  }
+
+  const totalCents = commerceSelection.subtotalCents + shippingCents;
+  const updated = {
+    status: "paid" as OrderStatus,
+    orderType: nextOffer.format as OrderType,
+    deliveryMode: nextOffer.format as DeliveryMode,
+    stripeCheckoutSessionId: input.stripeCheckoutSessionId ?? order.stripeCheckoutSessionId,
+    stripePaymentIntentId: input.stripePaymentIntentId ?? order.stripePaymentIntentId,
+    selectedOfferCode: commerceSelection.selectedOfferCode,
+    designCount: commerceSelection.designCount,
+    quantity: commerceSelection.quantity,
+    bundleSelection: commerceSelection.bundleSelection,
+    subtotalCents: commerceSelection.subtotalCents,
+    shippingCents,
+    totalCents,
+    updatedAt: now(),
+  };
+
+  await db.update(orders).set(updated).where(eq(orders.id, input.orderId));
+  await appendOrderEvent(input.orderId, "order.upgrade_paid", {
+    stripeCheckoutSessionId: updated.stripeCheckoutSessionId,
+    stripePaymentIntentId: updated.stripePaymentIntentId,
+    rawEventId: input.rawEventId ?? null,
+    shippingQuoteId: input.shippingQuoteId ?? null,
+    selectedOfferCode: updated.selectedOfferCode,
+    quantity: updated.quantity,
+    bundleSelection: updated.bundleSelection,
+    shippingCents: updated.shippingCents,
+    subtotalCents: updated.subtotalCents,
+    totalCents: updated.totalCents,
   });
 
   return {

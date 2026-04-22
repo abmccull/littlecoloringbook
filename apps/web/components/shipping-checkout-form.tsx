@@ -1,17 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { defaultOffer, getOfferByCode } from "@littlecolorbook/shared";
-import { useMemo, useState } from "react";
+import { defaultOffer, getOfferByCode, getOfferSubtotalForQuantity } from "@littlecolorbook/shared";
+import { useEffect, useMemo, useState } from "react";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
 import { readMetaClickIds } from "../lib/meta-click-ids";
 
+type ShippingAddress = {
+  fullName: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  countryCode: string;
+  phone: string | null;
+};
+
 type ShippingCheckoutFormProps = {
+  currentOrderTotalCents?: number;
+  initialAddress?: ShippingAddress | null;
+  isPaidUpgrade?: boolean;
   orderId?: string;
+  returnHref?: string;
+  returnLabel?: string;
   selectedOffer?: string;
   quantity?: number;
   bundleSelection?: string | null;
-  subtotalCents?: number;
 };
 
 type Quote = {
@@ -50,23 +65,44 @@ async function readApiPayload<T>(response: Response) {
   return JSON.parse(raw) as T;
 }
 
-export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bundleSelection, subtotalCents }: ShippingCheckoutFormProps) {
+export function ShippingCheckoutForm({
+  currentOrderTotalCents,
+  initialAddress,
+  isPaidUpgrade = false,
+  orderId,
+  returnHref,
+  returnLabel,
+  selectedOffer,
+  quantity = 1,
+  bundleSelection,
+}: ShippingCheckoutFormProps) {
   const offer = getOfferByCode(selectedOffer ?? defaultOffer);
-  const orderSubtotalCents = subtotalCents ?? offer.subtotalCents;
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [line1, setLine1] = useState("");
-  const [line2, setLine2] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [postalCode, setPostalCode] = useState("");
+  const orderSubtotalCents = getOfferSubtotalForQuantity(offer, {
+    quantity,
+    bundleSelection,
+  });
+  const [fullName, setFullName] = useState(initialAddress?.fullName ?? "");
+  const [phone, setPhone] = useState(initialAddress?.phone ?? "");
+  const [line1, setLine1] = useState(initialAddress?.line1 ?? "");
+  const [line2, setLine2] = useState(initialAddress?.line2 ?? "");
+  const [city, setCity] = useState(initialAddress?.city ?? "");
+  const [state, setState] = useState(initialAddress?.state ?? "");
+  const [postalCode, setPostalCode] = useState(initialAddress?.postalCode ?? "");
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [hasAutoQuoted, setHasAutoQuoted] = useState(false);
   const [isQuoting, setIsQuoting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectedQuote = useMemo(() => quotes.find((quote) => quote.id === selectedQuoteId) ?? null, [quotes, selectedQuoteId]);
+  const quotedTotalCents = orderSubtotalCents + (selectedQuote?.shippingCents ?? 0);
+  const additionalDueCents =
+    isPaidUpgrade && typeof currentOrderTotalCents === "number"
+      ? Math.max(quotedTotalCents - currentOrderTotalCents, 0)
+      : quotedTotalCents;
+  const resolvedReturnHref = returnHref ?? `/create?offer=${encodeURIComponent(offer.code)}`;
+  const resolvedReturnLabel = returnLabel ?? "Back to builder";
 
   if (!orderId) {
     return (
@@ -83,8 +119,7 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
     );
   }
 
-  async function handleQuote(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function requestQuotes() {
     setIsQuoting(true);
     setErrorMessage(null);
     trackEvent("shipping_quote_requested", {
@@ -107,6 +142,7 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
           state,
           postalCode,
           countryCode: "US",
+          selectedOffer: offer.code,
           quantity,
           bundleSelection,
         }),
@@ -130,6 +166,24 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
       setIsQuoting(false);
     }
   }
+
+  async function handleQuote(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await requestQuotes();
+  }
+
+  useEffect(() => {
+    if (!isPaidUpgrade || hasAutoQuoted || quotes.length > 0 || isQuoting) {
+      return;
+    }
+
+    if (!fullName || !phone || !line1 || !city || !state || !postalCode) {
+      return;
+    }
+
+    setHasAutoQuoted(true);
+    void requestQuotes();
+  }, [city, fullName, hasAutoQuoted, isPaidUpgrade, isQuoting, line1, phone, postalCode, quotes.length, state]);
 
   async function handleCheckout() {
     if (!selectedQuote) {
@@ -195,16 +249,30 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
 
   return (
     <section className="builder-card">
-      <span className="pill pill-coral">Delivery</span>
-      <h1>Where should we send the spiral book?</h1>
-      <p className="lede">Add the shipping address to see real delivery choices before payment. Your PDF still comes with it either way.</p>
+      <span className="pill pill-coral">{isPaidUpgrade ? "Upgrade delivery" : "Delivery"}</span>
+      <h1>{isPaidUpgrade ? "Where should we send the upgraded spiral book?" : "Where should we send the spiral book?"}</h1>
+      <p className="lede">
+        {isPaidUpgrade
+          ? "Confirm the shipping address to refresh delivery choices. We only charge the difference for the upgraded order."
+          : "Add the shipping address to see real delivery choices before payment. Your PDF still comes with it either way."}
+      </p>
 
       <div className="surface selection-summary">
-        <span className="pill pill-mint">Your giftable set</span>
-        <h3>
-          {quantity} printed {quantity === 1 ? "copy" : "copies"}
-        </h3>
+        <span className="pill pill-mint">{isPaidUpgrade ? "Your upgraded plan" : "Your giftable set"}</span>
+        <h3>{quantity} printed {quantity === 1 ? "copy" : "copies"}</h3>
         <p className="muted">{offer.title} with the PDF included. Shipping gets added after you pick the delivery speed that fits.</p>
+        {isPaidUpgrade && typeof currentOrderTotalCents === "number" ? (
+          <div className="builder-review-list">
+            <div className="builder-review-line">
+              <span className="muted">Already paid</span>
+              <strong>{formatMoney(currentOrderTotalCents)}</strong>
+            </div>
+            <div className="builder-review-line">
+              <span className="muted">New subtotal before shipping</span>
+              <strong>{formatMoney(orderSubtotalCents)}</strong>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="detail-grid three-up">
@@ -306,13 +374,17 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
         </div>
 
         <div className="status-banner status-banner-progress">
-          <strong>US shipping only for now</strong>
-          <span>Your delivery choice changes transit time after the book is printed and bound.</span>
+          <strong>{isPaidUpgrade ? "We only charge the upgrade difference" : "US shipping only for now"}</strong>
+          <span>
+            {isPaidUpgrade
+              ? "Pick the refreshed delivery option and checkout will only charge the extra amount for the upgraded order."
+              : "Your delivery choice changes transit time after the book is printed and bound."}
+          </span>
         </div>
 
         <div className="hero-actions hero-actions-mobile-bar">
           <button className="button button-secondary" disabled={isQuoting} type="submit">
-            {isQuoting ? "Getting delivery choices..." : "Show Delivery Choices"}
+            {isQuoting ? "Getting delivery choices..." : isPaidUpgrade ? "Refresh Delivery Choices" : "Show Delivery Choices"}
           </button>
         </div>
       </form>
@@ -337,12 +409,16 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
             })}
           </div>
           <div className="surface selection-summary">
-            <span className="pill pill-coral">Your total today</span>
-            <h3>{formatMoney(orderSubtotalCents + (selectedQuote?.shippingCents ?? 0))}</h3>
+            <span className="pill pill-coral">{isPaidUpgrade ? "Additional due today" : "Your total today"}</span>
+            <h3>{formatMoney(additionalDueCents)}</h3>
             <p className="muted">
               {quantity} printed {quantity === 1 ? "copy" : "copies"} plus {selectedQuote ? selectedQuote.label.toLowerCase() : "selected delivery"}
             </p>
-            <p className="mini-note">The PDF is still included, so you can print at home while the spiral book is on the way.</p>
+            <p className="mini-note">
+              {isPaidUpgrade && typeof currentOrderTotalCents === "number"
+                ? `New order total after this upgrade: ${formatMoney(quotedTotalCents)}.`
+                : "The PDF is still included, so you can print at home while the spiral book is on the way."}
+            </p>
           </div>
         </div>
       ) : null}
@@ -353,8 +429,8 @@ export function ShippingCheckoutForm({ orderId, selectedOffer, quantity = 1, bun
         <button className="button button-primary" disabled={!selectedQuote || isSubmitting} type="button" onClick={handleCheckout}>
           {isSubmitting ? "Starting checkout..." : "Go to Secure Checkout"}
         </button>
-        <Link className="button button-secondary" href={`/create?offer=${encodeURIComponent(offer.code)}`}>
-          Back to photo upload
+        <Link className="button button-secondary" href={resolvedReturnHref}>
+          {resolvedReturnLabel}
         </Link>
       </div>
     </section>

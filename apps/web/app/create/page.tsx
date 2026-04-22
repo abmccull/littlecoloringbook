@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getOrderPortalSummaryByOrderId } from "@littlecolorbook/db";
 import { BrandLogo } from "../../components/brand-logo";
 import { CreateOrderForm } from "../../components/create-order-form";
 import { BookMockupBlock } from "../../components/proof-modules";
@@ -13,8 +14,11 @@ export default async function CreatePage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const params = await searchParams;
-  const { email, offer, source } = params;
+  const { email, offer, source, sampleOrderId, childFirstName } = params;
   const acquisition = getAcquisitionPayloadFromRecord(params, "direct_buy", "builder-page");
+  const sampleSummary = sampleOrderId ? await getOrderPortalSummaryByOrderId(sampleOrderId) : null;
+  const initialEmail = email ?? sampleSummary?.customer?.email ?? undefined;
+  const initialChildFirstName = childFirstName ?? sampleSummary?.order.childFirstName ?? undefined;
 
   return (
     <main>
@@ -36,7 +40,12 @@ export default async function CreatePage({
       </header>
 
       <section className="builder-layout">
-        <CreateOrderForm acquisition={acquisition} initialEmail={email} initialOffer={offer} />
+        <CreateOrderForm
+          acquisition={acquisition}
+          initialChildFirstName={initialChildFirstName}
+          initialEmail={initialEmail}
+          initialOffer={offer}
+        />
         <aside className="builder-support-grid">
           <div className="surface builder-support-copy">
             <span className="pill pill-coral">Built for fuller camera rolls</span>

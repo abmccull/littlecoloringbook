@@ -11,6 +11,7 @@ import { isLuluShippingConfigured, quoteLuluShippingOptions } from "../../../../
 import { z } from "zod";
 
 const quoteRequestSchema = z.object({
+  selectedOffer: z.string().trim().optional(),
   fullName: z.string().trim().min(1).optional(),
   line1: z.string().trim().min(1),
   line2: z.string().trim().optional(),
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  const selectedOffer = getOfferByCode(existingOrder?.selectedOfferCode ?? "print-30");
+  const selectedOffer = getOfferByCode(parsed.data.selectedOffer ?? existingOrder?.selectedOfferCode ?? "print-30");
   const quantity = getNormalizedOrderQuantity({
     format: selectedOffer.format,
     quantity: parsed.data.quantity ?? existingOrder?.quantity ?? 1,
@@ -95,10 +96,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     phone: parsed.data.phone ?? null,
   });
 
-  if (isDatabaseConfigured()) {
+  if (isDatabaseConfigured() && existingOrder?.status !== "paid") {
     await updateOrderCommerceSelection({
       orderId,
-      selectedOfferCode: existingOrder?.selectedOfferCode ?? selectedOffer.code,
+      selectedOfferCode: selectedOffer.code,
       quantity,
       bundleSelection,
       shippingCents: 0,

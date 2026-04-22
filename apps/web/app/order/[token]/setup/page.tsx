@@ -83,16 +83,22 @@ export default async function OrderSetupPage({ params }: SetupPageProps) {
         offerCode={summary.order.selectedOfferCode}
       />
       <OrderSetupForm
+        bundleSelection={summary.order.bundleSelection}
         orderId={summary.order.id}
-        portalToken={token}
         deliveryMode={deliveryMode}
         designCount={offer.designs}
-        offerTitle={offer.title}
         initialChildFirstName={summary.order.childFirstName ?? ""}
         initialCoverStyle={summary.order.coverStyle ?? "storybook"}
         initialDedicationText={summary.order.dedicationText ?? ""}
+        offerTitle={offer.title}
         existingUploads={existingUploads}
+        portalToken={token}
         portalHref={`/order/${token}`}
+        quantity={summary.order.quantity}
+        selectedOfferCode={summary.order.selectedOfferCode}
+        shippingCents={summary.order.shippingCents}
+        subtotalCents={summary.order.subtotalCents}
+        totalCents={summary.order.totalCents}
       />
     </main>
   );
