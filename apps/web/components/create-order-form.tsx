@@ -29,6 +29,7 @@ type CreateOrderResponse = {
 
 type CreateOrderFormProps = {
   acquisition: AcquisitionPayload;
+  initialEmail?: string;
   initialOffer?: string;
 };
 
@@ -176,7 +177,7 @@ async function readApiPayload<T>(response: Response) {
   return JSON.parse(raw) as T;
 }
 
-export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormProps) {
+export function CreateOrderForm({ acquisition, initialEmail, initialOffer }: CreateOrderFormProps) {
   const router = useRouter();
   const formId = "create-order-form";
   const resolvedInitialOffer = getOfferByCode(initialOffer ?? "pdf-30");
@@ -191,7 +192,7 @@ export function CreateOrderForm({ acquisition, initialOffer }: CreateOrderFormPr
   const [age, setAge] = useState<number | undefined>();
   const [destination, setDestination] = useState("");
   const [petName, setPetName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [childFirstName, setChildFirstName] = useState("");
   const [coverNameMode, setCoverNameMode] = useState<CoverNameMode>("same");
   const [copyNames, setCopyNames] = useState<string[]>([]);

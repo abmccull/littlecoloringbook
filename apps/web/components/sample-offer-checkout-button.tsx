@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { trackEvent } from "./analytics-provider";
-import { readMetaClickIds } from "../lib/meta-click-ids";
 
 type SampleOfferCheckoutButtonProps = {
   offerCode: string;
@@ -15,17 +15,6 @@ type SampleOfferCheckoutButtonProps = {
   children: React.ReactNode;
 };
 
-type CreateOrderResponse = {
-  id: string;
-  portalToken: string;
-  error?: string;
-};
-
-type CheckoutResponse = {
-  checkoutUrl: string;
-  error?: string;
-};
-
 export function SampleOfferCheckoutButton({
   offerCode,
   deliveryMode,
@@ -36,57 +25,34 @@ export function SampleOfferCheckoutButton({
   className,
   children,
 }: SampleOfferCheckoutButtonProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function handleClick() {
+  function handleClick() {
     setIsLoading(true);
-    setErrorMessage(null);
 
-    trackEvent("sample_offer_checkout_clicked", {
+    const params = new URLSearchParams({
+      offer: offerCode,
+      source: entrySource ?? "sample-ready-page",
+      acquisitionPath: acquisitionPath ?? "sample_first",
+    });
+
+    if (customerEmail) {
+      params.set("email", customerEmail);
+    }
+
+    if (sampleOrderId) {
+      params.set("sampleOrderId", sampleOrderId);
+    }
+
+    trackEvent("sample_offer_builder_clicked", {
       offerCode,
       deliveryMode,
       sampleOrderId,
+      source: entrySource ?? "sample-ready-page",
     });
 
-    try {
-      const orderResponse = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: customerEmail ?? undefined,
-          orderType: deliveryMode,
-          deliveryMode,
-          selectedOffer: offerCode,
-          acquisitionPath: acquisitionPath ?? "sample_first",
-          entrySource: entrySource ?? "sample-ready-page",
-          sampleOrderId,
-        }),
-      });
-
-      const orderPayload = (await orderResponse.json()) as CreateOrderResponse;
-
-      if (!orderResponse.ok || !orderPayload.id) {
-        throw new Error(orderPayload.error ?? "We could not start your order. Please try again.");
-      }
-
-      const checkoutResponse = await fetch(`/api/orders/${orderPayload.id}/checkout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(readMetaClickIds()),
-      });
-
-      const checkoutPayload = (await checkoutResponse.json()) as CheckoutResponse;
-
-      if (!checkoutResponse.ok || !checkoutPayload.checkoutUrl) {
-        throw new Error(checkoutPayload.error ?? "We could not open checkout. Please try again.");
-      }
-
-      window.location.href = checkoutPayload.checkoutUrl;
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
-      setIsLoading(false);
-    }
+    router.push(`/create?${params.toString()}`);
   }
 
   return (
@@ -97,13 +63,8 @@ export function SampleOfferCheckoutButton({
         type="button"
         onClick={handleClick}
       >
-        {isLoading ? "Opening checkout..." : children}
+        {isLoading ? "Opening builder..." : children}
       </button>
-      {errorMessage ? (
-        <div className="status-banner status-banner-warning" role="alert">
-          {errorMessage}
-        </div>
-      ) : null}
     </div>
   );
 }

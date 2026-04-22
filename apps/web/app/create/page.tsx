@@ -13,7 +13,7 @@ export default async function CreatePage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const params = await searchParams;
-  const { offer, source } = params;
+  const { email, offer, source } = params;
   const acquisition = getAcquisitionPayloadFromRecord(params, "direct_buy", "builder-page");
 
   return (
@@ -36,7 +36,7 @@ export default async function CreatePage({
       </header>
 
       <section className="builder-layout">
-        <CreateOrderForm acquisition={acquisition} initialOffer={offer} />
+        <CreateOrderForm acquisition={acquisition} initialEmail={email} initialOffer={offer} />
         <aside className="builder-support-grid">
           <div className="surface builder-support-copy">
             <span className="pill pill-coral">Built for fuller camera rolls</span>
