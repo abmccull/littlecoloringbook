@@ -88,7 +88,7 @@ export default async function OrderSetupPage({ params }: SetupPageProps) {
         deliveryMode={deliveryMode}
         designCount={offer.designs}
         initialChildFirstName={summary.order.childFirstName ?? ""}
-        initialCoverStyle={summary.order.coverStyle ?? "storybook"}
+        initialCoverStyle={summary.order.coverStyle ?? "signature-linen"}
         initialDedicationText={summary.order.dedicationText ?? ""}
         offerTitle={offer.title}
         existingUploads={existingUploads}

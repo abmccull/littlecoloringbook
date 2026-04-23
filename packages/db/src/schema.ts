@@ -109,7 +109,7 @@ export const orders = pgTable(
     designCount: integer("design_count").notNull(),
     quantity: integer("quantity").default(1).notNull(),
     bundleSelection: text("bundle_selection"),
-    coverStyle: text("cover_style").default("storybook").notNull(),
+    coverStyle: text("cover_style").default("signature-linen").notNull(),
     occasion: text("occasion"),
     occasionContext: jsonb("occasion_context").$type<Record<string, unknown> | null>(),
     copyNames: jsonb("copy_names").$type<Array<string | null> | null>(),

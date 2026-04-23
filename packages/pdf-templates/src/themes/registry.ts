@@ -1,47 +1,25 @@
+import { coverDesigns } from "@littlecolorbook/shared";
 import type { StyleId, StyleModule } from "../types";
 
-// ---------------------------------------------------------------------------
-// Style registry — one entry per visual style axis value.
-// ---------------------------------------------------------------------------
+const fontByTypography = {
+  clean: "Inter",
+  editorial: "Playfair Display",
+  hand: "Caveat",
+  playful: "Fredoka",
+} as const;
 
-const sunshine: StyleModule = {
-  id: "sunshine",
-  label: "Sunshine",
-  fontFamily: "Fredoka",
-  accentColor: "#F4B400",
-  secondaryColor: "#FFF8E1",
-};
-
-const crayon: StyleModule = {
-  id: "crayon",
-  label: "Crayon",
-  fontFamily: "Caveat",
-  accentColor: "#E74C3C",
-  secondaryColor: "#FFF3F0",
-};
-
-const storybook: StyleModule = {
-  id: "storybook",
-  label: "Storybook",
-  fontFamily: "Playfair Display",
-  accentColor: "#6B4226",
-  secondaryColor: "#FFF8F1",
-};
-
-const minimal: StyleModule = {
-  id: "minimal",
-  label: "Minimal",
-  fontFamily: "Inter",
-  accentColor: "#111111",
-  secondaryColor: "#F5F5F5",
-};
-
-export const styles: Record<StyleId, StyleModule> = {
-  sunshine,
-  crayon,
-  storybook,
-  minimal,
-};
+export const styles = Object.fromEntries(
+  coverDesigns.map((design) => [
+    design.id,
+    {
+      id: design.id,
+      label: design.label,
+      fontFamily: fontByTypography[design.typography],
+      accentColor: design.palette.accent,
+      secondaryColor: design.palette.paperAlt,
+    },
+  ]),
+) as Record<StyleId, StyleModule>;
 
 export function getStyle(id: StyleId): StyleModule {
   const style = styles[id];

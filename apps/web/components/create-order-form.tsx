@@ -3,6 +3,7 @@
 import {
   defaultCoverStyle,
   defaultPrintBundleCode,
+  getCoverDesign,
   type CoverStyleCode,
   getOfferByCode,
   getOfferSubtotalForQuantity,
@@ -18,7 +19,7 @@ import type { AcquisitionPayload } from "../lib/acquisition";
 import { getConsumerOffer } from "../lib/consumer-content";
 import { readMetaClickIds } from "../lib/meta-click-ids";
 import { trackBuyerJourneyStage, trackEvent } from "./analytics-provider";
-import { CoverStylePreview } from "./cover-style-preview";
+import { CoverDesignPicker } from "./cover-design-picker";
 
 type DeliveryMode = "pdf" | "print";
 type BuilderStep = "format" | "pages" | "pack" | "occasion" | "cover" | "details" | "review";
@@ -93,41 +94,6 @@ const printBundleCards: Record<
     label: "Grandparent pack",
     title: "Five printed copies",
     description: "Best when you want enough copies for both households, grandparents, and a keep-safe shelf copy.",
-  },
-};
-
-const coverStyleCards: Record<
-  CoverStyleCode,
-  {
-    color: string;
-    description: string;
-    label: string;
-    toneClass: string;
-  }
-> = {
-  storybook: {
-    label: "Storybook",
-    description: "Vintage and giftable. Ornamental corners, serif typography, warm tones.",
-    color: "#6B4226",
-    toneClass: "cover-style-storybook",
-  },
-  sunshine: {
-    label: "Sunshine",
-    description: "Bright and playful. Bold colors, cheerful sun motifs, rounded type.",
-    color: "#F4B400",
-    toneClass: "cover-style-sunshine",
-  },
-  crayon: {
-    label: "Crayon",
-    description: "Handmade feel. Thick dashed borders, hand-drawn doodles, kid-friendly.",
-    color: "#E74C3C",
-    toneClass: "cover-style-crayon",
-  },
-  minimal: {
-    label: "Minimal",
-    description: "Modern and clean. No ornaments, generous whitespace, editorial type.",
-    color: "#111111",
-    toneClass: "cover-style-minimal",
   },
 };
 
@@ -557,7 +523,7 @@ export function CreateOrderForm({ acquisition, initialChildFirstName, initialEma
     }
   }
 
-  const coverStyleCard = coverStyleCards[coverStyle];
+  const coverStyleCard = getCoverDesign(coverStyle);
   const summaryItems = [
     {
       label: "Format",
@@ -581,7 +547,7 @@ export function CreateOrderForm({ acquisition, initialChildFirstName, initialEma
     },
     {
       label: "Cover",
-      value: coverStyleCard.label,
+      value: coverStyleCard.shortLabel,
     },
   ];
   const previousStep = steps[currentStepIndex - 1] ?? null;
@@ -637,8 +603,8 @@ export function CreateOrderForm({ acquisition, initialChildFirstName, initialEma
       description: "Pick the occasion that best fits the memories inside. This shapes the cover and dedication.",
     },
     cover: {
-      title: "Which cover mood fits this book best?",
-      description: "Pick the cover mood that fits the memories inside.",
+      title: "Which premium cover should lead the book?",
+      description: "These previews use the same design system as the final PDF cover, with your cover name swapped in.",
     },
     details: {
       title: "Who is this book for?",
@@ -789,33 +755,12 @@ export function CreateOrderForm({ acquisition, initialChildFirstName, initialEma
         ) : null}
 
         {currentStep === "cover" ? (
-          <div className="cover-style-grid">
-            {(Object.entries(coverStyleCards) as Array<[CoverStyleCode, (typeof coverStyleCards)[CoverStyleCode]]>).map(([styleCode, style]) => {
-              const isActive = coverStyle === styleCode;
-
-              return (
-                <button
-                  key={styleCode}
-                  className={`cover-style-card ${style.toneClass}${isActive ? " active" : ""}`}
-                  type="button"
-                  onClick={() => handleCoverStyleSelect(styleCode)}
-                >
-                  <div className="cover-style-card-media">
-                    <CoverStylePreview
-                      kicker={coverPreviewKicker}
-                      styleCode={styleCode}
-                      title={coverPreviewTitle}
-                    />
-                  </div>
-                  <div className="cover-style-card-copy">
-                    <span className="pill pill-sun">{style.label}</span>
-                    <strong>{style.label}</strong>
-                    <p>{style.description}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <CoverDesignPicker
+            kicker={coverPreviewKicker}
+            onSelect={handleCoverStyleSelect}
+            selected={coverStyle}
+            title={coverPreviewTitle}
+          />
         ) : null}
 
         {currentStep === "details" ? (

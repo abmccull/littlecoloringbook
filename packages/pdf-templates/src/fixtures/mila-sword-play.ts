@@ -4,7 +4,7 @@ export const milaSwordPlayFixture: BookPayload = {
   trim: { widthIn: 8.5, heightIn: 11, bleedIn: 0.125, safeIn: 0.25 },
   spineWidthIn: 0.15,
   pageCount: 6,
-  style: "storybook",
+  style: "signature-linen",
   occasion: "everyday",
   occasionContext: { childName: "Mila" },
   meta: {

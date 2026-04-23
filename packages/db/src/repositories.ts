@@ -2183,7 +2183,7 @@ function buildDemoPortalSummary(portalKey: string): PortalSummary {
       designCount: 30,
       quantity: 1,
       bundleSelection: null,
-      coverStyle: "storybook",
+      coverStyle: "signature-linen",
       occasion: "everyday",
       occasionContext: { childName: "Mila" },
       copyNames: null,

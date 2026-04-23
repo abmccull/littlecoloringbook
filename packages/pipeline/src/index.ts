@@ -6,7 +6,6 @@ import {
   estimateInteriorPageCount,
   extractGeneratedImage,
   normalizeCoverStyle,
-  type CoverStyleCode,
   type DeliveryMode,
   type RenderFallback,
 } from "@littlecolorbook/shared";
@@ -1600,34 +1599,34 @@ async function createPrintCoverPdf(input: {
   const frontX = PRINT_COVER_PAGE.width / 2 + 42;
   const backX = 42;
   const coverStyle = normalizeCoverStyle(input.coverStyle);
-  const palette: Record<CoverStyleCode, { back: [number, number, number]; front: [number, number, number]; title: [number, number, number]; body: [number, number, number] }> =
+  const palette: Record<string, { back: [number, number, number]; front: [number, number, number]; title: [number, number, number]; body: [number, number, number] }> =
     {
-      storybook: {
+      "signature-linen": {
         back: [0.99, 0.96, 0.9],
         front: [0.97, 0.88, 0.62],
         title: [0.18, 0.14, 0.08],
         body: [0.28, 0.22, 0.14],
       },
-      sunshine: {
+      "modern-storybook": {
         back: [1, 0.98, 0.9],
         front: [1, 0.9, 0.52],
         title: [0.27, 0.15, 0.1],
         body: [0.36, 0.21, 0.12],
       },
-      crayon: {
+      "creative-studio": {
         back: [0.99, 0.96, 0.95],
         front: [0.94, 0.62, 0.57],
         title: [0.22, 0.1, 0.08],
         body: [0.32, 0.16, 0.12],
       },
-      minimal: {
+      "heritage-crest": {
         back: [0.98, 0.98, 0.98],
         front: [0.9, 0.9, 0.9],
         title: [0.07, 0.07, 0.07],
         body: [0.2, 0.2, 0.2],
       },
     };
-  const colors = palette[coverStyle];
+  const colors = palette[coverStyle] ?? palette["signature-linen"]!;
 
   page.drawRectangle({
     x: 0,
@@ -1710,7 +1709,7 @@ function buildBookPayload(input: {
   titleName?: string | null;
   trim: TrimSpec;
 }): BookPayload {
-  const contentPages = 2 + input.pageBuffers.length + 1;
+  const contentPages = input.pageBuffers.length + 2;
   const pageCount = ensurePageCountParity(contentPages);
   const style = mapCoverStyleToStyleId(input.coverStyle);
   const name = input.titleName?.trim() || input.childFirstName?.trim() || null;
@@ -1734,6 +1733,10 @@ function buildBookPayload(input: {
     pages: input.pageBuffers.map((buf) => ({
       lineArt: { url: bufferToDataUri(buf), widthPx: 0, heightPx: 0 },
     })),
+    renderOptions: {
+      forceEvenPages: input.trim.bleedIn > 0,
+      includeCoverPage: input.trim.bleedIn === 0,
+    },
   };
 }
 
@@ -1809,7 +1812,15 @@ async function buildFullBookPdfAssets(input: {
     trim: printTrim,
   });
 
-  const downloadPayload: BookPayload = { ...basePayload, trim: DIGITAL_TRIM };
+  const downloadPayload: BookPayload = {
+    ...basePayload,
+    pageCount: basePayload.pages.length + 3,
+    renderOptions: {
+      forceEvenPages: false,
+      includeCoverPage: true,
+    },
+    trim: DIGITAL_TRIM,
+  };
   const downloadPdf = await renderInteriorPdf(downloadPayload);
 
   const interiorPdf = input.plan.deliveryMode === "print" ? await renderInteriorPdf(basePayload) : downloadPdf;

@@ -173,7 +173,7 @@ async function finalizePaidOrderIfReady(
   const pdfAssets = await materializeBookPdfAssets({
     childFirstName: summary.order.childFirstName ?? null,
     copyNames: summary.order.copyNames ?? null,
-    coverStyle: summary.order.coverStyle ?? "storybook",
+    coverStyle: summary.order.coverStyle ?? "signature-linen",
     dedicationText: summary.order.dedicationText ?? null,
     occasion: (summary.order.occasion as never) ?? null,
     occasionContext: (summary.order.occasionContext as never) ?? null,
@@ -543,7 +543,7 @@ export async function runProcessPaidOrderJob(input: ProcessPaidOrderJobInput, op
     const materialized = await materializeGenerationPlan({
       childFirstName: summary?.order.childFirstName ?? null,
       copyNames: summary?.order.copyNames ?? null,
-      coverStyle: summary?.order.coverStyle ?? "storybook",
+      coverStyle: summary?.order.coverStyle ?? "signature-linen",
       dedicationText: summary?.order.dedicationText ?? null,
       plan,
       quantity,

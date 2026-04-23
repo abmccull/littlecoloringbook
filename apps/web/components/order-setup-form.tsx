@@ -1,9 +1,18 @@
 "use client";
 
-import { getOfferByCode, getOfferSubtotalForQuantity, offers, type OfferCode } from "@littlecolorbook/shared";
+import {
+  getCoverDesign,
+  getOfferByCode,
+  getOfferSubtotalForQuantity,
+  normalizeCoverStyle,
+  offers,
+  type CoverStyleCode,
+  type OfferCode,
+} from "@littlecolorbook/shared";
 import { useMemo, useState } from "react";
 import { readMetaClickIds } from "../lib/meta-click-ids";
 import { trackEvent } from "./analytics-provider";
+import { CoverDesignPicker } from "./cover-design-picker";
 import { UploadDropzone } from "./upload-dropzone";
 
 type SetupStep = "upload" | "customize" | "confirm";
@@ -41,29 +50,6 @@ type UploadStats = {
 type UpgradeCheckoutResponse = {
   checkoutUrl?: string;
   error?: string;
-};
-
-const coverStyleCards: Record<string, { description: string; label: string; toneClass: string }> = {
-  storybook: {
-    label: "Storybook",
-    description: "Vintage and giftable. Ornamental corners, serif typography, warm tones.",
-    toneClass: "cover-style-storybook",
-  },
-  sunshine: {
-    label: "Sunshine",
-    description: "Bright and playful. Bold colors, cheerful sun motifs, rounded type.",
-    toneClass: "cover-style-sunshine",
-  },
-  crayon: {
-    label: "Crayon",
-    description: "Handmade feel. Thick dashed borders, hand-drawn doodles, kid-friendly.",
-    toneClass: "cover-style-crayon",
-  },
-  minimal: {
-    label: "Minimal",
-    description: "Modern and clean. No ornaments, generous whitespace, editorial type.",
-    toneClass: "cover-style-minimal",
-  },
 };
 
 const stepLabels: Record<SetupStep, string> = {
@@ -118,7 +104,7 @@ export function OrderSetupForm({
     isUploading: false,
   });
   const [childFirstName, setChildFirstName] = useState(initialChildFirstName);
-  const [coverStyle, setCoverStyle] = useState(initialCoverStyle || "storybook");
+  const [coverStyle, setCoverStyle] = useState<CoverStyleCode>(normalizeCoverStyle(initialCoverStyle));
   const [dedicationText, setDedicationText] = useState(initialDedicationText);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -132,6 +118,8 @@ export function OrderSetupForm({
   const isPrint = deliveryMode === "print";
   const currentStepIndex = steps.indexOf(currentStep);
   const currentPlanLabel = isPrint ? "Giftable Spiral Book + PDF" : "Print Tonight PDF";
+  const selectedCoverDesign = getCoverDesign(coverStyle);
+  const coverPreviewTitle = childFirstName.trim() ? `${childFirstName.trim()}'s Coloring Book` : "Mila's Coloring Book";
 
   const pageUpgradeOptions = useMemo(
     () =>
@@ -468,28 +456,18 @@ export function OrderSetupForm({
               </label>
             </div>
 
-            {isPrint ? (
-              <div className="upload-stack">
-                <div className="stack-tight">
-                  <strong>Choose a cover style.</strong>
-                  <p className="muted">Pick the mood that fits the memories inside.</p>
-                </div>
-                <div className="cover-style-grid">
-                  {Object.entries(coverStyleCards).map(([styleCode, style]) => (
-                    <button
-                      key={styleCode}
-                      className={`cover-style-card ${style.toneClass}${coverStyle === styleCode ? " active" : ""}`}
-                      type="button"
-                      onClick={() => setCoverStyle(styleCode)}
-                    >
-                      <span className="pill pill-sun">{style.label}</span>
-                      <strong>{style.label}</strong>
-                      <p>{style.description}</p>
-                    </button>
-                  ))}
-                </div>
+            <div className="upload-stack">
+              <div className="stack-tight">
+                <strong>Choose the final cover.</strong>
+                <p className="muted">These are the same premium cover directions used when we assemble the PDF.</p>
               </div>
-            ) : null}
+              <CoverDesignPicker
+                kicker={currentPlanLabel}
+                onSelect={setCoverStyle}
+                selected={coverStyle}
+                title={coverPreviewTitle}
+              />
+            </div>
 
             <button className="button button-primary" type="button" onClick={() => goToStep("confirm")}>
               Continue to Review
@@ -528,12 +506,10 @@ export function OrderSetupForm({
                     <strong>{childFirstName.trim()}</strong>
                   </div>
                 ) : null}
-                {isPrint ? (
-                  <div className="builder-review-line">
-                    <span className="muted">Cover style</span>
-                    <strong>{coverStyleCards[coverStyle]?.label ?? coverStyle}</strong>
-                  </div>
-                ) : null}
+                <div className="builder-review-line">
+                  <span className="muted">Cover style</span>
+                  <strong>{selectedCoverDesign.label}</strong>
+                </div>
               </div>
             </div>
 

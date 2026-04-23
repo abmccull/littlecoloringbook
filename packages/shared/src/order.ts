@@ -24,5 +24,6 @@ export type DeliveryMode = "pdf" | "print";
 export type OrderType = "sample" | "pdf" | "print";
 
 export function estimateInteriorPageCount(designCount: number) {
-  return designCount * 2 + 4;
+  const contentPages = Math.max(1, Math.trunc(designCount)) + 2;
+  return contentPages % 2 === 0 ? contentPages : contentPages + 1;
 }

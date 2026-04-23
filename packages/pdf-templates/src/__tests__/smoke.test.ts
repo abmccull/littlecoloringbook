@@ -8,6 +8,7 @@ import { getOccasion } from "../occasions/registry";
 import { interpolate } from "../occasions/interpolate";
 import { validateOccasionContext } from "../occasions/validate";
 import { getStockCover, filterStockCovers } from "../covers/manifest";
+import { coverDesigns, coverStyleValues, getCoverDesign, normalizeCoverStyle } from "@littlecolorbook/shared";
 
 describe("lulu-trim", () => {
   it("returns trim spec for default SKU", () => {
@@ -34,20 +35,42 @@ describe("lulu-trim", () => {
 });
 
 describe("styles", () => {
-  it("returns storybook style", () => {
-    const style = getStyle("storybook");
-    assert.equal(style.id, "storybook");
+  it("returns signature linen style", () => {
+    const style = getStyle("signature-linen");
+    assert.equal(style.id, "signature-linen");
     assert.equal(style.fontFamily, "Playfair Display");
-    assert.equal(style.accentColor, "#6B4226");
+    assert.equal(style.accentColor, "#B98B59");
   });
 
-  it("returns all four styles", () => {
-    for (const id of ["sunshine", "crayon", "storybook", "minimal"] as const) {
+  it("returns all premium cover styles", () => {
+    for (const id of coverStyleValues) {
       const style = getStyle(id);
       assert.equal(style.id, id);
       assert.ok(style.fontFamily);
       assert.ok(style.accentColor);
     }
+  });
+});
+
+describe("premium cover designs", () => {
+  it("registers all 20 cover directions", () => {
+    assert.equal(coverDesigns.length, 20);
+    assert.equal(coverDesigns.filter((design) => design.group === "featured").length, 8);
+    assert.equal(coverDesigns.filter((design) => design.group === "more").length, 12);
+  });
+
+  it("maps legacy cover ids to premium designs", () => {
+    assert.equal(normalizeCoverStyle("storybook"), "signature-linen");
+    assert.equal(normalizeCoverStyle("sunshine"), "modern-storybook");
+    assert.equal(normalizeCoverStyle("crayon"), "creative-studio");
+    assert.equal(normalizeCoverStyle("adventure"), "adventure-map");
+  });
+
+  it("returns design metadata used by web and pdf renderers", () => {
+    const design = getCoverDesign("pet-best-friend-club");
+    assert.equal(design.motif, "pet-club");
+    assert.ok(design.palette.paper);
+    assert.ok(design.description.includes("pet"));
   });
 });
 
@@ -120,7 +143,7 @@ describe("stock covers", () => {
 describe("fixture", () => {
   it("mila-sword-play fixture is well-formed", () => {
     const f = milaSwordPlayFixture;
-    assert.equal(f.style, "storybook");
+    assert.equal(f.style, "signature-linen");
     assert.equal(f.occasion, "everyday");
     assert.equal(f.occasionContext.childName, "Mila");
     assert.equal(f.pages.length, 4);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { normalizeCoverStyle } from "@littlecolorbook/shared";
 import { renderCoverPdf } from "@littlecolorbook/pdf-templates/render";
 import {
   getTrim,
@@ -12,10 +13,8 @@ import type { BookPayload, OccasionId, StyleId } from "@littlecolorbook/pdf-temp
 
 export const runtime = "nodejs";
 
-const VALID_STYLE_IDS = new Set<string>(["sunshine", "crayon", "storybook", "minimal"]);
-
 const previewSchema = z.object({
-  style: z.string().default("storybook"),
+  style: z.string().default("signature-linen"),
   occasion: z.string().default("everyday"),
   childName: z.string().default("My"),
   title: z.string().optional(),
@@ -49,8 +48,7 @@ export async function POST(request: NextRequest) {
 
   const { style, occasion, childName, title, pageCount } = parsed.data;
 
-  // Validate style ID against the known enum values.
-  const styleId: StyleId = VALID_STYLE_IDS.has(style) ? (style as StyleId) : "storybook";
+  const styleId: StyleId = normalizeCoverStyle(style);
 
   // Validate occasion ID — fall back to "everyday" if unknown.
   let occasionId: OccasionId;

@@ -1,5 +1,11 @@
+import {
+  getCoverDesign,
+  type CoverStyleCode,
+} from "@littlecolorbook/shared";
+import type { CSSProperties } from "react";
+
 type CoverStylePreviewProps = {
-  styleCode: string;
+  styleCode: CoverStyleCode | string;
   kicker: string;
   subtitle?: string;
   title: string;
@@ -20,58 +26,77 @@ function splitTitle(title: string) {
   return [words.slice(0, midpoint).join(" "), words.slice(midpoint).join(" ")];
 }
 
+function cssVars(styleCode: string) {
+  const design = getCoverDesign(styleCode);
+
+  return {
+    "--cover-paper": design.palette.paper,
+    "--cover-paper-alt": design.palette.paperAlt,
+    "--cover-ink": design.palette.ink,
+    "--cover-muted": design.palette.muted,
+    "--cover-accent": design.palette.accent,
+    "--cover-accent-2": design.palette.accent2,
+    "--cover-accent-3": design.palette.accent3,
+    "--cover-foil": design.palette.foil,
+  } as CSSProperties;
+}
+
+function MotifMarks({ motif }: { motif: string }) {
+  return (
+    <>
+      <span className="cover-style-preview-mark cover-style-preview-mark-a" />
+      <span className="cover-style-preview-mark cover-style-preview-mark-b" />
+      <span className="cover-style-preview-mark cover-style-preview-mark-c" />
+      <span className="cover-style-preview-mark cover-style-preview-mark-d" />
+      <span className="cover-style-preview-line cover-style-preview-line-a" />
+      <span className="cover-style-preview-line cover-style-preview-line-b" />
+      {motif === "memory-album" || motif === "comic-panels" || motif === "creative-studio" ? (
+        <>
+          <span className="cover-style-preview-panel cover-style-preview-panel-a" />
+          <span className="cover-style-preview-panel cover-style-preview-panel-b" />
+        </>
+      ) : null}
+      {motif === "space-explorer" || motif === "starry-stage" || motif === "bedtime-story" ? (
+        <>
+          <span className="cover-style-preview-orbit cover-style-preview-orbit-a" />
+          <span className="cover-style-preview-orbit cover-style-preview-orbit-b" />
+        </>
+      ) : null}
+      {motif === "adventure-map" || motif === "field-notebook" || motif === "dino-discovery" ? (
+        <span className="cover-style-preview-badge" />
+      ) : null}
+    </>
+  );
+}
+
 export function CoverStylePreview({
   styleCode,
   kicker,
   subtitle = "A little coloring book",
   title,
 }: CoverStylePreviewProps) {
+  const design = getCoverDesign(styleCode);
   const titleLines = splitTitle(title);
+  const kickerText = kicker.trim();
 
   return (
-    <div className={`cover-style-preview cover-style-preview-${styleCode}`}>
+    <div
+      className={`cover-style-preview cover-style-preview-premium cover-style-preview-${design.motif} cover-style-preview-type-${design.typography}`}
+      style={cssVars(design.id)}
+    >
       <div className="cover-style-preview-book">
         <span aria-hidden="true" className="cover-style-preview-spine" />
         <div className="cover-style-preview-surface">
           <div aria-hidden="true" className="cover-style-preview-art">
-            {styleCode === "storybook" ? (
-              <>
-                <span className="cover-style-preview-frame-line" />
-                <span className="cover-style-preview-corner cover-style-preview-corner-tl" />
-                <span className="cover-style-preview-corner cover-style-preview-corner-tr" />
-                <span className="cover-style-preview-corner cover-style-preview-corner-bl" />
-                <span className="cover-style-preview-corner cover-style-preview-corner-br" />
-              </>
-            ) : null}
+            <MotifMarks motif={design.motif} />
+          </div>
 
-            {styleCode === "sunshine" ? (
-              <>
-                <span className="cover-style-preview-sun" />
-                <span className="cover-style-preview-cloud cover-style-preview-cloud-left" />
-                <span className="cover-style-preview-cloud cover-style-preview-cloud-right" />
-                <span className="cover-style-preview-hill" />
-              </>
-            ) : null}
-
-            {styleCode === "crayon" ? (
-              <>
-                <span className="cover-style-preview-doodle cover-style-preview-doodle-star" />
-                <span className="cover-style-preview-doodle cover-style-preview-doodle-heart" />
-                <span className="cover-style-preview-doodle cover-style-preview-doodle-loop" />
-              </>
-            ) : null}
-
-            {styleCode === "minimal" ? (
-              <>
-                <span className="cover-style-preview-rule cover-style-preview-rule-top" />
-                <span className="cover-style-preview-rule cover-style-preview-rule-bottom" />
-                <span className="cover-style-preview-dot-grid" />
-              </>
-            ) : null}
+          <div aria-hidden="true" className={`cover-style-preview-hero cover-style-preview-hero-${design.heroTreatment}`}>
+            <span className="cover-style-preview-hero-inner">LC</span>
           </div>
 
           <div className="cover-style-preview-copy">
-            <span className="cover-style-preview-kicker">{kicker}</span>
+            {kickerText ? <span className="cover-style-preview-kicker">{kickerText}</span> : null}
             <div className="cover-style-preview-title" aria-label={title}>
               {titleLines.map((line) => (
                 <span className="cover-style-preview-title-line" key={line}>

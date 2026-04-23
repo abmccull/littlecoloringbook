@@ -1,3 +1,5 @@
+import type { CoverStyleCode } from "@littlecolorbook/shared";
+
 // ---------------------------------------------------------------------------
 // Core data contract — every template, renderer, and fixture speaks this type.
 // ---------------------------------------------------------------------------
@@ -17,7 +19,7 @@ export type TrimSpec = {
 
 // ---- Axis 1 — Visual style (typography, color, decoration) ----------------
 
-export type StyleId = "sunshine" | "crayon" | "storybook" | "minimal";
+export type StyleId = CoverStyleCode;
 
 export type StyleModule = {
   id: StyleId;
@@ -171,4 +173,9 @@ export type BookPayload = {
   pages: ColoringPageEntry[];
 
   extras?: BookExtras;
+
+  renderOptions?: {
+    forceEvenPages?: boolean;
+    includeCoverPage?: boolean;
+  };
 };
