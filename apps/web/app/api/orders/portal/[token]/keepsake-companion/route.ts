@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
-import { renderCameraRollPlaybookPdf } from "@littlecolorbook/pdf-templates";
+import { renderKeepsakeCompanionPdf } from "@littlecolorbook/pdf-templates";
 
-// Streams the "Camera Roll Playbook" bonus PDF. The route path stays
-// stable for existing links, but the asset is now a stronger
-// multi-page playbook personalized with the child's first name when
-// available on the order.
+// Streams the "Keepsake Companion" bonus PDF - a printable add-on that
+// makes the finished book feel more like a family keepsake and gift.
+//
+// Gate: paid, non-sample orders only. Samples are a lead magnet and
+// do not earn the full bonus stack.
 export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, context: { params: Promise<{ token: string }> }) {
@@ -20,15 +21,17 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     return NextResponse.json({ error: "Bonus available on paid orders only" }, { status: 403 });
   }
 
-  const buffer = await renderCameraRollPlaybookPdf({
+  const buffer = await renderKeepsakeCompanionPdf({
     childFirstName: summary.order.childFirstName ?? null,
+    customerFirstName: summary.customer?.firstName ?? null,
+    dedicationText: summary.order.dedicationText ?? null,
   });
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="camera-roll-playbook.pdf"`,
+      "Content-Disposition": 'attachment; filename="keepsake-companion.pdf"',
       "Cache-Control": "private, max-age=3600",
     },
   });

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getOrderPortalSummary } from "@littlecolorbook/db";
-import { renderPartyKitPdf } from "@littlecolorbook/pdf-templates";
+import { renderQuietTimePackPdf } from "@littlecolorbook/pdf-templates";
 
-// Streams "The Coloring Party Kit" bonus PDF — a 3-page printable set
-// (cover sheet + coloring tips + fillable About-the-Artist page),
-// personalized with the child's first name when the order has one.
+// Streams the "Quiet-Time Pack" bonus PDF. The route path stays stable
+// for existing links, but the asset is now a stronger multi-page
+// screen-free family activity pack personalized with the child's first
+// name when available.
 //
 // Gate: paid, non-sample orders only. Samples are a lead magnet and
 // don't earn the bonus stack.
@@ -22,7 +23,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     return NextResponse.json({ error: "Bonus available on paid orders only" }, { status: 403 });
   }
 
-  const buffer = await renderPartyKitPdf({
+  const buffer = await renderQuietTimePackPdf({
     childFirstName: summary.order.childFirstName ?? null,
   });
 
@@ -30,7 +31,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="coloring-party-kit.pdf"`,
+      "Content-Disposition": `attachment; filename="quiet-time-pack.pdf"`,
       // Regenerated per-request but stable for a given order — safe to
       // cache at the edge for an hour.
       "Cache-Control": "private, max-age=3600",

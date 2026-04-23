@@ -27,8 +27,11 @@ export { validateOccasionContext } from "./occasions/validate";
 
 export { renderCoverPdf } from "./render/render-cover";
 export { renderInteriorPdf } from "./render/render-interior";
-export { renderPhotoPickerGuidePdf } from "./render/render-photo-picker-guide";
-export { renderPartyKitPdf } from "./render/render-party-kit";
-export type { PartyKitInput } from "./render/render-party-kit";
+export { renderCameraRollPlaybookPdf, renderPhotoPickerGuidePdf } from "./render/render-photo-picker-guide";
+export { renderPartyKitPdf, renderQuietTimePackPdf } from "./render/render-party-kit";
+export { renderKeepsakeCompanionPdf } from "./render/render-keepsake-companion";
+export type { PartyKitInput, QuietTimePackInput } from "./render/render-party-kit";
+export type { CameraRollPlaybookInput } from "./render/render-photo-picker-guide";
+export type { KeepsakeCompanionInput } from "./render/render-keepsake-companion";
 
 export { milaSwordPlayFixture } from "./fixtures/mila-sword-play";

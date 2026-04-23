@@ -745,59 +745,69 @@ export default async function OrderPortalPage({ params }: { params: Promise<{ to
         <section className="section">
           <div className="section-copy">
             <span className="pill pill-coral">Your bonuses</span>
-            <h2>Three extras that come with every book.</h2>
+            <h2>Three extras that make the book even easier to use and keep.</h2>
             <p className="lede">
-              Print the Party Kit alongside the book. Keep the Photo Picker Guide near your camera roll. The Memory
-              Vault is this page - your book stays downloadable here forever.
+              Use the Quiet-Time Pack tonight. Fill in the Keepsake Companion while this age is still fresh. Keep the
+              Camera Roll Playbook near your camera roll for the next book.
             </p>
           </div>
           <div className="detail-grid three-up">
             <article className="surface detail-card">
               <span className="pill pill-sun">$29 value</span>
-              <strong>The Coloring Party Kit</strong>
+              <strong>Quiet-Time Pack</strong>
               <p className="muted">
-                A printable cover sheet, six coloring-session tips, and a kid-fillable &ldquo;About the Artist&rdquo;
-                page - personalized with the cover name.
+                A screen-free family pack for tonight: quick resets, rainy-afternoon ideas, restaurant rescue prompts,
+                sibling-sharing games, and story prompts that make one book last longer.
               </p>
               <TrackedAnchor
                 className="button button-secondary"
                 download
                 href={`/api/orders/portal/${token}/party-kit`}
                 eventName="portal_bonus_download_clicked"
-                eventProperties={{ orderId: summary.order.id, bonus: "party_kit" }}
+                eventProperties={{ orderId: summary.order.id, bonus: "quiet_time_pack" }}
               >
-                Download Party Kit (PDF)
+                Download Quiet-Time Pack
               </TrackedAnchor>
             </article>
             <article className="surface detail-card">
               <span className="pill pill-sun">$19 value</span>
-              <strong>The Memory Vault</strong>
+              <strong>Keepsake Companion</strong>
               <p className="muted">
-                Bookmark this page. Your book stays downloadable here - no expiry, no account hunting. Come back any
-                time to re-download or re-order.
+                A printable companion for the details you do not want to lose: favorite pages, family notes, what this
+                age feels like, and the little stories behind the book.
               </p>
-              <p className="mini-note">
-                <strong>Permanent access.</strong> Your link doesn&rsquo;t expire.
-              </p>
+              <TrackedAnchor
+                className="button button-secondary"
+                download
+                href={`/api/orders/portal/${token}/keepsake-companion`}
+                eventName="portal_bonus_download_clicked"
+                eventProperties={{ orderId: summary.order.id, bonus: "keepsake_companion" }}
+              >
+                Download Keepsake Companion
+              </TrackedAnchor>
             </article>
             <article className="surface detail-card">
               <span className="pill pill-sun">$9 value</span>
-              <strong>Best Photo Picker Guide</strong>
+              <strong>Camera Roll Playbook</strong>
               <p className="muted">
-                A one-page cheat sheet of which photo types make the cleanest coloring pages - keep it near your camera
-                roll for the next book.
+                A smarter way to pull the next book from your camera roll: what works best, what to skip, and fun
+                comic-book or movie-style theme ideas.
               </p>
               <TrackedAnchor
                 className="button button-secondary"
                 download
                 href={`/api/orders/portal/${token}/photo-picker-guide`}
                 eventName="portal_bonus_download_clicked"
-                eventProperties={{ orderId: summary.order.id, bonus: "photo_picker_guide" }}
+                eventProperties={{ orderId: summary.order.id, bonus: "camera_roll_playbook" }}
               >
-                Download Guide (PDF)
+                Download Camera Roll Playbook
               </TrackedAnchor>
             </article>
           </div>
+          <p className="mini-note" style={{ marginTop: "1rem" }}>
+            <strong>Memory Vault included.</strong> This order page is still your permanent place to re-download the
+            book whenever you want it again.
+          </p>
         </section>
       ) : null}
 

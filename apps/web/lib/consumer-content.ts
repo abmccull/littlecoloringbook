@@ -445,9 +445,9 @@ export const urgencyMessages = {
 };
 
 export const offerBonuses = [
-  { name: "The Coloring Party Kit", value: 29, description: "Printable cover sheet, coloring tips, and 'About the Artist' page featuring your child" },
-  { name: "The Memory Vault", value: 19, description: "Permanent digital access to re-download or re-order anytime" },
-  { name: "Best Photo Picker Guide", value: 9, description: "One-page checklist showing which photo types make the best coloring pages" },
+  { name: "Quiet-Time Pack", value: 29, description: "Screen-free family pack with quick resets, rainy-day ideas, restaurant rescue prompts, and story games that make one book last longer" },
+  { name: "Keepsake Companion", value: 19, description: "Printable companion for favorite pages, family notes, what this age feels like, and the little stories behind the book" },
+  { name: "Camera Roll Playbook", value: 9, description: "Guide for pulling a stronger next book from your camera roll, with better photo picks and comic-book or movie-style theme ideas" },
 ];
 
 export function getConsumerOffer(code: OfferCode) {
