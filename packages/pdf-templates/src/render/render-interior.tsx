@@ -10,6 +10,7 @@
 //   N+2. Padding page (added when total count is odd — print requires even)
 // ---------------------------------------------------------------------------
 
+import React from "react";
 import {
   Document,
   Image,

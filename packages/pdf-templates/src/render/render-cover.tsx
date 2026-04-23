@@ -5,6 +5,7 @@
 // (not a full spread).  Dimensions = (trimWidth + 2×bleed) × (trimHeight + 2×bleed).
 // ---------------------------------------------------------------------------
 
+import React from "react";
 import {
   Document,
   Image,

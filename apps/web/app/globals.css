@@ -3987,6 +3987,161 @@ select.text-input {
   padding-top: 4px;
 }
 
+.admin-job-debug-link {
+  align-self: start;
+  margin-top: 6px;
+}
+
+.admin-generation-debug-page {
+  width: min(1400px, calc(100vw - 48px));
+  margin: 0 auto;
+  padding: 24px 0 80px;
+  display: grid;
+  gap: 22px;
+}
+
+.admin-generation-debug-hero,
+.admin-generation-debug-prompt,
+.admin-generation-debug-approved,
+.admin-generation-debug-empty {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-generation-debug-stats,
+.admin-generation-debug-facts,
+.admin-generation-debug-summary-grid,
+.admin-generation-debug-approved-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-generation-debug-stats {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.admin-generation-debug-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-generation-debug-stat,
+.admin-generation-debug-summary-card,
+.admin-generation-debug-approved-card {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(112, 93, 78, 0.12);
+}
+
+.admin-generation-debug-prompt pre,
+.admin-generation-debug-details pre {
+  margin: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(112, 93, 78, 0.12);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.admin-generation-debug-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-generation-debug-card {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-generation-debug-card-head,
+.admin-generation-debug-card-status,
+.admin-generation-debug-badges {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-generation-debug-card-head,
+.admin-generation-debug-card-status {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.admin-generation-debug-card-head h3,
+.admin-generation-debug-empty h2,
+.admin-generation-debug-approved h2 {
+  margin: 0;
+}
+
+.admin-generation-debug-images,
+.admin-generation-debug-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-generation-debug-image-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-generation-debug-image,
+.admin-generation-debug-approved-image {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid rgba(112, 93, 78, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  object-fit: contain;
+}
+
+.admin-generation-debug-image {
+  aspect-ratio: 3 / 4;
+  min-height: 260px;
+}
+
+.admin-generation-debug-approved-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.admin-generation-debug-approved-image {
+  aspect-ratio: 3 / 4;
+}
+
+.admin-generation-debug-image-empty {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(247, 239, 231, 0.82);
+  border: 1px dashed rgba(112, 93, 78, 0.22);
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.admin-generation-debug-message {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-generation-debug-message p,
+.admin-generation-debug-approved-card .mini-note {
+  margin: 0;
+}
+
+.admin-generation-debug-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
 .admin-address-block {
   display: grid;
   gap: 4px;
@@ -4187,6 +4342,17 @@ select.text-input {
   .admin-pulse-grid,
   .admin-order-hero-stats,
   .admin-two-up {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-generation-debug-page {
+    width: min(100vw - 24px, 1400px);
+  }
+
+  .admin-generation-debug-stats,
+  .admin-generation-debug-summary-grid,
+  .admin-generation-debug-images,
+  .admin-generation-debug-details-grid {
     grid-template-columns: 1fr;
   }
 

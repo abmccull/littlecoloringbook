@@ -292,17 +292,22 @@ export function AdminConsole({
 
                   <div className="timeline-list admin-job-list">
                     {selectedOrder.generationJobs.length > 0 ? (
-                      selectedOrder.generationJobs.map((job) => (
-                        <div className="timeline-item" key={job.id}>
-                          <strong>
-                            {formatStatus(job.kind)} / {job.status}
-                          </strong>
-                          <p className="muted">
-                            Target {job.targetPages}. Approved {job.approvedPages}. Failed {job.failedPages}.
-                          </p>
-                          {job.model ? <p className="mini-note">Model: {job.model}</p> : null}
-                        </div>
-                      ))
+                      <>
+                        {selectedOrder.generationJobs.map((job) => (
+                          <div className="timeline-item" key={job.id}>
+                            <strong>
+                              {formatStatus(job.kind)} / {job.status}
+                            </strong>
+                            <p className="muted">
+                              Target {job.targetPages}. Approved {job.approvedPages}. Failed {job.failedPages}.
+                            </p>
+                            {job.model ? <p className="mini-note">Model: {job.model}</p> : null}
+                          </div>
+                        ))}
+                        <Link className="button button-secondary admin-job-debug-link" href={`/admin/orders/${selectedOrder.order.id}/generation`}>
+                          Open generation debug
+                        </Link>
+                      </>
                     ) : (
                       <p className="muted">No generation jobs recorded yet.</p>
                     )}

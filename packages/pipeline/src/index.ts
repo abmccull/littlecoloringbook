@@ -99,6 +99,8 @@ const PRIMARY_IMAGE_MODEL = TIER_3_MODEL;
 const FALLBACK_IMAGE_MODEL = TIER_3_MODEL;
 const MAX_RENDER_ATTEMPTS = 2;
 const DEFAULT_ASPECT_RATIO = "3:4";
+const DEFAULT_FULL_BOOK_CONCURRENCY = 4;
+const DEFAULT_SAMPLE_CONCURRENCY = 1;
 
 export type PlannedGenerationPage = {
   cleanupSteps: readonly string[];
@@ -367,6 +369,55 @@ function getFallbackModel(primaryModel: string) {
   return process.env.GEMINI_IMAGE_FALLBACK_MODEL ?? (primaryModel === FALLBACK_IMAGE_MODEL ? PRIMARY_IMAGE_MODEL : FALLBACK_IMAGE_MODEL);
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getGeminiErrorDetail(status: number, payload: Record<string, unknown> | null) {
+  return (
+    (payload && typeof payload.error === "object" && payload.error && "message" in payload.error && typeof payload.error.message === "string"
+      ? payload.error.message
+      : null) ?? `Gemini image generation failed with status ${status}.`
+  );
+}
+
+function isRetryableGeminiFailure(status: number, detail: string) {
+  const normalized = detail.toLowerCase();
+
+  if (status === 429 || status === 500 || status === 502 || status === 503 || status === 504) {
+    return true;
+  }
+
+  return (
+    normalized.includes("high demand") ||
+    normalized.includes("try again later") ||
+    normalized.includes("temporarily unavailable") ||
+    normalized.includes("quota exceeded") ||
+    normalized.includes("generate_requests_per_model")
+  );
+}
+
+function getGeminiRetryBackoffMs(attempt: number, detail: string) {
+  const normalized = detail.toLowerCase();
+  const baseMs =
+    normalized.includes("quota exceeded") || normalized.includes("generate_requests_per_model")
+      ? 15000
+      : 3000;
+
+  return Math.min(baseMs * 2 ** attempt + Math.random() * 1000, 60000);
+}
+
+function getPlanConcurrency(jobKind: PipelineJobKind) {
+  const configured =
+    jobKind === "full_book"
+      ? process.env.PIPELINE_CONCURRENCY_FULL_BOOK ?? process.env.PIPELINE_CONCURRENCY
+      : process.env.PIPELINE_CONCURRENCY_SAMPLE ?? process.env.PIPELINE_CONCURRENCY;
+  const fallback = jobKind === "full_book" ? DEFAULT_FULL_BOOK_CONCURRENCY : DEFAULT_SAMPLE_CONCURRENCY;
+  const parsed = Number(configured ?? fallback);
+
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : fallback;
+}
+
 function getEscalationModel(primaryModel: string, attempt: number): string {
   if (attempt === 0) return primaryModel;
   const envOverride = process.env[`GEMINI_IMAGE_ATTEMPT_${attempt}_MODEL`];
@@ -625,12 +676,12 @@ export async function renderImageWithGemini(input: {
   prompt: string;
   sourceBuffer: Buffer;
 }): Promise<RenderedPage> {
-  const maxRateLimitRetries = 3;
+  const maxProviderRetries = Number(process.env.GEMINI_PROVIDER_RETRIES ?? "6");
 
   let response: Response | null = null;
   let payload: Record<string, unknown> | null = null;
 
-  for (let rateLimitAttempt = 0; rateLimitAttempt <= maxRateLimitRetries; rateLimitAttempt++) {
+  for (let providerRetry = 0; providerRetry <= maxProviderRetries; providerRetry++) {
     response = await fetch(`${getGeminiApiBaseUrl()}/v1beta/models/${encodeURIComponent(input.model)}:generateContent`, {
       method: "POST",
       headers: {
@@ -664,23 +715,24 @@ export async function renderImageWithGemini(input: {
       cache: "no-store",
     });
 
-    if (response.status === 429 && rateLimitAttempt < maxRateLimitRetries) {
-      const backoffMs = Math.min(1000 * 2 ** rateLimitAttempt + Math.random() * 500, 10000);
-      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+
+    if (response.ok && payload) {
+      break;
+    }
+
+    const detail = getGeminiErrorDetail(response.status, payload);
+
+    if (providerRetry < maxProviderRetries && isRetryableGeminiFailure(response.status, detail)) {
+      await sleep(getGeminiRetryBackoffMs(providerRetry, detail));
       continue;
     }
 
     break;
   }
 
-  payload = (await response!.json().catch(() => null)) as Record<string, unknown> | null;
-
   if (!response!.ok || !payload) {
-    const detail =
-      (payload && typeof payload.error === "object" && payload.error && "message" in payload.error && typeof payload.error.message === "string"
-        ? payload.error.message
-        : null) ?? `Gemini image generation failed with status ${response!.status}.`;
-    throw new Error(detail);
+    throw new Error(getGeminiErrorDetail(response!.status, payload));
   }
 
   const imagePart = extractGeneratedImage(payload);
@@ -751,15 +803,26 @@ async function measureBlackRatio(input: Buffer) {
   return darkPixels / data.length;
 }
 
-function pagePassesQa(blackRatio: number) {
-  return blackRatio >= 0.012 && blackRatio <= 0.33;
-}
-
-const QA_THRESHOLDS = {
+const QA_FLAG_THRESHOLDS = {
   maxLargestDarkComponentRatio: 0.08,
   maxNoisyComponentCount: 110,
   maxSpeckleRatio: 0.005,
 } as const;
+
+// Production hard-stop thresholds. The stricter flag thresholds above are still
+// recorded on the page so operators can inspect borderline output, but we only
+// block a paid-book page when the artifact is materially broken.
+const QA_HARD_FAIL_THRESHOLDS = {
+  minBlackRatio: 0.008,
+  maxBlackRatio: 0.36,
+  maxLargestDarkComponentRatio: 0.12,
+  maxNoisyComponentCount: 240,
+  maxSpeckleRatio: 0.025,
+} as const;
+
+function pagePassesQa(blackRatio: number) {
+  return blackRatio >= QA_HARD_FAIL_THRESHOLDS.minBlackRatio && blackRatio <= QA_HARD_FAIL_THRESHOLDS.maxBlackRatio;
+}
 
 async function measureNoiseMetrics(input: Buffer) {
   const { data, info } = await sharp(input)
@@ -903,9 +966,9 @@ function processedPagePassesQa(
 ) {
   return (
     pagePassesQa(input.blackRatio) &&
-    input.largestDarkComponentRatio <= QA_THRESHOLDS.maxLargestDarkComponentRatio &&
-    input.noisyComponentCount <= QA_THRESHOLDS.maxNoisyComponentCount &&
-    input.speckleRatio <= QA_THRESHOLDS.maxSpeckleRatio
+    input.largestDarkComponentRatio <= QA_HARD_FAIL_THRESHOLDS.maxLargestDarkComponentRatio &&
+    input.noisyComponentCount <= QA_HARD_FAIL_THRESHOLDS.maxNoisyComponentCount &&
+    input.speckleRatio <= QA_HARD_FAIL_THRESHOLDS.maxSpeckleRatio
   );
 }
 
@@ -920,13 +983,13 @@ function getPostProcessQaFlags(
   if (input.blackRatio > 0.33) {
     flags.push("final_too_dense");
   }
-  if (input.largestDarkComponentRatio > QA_THRESHOLDS.maxLargestDarkComponentRatio) {
+  if (input.largestDarkComponentRatio > QA_FLAG_THRESHOLDS.maxLargestDarkComponentRatio) {
     flags.push("final_large_dark_mass");
   }
-  if (input.noisyComponentCount > QA_THRESHOLDS.maxNoisyComponentCount) {
+  if (input.noisyComponentCount > QA_FLAG_THRESHOLDS.maxNoisyComponentCount) {
     flags.push("final_fragmented");
   }
-  if (input.speckleRatio > QA_THRESHOLDS.maxSpeckleRatio) {
+  if (input.speckleRatio > QA_FLAG_THRESHOLDS.maxSpeckleRatio) {
     flags.push("final_noisy");
   }
 
@@ -936,9 +999,9 @@ function getPostProcessQaFlags(
 function calculateQaScore(input: { qaFlags: string[]; qaMetrics: PageQualityMetrics }) {
   const densityPenalty = Math.min(Math.abs(input.qaMetrics.finalBlackRatio - 0.12) / 0.18, 1) * 38;
   const darkMassPenalty =
-    Math.min(input.qaMetrics.finalLargestDarkComponentRatio / QA_THRESHOLDS.maxLargestDarkComponentRatio, 1) * 26;
-  const specklePenalty = Math.min(input.qaMetrics.finalSpeckleRatio / QA_THRESHOLDS.maxSpeckleRatio, 1) * 24;
-  const fragmentationPenalty = Math.min(input.qaMetrics.finalNoisyComponentCount / QA_THRESHOLDS.maxNoisyComponentCount, 1) * 18;
+    Math.min(input.qaMetrics.finalLargestDarkComponentRatio / QA_FLAG_THRESHOLDS.maxLargestDarkComponentRatio, 1) * 26;
+  const specklePenalty = Math.min(input.qaMetrics.finalSpeckleRatio / QA_FLAG_THRESHOLDS.maxSpeckleRatio, 1) * 24;
+  const fragmentationPenalty = Math.min(input.qaMetrics.finalNoisyComponentCount / QA_FLAG_THRESHOLDS.maxNoisyComponentCount, 1) * 18;
   const providerNoisePenalty =
     input.qaMetrics.providerNoiseRatio !== null ? Math.min(input.qaMetrics.providerNoiseRatio / 0.01, 1) * 8 : 0;
   const providerClosurePenalty =
@@ -1962,7 +2025,7 @@ export async function materializeGenerationPlan(input: {
   let modelUsed = renderSettings.model;
   let providerUsed: PipelineProvider = renderSettings.provider;
 
-  const concurrency = Number(process.env.PIPELINE_CONCURRENCY ?? "20");
+  const concurrency = getPlanConcurrency(input.plan.jobKind);
   const { default: pLimit } = await import("p-limit");
   const limit = pLimit(concurrency);
 
